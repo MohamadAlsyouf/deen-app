@@ -1,10 +1,11 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
-import { AboutScreen, ContactScreen } from '@/screens';
+import { AboutScreen, ContactScreen, HomeScreen } from '@/screens';
 import { colors } from '@/theme';
 
 export type TabParamList = {
+  Home: undefined;
   About: undefined;
   Contact: undefined;
 };
@@ -14,6 +15,7 @@ const Tab = createBottomTabNavigator<TabParamList>();
 export const TabNavigator: React.FC = () => {
   return (
     <Tab.Navigator
+      initialRouteName="Home"
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: colors.primary,
@@ -29,6 +31,13 @@ export const TabNavigator: React.FC = () => {
         },
       }}
     >
+      <Tab.Screen
+        name="Home"
+        component={HomeScreen}
+        options={{
+          tabBarIcon: ({ color, size }) => <Ionicons name="home-outline" size={size} color={color} />,
+        }}
+      />
       <Tab.Screen
         name="About"
         component={AboutScreen}

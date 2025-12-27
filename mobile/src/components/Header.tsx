@@ -1,24 +1,59 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, typography } from '@/theme';
+
+type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
 interface HeaderProps {
   title: string;
+  leftAction?: {
+    iconName?: IoniconName;
+    label?: string;
+    onPress: () => void;
+  };
   rightAction?: {
     label: string;
     onPress: () => void;
   };
 }
 
-export const Header: React.FC<HeaderProps> = ({ title, rightAction }) => {
+export const Header: React.FC<HeaderProps> = ({ title, leftAction, rightAction }) => {
   return (
     <View style={styles.header}>
-      <Text style={styles.title}>{title}</Text>
-      {rightAction && (
-        <TouchableOpacity onPress={rightAction.onPress} activeOpacity={0.7}>
-          <Text style={styles.actionText}>{rightAction.label}</Text>
-        </TouchableOpacity>
-      )}
+      <View style={styles.sideLeft}>
+        {leftAction ? (
+          <TouchableOpacity
+            onPress={leftAction.onPress}
+            activeOpacity={0.7}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            {leftAction.iconName ? (
+              <Ionicons name={leftAction.iconName} size={22} color={colors.primary} />
+            ) : (
+              <Text style={styles.actionText}>{leftAction.label}</Text>
+            )}
+          </TouchableOpacity>
+        ) : null}
+      </View>
+
+      <View style={styles.titleWrap}>
+        <Text style={styles.title} numberOfLines={1} ellipsizeMode="tail">
+          {title}
+        </Text>
+      </View>
+
+      <View style={styles.sideRight}>
+        {rightAction ? (
+          <TouchableOpacity
+            onPress={rightAction.onPress}
+            activeOpacity={0.7}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Text style={styles.actionText}>{rightAction.label}</Text>
+          </TouchableOpacity>
+        ) : null}
+      </View>
     </View>
   );
 };
@@ -26,7 +61,6 @@ export const Header: React.FC<HeaderProps> = ({ title, rightAction }) => {
 const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
@@ -34,9 +68,25 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
+  sideLeft: {
+    flex: 1,
+    alignItems: 'flex-start',
+    justifyContent: 'center',
+  },
+  sideRight: {
+    flex: 1,
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+  },
+  titleWrap: {
+    flex: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   title: {
     ...typography.h3,
     color: colors.text.primary,
+    textAlign: 'center',
   },
   actionText: {
     ...typography.body,

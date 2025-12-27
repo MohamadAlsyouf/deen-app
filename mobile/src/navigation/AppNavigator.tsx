@@ -2,7 +2,7 @@ import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
-import { LandingScreen } from '@/screens';
+import { LandingScreen, QuranChaptersScreen, QuranChapterScreen } from '@/screens';
 import { TabNavigator } from './TabNavigator';
 import { useAuth } from '@/hooks/useAuth';
 import { colors } from '@/theme';
@@ -10,6 +10,12 @@ import { colors } from '@/theme';
 export type RootStackParamList = {
   Landing: undefined;
   Main: undefined;
+  QuranChapters: undefined;
+  QuranChapter: {
+    chapterId: number;
+    chapterName: string;
+    chapterArabicName?: string;
+  };
 };
 
 const Stack = createStackNavigator<RootStackParamList>();
@@ -29,7 +35,11 @@ export const AppNavigator: React.FC = () => {
     <NavigationContainer>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {user ? (
-          <Stack.Screen name="Main" component={TabNavigator} />
+          <>
+            <Stack.Screen name="Main" component={TabNavigator} />
+            <Stack.Screen name="QuranChapters" component={QuranChaptersScreen} />
+            <Stack.Screen name="QuranChapter" component={QuranChapterScreen} />
+          </>
         ) : (
           <Stack.Screen name="Landing" component={LandingScreen} />
         )}
