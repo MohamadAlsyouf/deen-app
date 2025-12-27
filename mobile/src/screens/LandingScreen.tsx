@@ -13,12 +13,43 @@ import { Button, Input } from '@/components';
 import { colors, spacing, typography } from '@/theme';
 import { useAuth } from '@/hooks/useAuth';
 
+interface PasswordRequirement {
+  label: string;
+  met: boolean;
+}
+
 export const LandingScreen: React.FC = () => {
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
   const { signIn, signUp } = useAuth();
+
+  // Password validation functions
+  const checkPasswordRequirements = (pwd: string): PasswordRequirement[] => {
+    return [
+      {
+        label: 'At least 6 characters',
+        met: pwd.length >= 6,
+      },
+      {
+        label: 'One uppercase letter',
+        met: /[A-Z]/.test(pwd),
+      },
+      {
+        label: 'One lowercase letter',
+        met: /[a-z]/.test(pwd),
+      },
+      {
+        label: 'One number (0-9)',
+        met: /[0-9]/.test(pwd),
+      },
+    ];
+  };
+
+  const passwordRequirements = isSignUp ? checkPasswordRequirements(password) : [];
 
   const handleSubmit = async () => {
     if (!email || !password) {
@@ -26,11 +57,28 @@ export const LandingScreen: React.FC = () => {
       return;
     }
 
-    if (password.length < 6) {
-      Alert.alert('Error', 'Password must be at least 6 characters');
-      return;
+    if (isSignUp) {
+      // Validate all password requirements for sign up
+      const requirements = checkPasswordRequirements(password);
+      const unmetRequirements = requirements.filter((req) => !req.met);
+      
+      if (unmetRequirements.length > 0) {
+        setErrorMessage('Password does not meet all requirements.');
+        return;
+      }
+
+      if (!confirmPassword) {
+        Alert.alert('Error', 'Please confirm your password.');
+        return;
+      }
+
+      if (password !== confirmPassword) {
+        setErrorMessage('Passwords do not match.');
+        return;
+      }
     }
 
+    setErrorMessage('');
     setLoading(true);
     try {
       if (isSignUp) {
@@ -39,7 +87,18 @@ export const LandingScreen: React.FC = () => {
         await signIn(email, password);
       }
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Authentication failed');
+      // Handle invalid credentials and other auth errors
+      const errorCode = error?.code || '';
+      if (
+        errorCode === 'auth/wrong-password' ||
+        errorCode === 'auth/user-not-found' ||
+        errorCode === 'auth/invalid-credential' ||
+        errorCode === 'auth/invalid-email'
+      ) {
+        setErrorMessage('Invalid email or password. Please try again.');
+      } else {
+        setErrorMessage(error.message || 'Authentication failed. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -49,6 +108,29 @@ export const LandingScreen: React.FC = () => {
     setIsSignUp(!isSignUp);
     setEmail('');
     setPassword('');
+    setConfirmPassword('');
+    setErrorMessage('');
+  };
+
+  const handleEmailChange = (text: string) => {
+    setEmail(text);
+    if (errorMessage) {
+      setErrorMessage('');
+    }
+  };
+
+  const handlePasswordChange = (text: string) => {
+    setPassword(text);
+    if (errorMessage) {
+      setErrorMessage('');
+    }
+  };
+
+  const handleConfirmPasswordChange = (text: string) => {
+    setConfirmPassword(text);
+    if (errorMessage) {
+      setErrorMessage('');
+    }
   };
 
   return (
@@ -75,7 +157,7 @@ export const LandingScreen: React.FC = () => {
             <Input
               label="Email"
               value={email}
-              onChangeText={setEmail}
+              onChangeText={handleEmailChange}
               placeholder="Enter your email"
               keyboardType="email-address"
               autoCapitalize="none"
@@ -84,12 +166,59 @@ export const LandingScreen: React.FC = () => {
             <Input
               label="Password"
               value={password}
-              onChangeText={setPassword}
+              onChangeText={handlePasswordChange}
               placeholder="Enter your password"
               secureTextEntry
               autoCapitalize="none"
               autoComplete="password"
             />
+
+            {isSignUp && (
+              <>
+                <Input
+                  label="Confirm Password"
+                  value={confirmPassword}
+                  onChangeText={handleConfirmPasswordChange}
+                  placeholder="Confirm your password"
+                  secureTextEntry
+                  autoCapitalize="none"
+                  autoComplete="password"
+              
+                />
+
+                {password.length > 0 && (
+                  <View style={styles.passwordRequirements}>
+                    <Text style={styles.passwordRequirementsTitle}>
+                      Password Requirements:
+                    </Text>
+                    {passwordRequirements.map((requirement, index) => (
+                      <View key={index} style={styles.requirementItem}>
+                        <Text
+                          style={[
+                            styles.requirementCheck,
+                            requirement.met && styles.requirementCheckMet,
+                          ]}
+                        >
+                          {requirement.met ? '✓' : '○'}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.requirementText,
+                            requirement.met && styles.requirementTextMet,
+                          ]}
+                        >
+                          {requirement.label}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
+              </>
+            )}
+
+            {errorMessage ? (
+              <Text style={styles.errorMessage}>{errorMessage}</Text>
+            ) : null}
 
             <Button
               title={isSignUp ? 'Sign Up' : 'Sign In'}
@@ -155,6 +284,51 @@ const styles = StyleSheet.create({
   },
   primaryButton: {
     marginBottom: spacing.md,
+  },
+  errorMessage: {
+    ...typography.caption,
+    color: colors.error,
+    textAlign: 'center',
+    marginBottom: spacing.md,
+    marginTop: spacing.xs,
+  },
+  passwordRequirements: {
+    marginTop: spacing.sm,
+    marginBottom: spacing.md,
+    padding: spacing.md,
+    backgroundColor: colors.surface,
+    borderRadius: 8,
+  },
+  passwordRequirementsTitle: {
+    ...typography.caption,
+    color: colors.text.primary,
+    fontWeight: '600',
+    marginBottom: spacing.xs,
+  },
+  requirementItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: spacing.xs,
+  },
+  requirementCheck: {
+    ...typography.body,
+    color: colors.text.secondary,
+    marginRight: spacing.xs,
+    fontSize: 16,
+    width: 20,
+  },
+  requirementCheckMet: {
+    color: colors.success,
+    fontWeight: 'bold',
+  },
+  requirementText: {
+    ...typography.caption,
+    color: colors.text.secondary,
+    flex: 1,
+  },
+  requirementTextMet: {
+    color: colors.success,
+    fontWeight: '500',
   },
   features: {
     alignItems: 'center',
