@@ -1,6 +1,6 @@
 import React from 'react';
-import { Text, StyleSheet, ScrollView, Alert } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { View, Text, StyleSheet, ScrollView, Alert } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { Header, Card, QuranFeatureCard, AboutFeatureCard, ContactFeatureCard } from '@/components';
@@ -11,6 +11,7 @@ import type { TabParamList } from '@/navigation/TabNavigator';
 export const HomeScreen: React.FC = () => {
   const navigation = useNavigation<BottomTabNavigationProp<TabParamList, 'Home'>>();
   const { signOut } = useAuth();
+  const insets = useSafeAreaInsets();
 
   const handleSignOut = async () => {
     try {
@@ -37,14 +38,16 @@ export const HomeScreen: React.FC = () => {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <Header
-        title="Home"
-        rightAction={{
-          label: 'Sign Out',
-          onPress: handleSignOut,
-        }}
-      />
+    <View style={styles.container}>
+      <View style={[styles.headerContainer, { paddingTop: insets.top }]}>
+        <Header
+          title="Home"
+          rightAction={{
+            label: 'Sign Out',
+            onPress: handleSignOut,
+          }}
+        />
+      </View>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.content}
@@ -61,14 +64,18 @@ export const HomeScreen: React.FC = () => {
         <AboutFeatureCard onPress={handleOpenAbout} />
         <ContactFeatureCard onPress={handleOpenContact} />
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.background,
+  },
+  headerContainer: {
+    backgroundColor: colors.background,
+    paddingTop: 0,
   },
   scrollView: {
     flex: 1,

@@ -8,7 +8,7 @@ import {
   Platform,
   Alert,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMutation } from '@tanstack/react-query';
 import { Card, Header, Input, Button } from '@/components';
 import { colors, spacing, typography } from '@/theme';
@@ -18,6 +18,7 @@ import { useAuth } from '@/hooks/useAuth';
 
 export const ContactScreen: React.FC = () => {
   const { user } = useAuth();
+  const insets = useSafeAreaInsets();
   const [name, setName] = useState('');
   const [email, setEmail] = useState(user?.email || '');
   const [message, setMessage] = useState('');
@@ -56,8 +57,10 @@ export const ContactScreen: React.FC = () => {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <Header title="Contact Us" />
+    <View style={styles.container}>
+      <View style={[styles.headerContainer, { paddingTop: insets.top }]}>
+        <Header title="Contact Us" />
+      </View>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
@@ -116,14 +119,18 @@ export const ContactScreen: React.FC = () => {
           </Card>
         </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.background,
+  },
+  headerContainer: {
+    backgroundColor: colors.background,
+    paddingTop: 0,
   },
   keyboardView: {
     flex: 1,

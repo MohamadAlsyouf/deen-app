@@ -44,6 +44,7 @@ export const FeatureCardBase: React.FC<FeatureCardBaseProps> = ({
 const styles = StyleSheet.create({
   card: {
     padding: spacing.md,
+    marginBottom: spacing.md,
   },
   row: {
     flexDirection: 'row',

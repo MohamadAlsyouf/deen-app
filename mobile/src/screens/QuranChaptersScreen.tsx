@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import { useQuery } from '@tanstack/react-query';
@@ -15,6 +15,7 @@ type QuranChaptersNavigationProp = StackNavigationProp<RootStackParamList, 'Qura
 
 export const QuranChaptersScreen: React.FC = () => {
   const navigation = useNavigation<QuranChaptersNavigationProp>();
+  const insets = useSafeAreaInsets();
 
   const chaptersQuery = useQuery({
     queryKey: ['quranChapters'],
@@ -35,13 +36,15 @@ export const QuranChaptersScreen: React.FC = () => {
 
   if (chaptersQuery.isLoading) {
     return (
-      <SafeAreaView style={styles.container} edges={['top']}>
-        <Header title="Quran" leftAction={{ iconName: 'arrow-back', onPress: handleGoBack }} />
+      <View style={styles.container}>
+        <View style={[styles.headerContainer, { paddingTop: insets.top }]}>
+          <Header title="Quran" leftAction={{ iconName: 'arrow-back', onPress: handleGoBack }} />
+        </View>
         <View style={styles.center}>
           <ActivityIndicator size="large" color={colors.primary} />
           <Text style={styles.loadingText}>Loading chapters…</Text>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
@@ -49,19 +52,23 @@ export const QuranChaptersScreen: React.FC = () => {
     const message =
       (chaptersQuery.error as any)?.message || 'Failed to load chapters. Please try again.';
     return (
-      <SafeAreaView style={styles.container} edges={['top']}>
-        <Header title="Quran" leftAction={{ iconName: 'arrow-back', onPress: handleGoBack }} />
+      <View style={styles.container}>
+        <View style={[styles.headerContainer, { paddingTop: insets.top }]}>
+          <Header title="Quran" leftAction={{ iconName: 'arrow-back', onPress: handleGoBack }} />
+        </View>
         <View style={styles.center}>
           <Text style={styles.errorTitle}>Something went wrong</Text>
           <Text style={styles.errorText}>{message}</Text>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <Header title="Chapters" leftAction={{ iconName: 'arrow-back', onPress: handleGoBack }} />
+    <View style={styles.container}>
+      <View style={[styles.headerContainer, { paddingTop: insets.top }]}>
+        <Header title="Chapters" leftAction={{ iconName: 'arrow-back', onPress: handleGoBack }} />
+      </View>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.listContent}
@@ -78,14 +85,18 @@ export const QuranChaptersScreen: React.FC = () => {
           <QuranChapterCard key={String(chapter.id)} chapter={chapter} onPress={handleOpenChapter} />
         ))}
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.background,
+  },
+  headerContainer: {
+    backgroundColor: colors.background,
+    paddingTop: 0,
   },
   scrollView: {
     flex: 1,

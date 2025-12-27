@@ -1,30 +1,17 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Card, Header } from '@/components';
 import { colors, spacing, typography } from '@/theme';
-import { useAuth } from '@/hooks/useAuth';
 
 export const AboutScreen: React.FC = () => {
-  const { signOut } = useAuth();
-
-  const handleSignOut = async () => {
-    try {
-      await signOut();
-    } catch (error) {
-      console.error('Sign out error:', error);
-    }
-  };
+  const insets = useSafeAreaInsets();
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <Header
-        title="About Us"
-        rightAction={{
-          label: 'Sign Out',
-          onPress: handleSignOut,
-        }}
-      />
+    <View style={styles.container}>
+      <View style={[styles.headerContainer, { paddingTop: insets.top }]}>
+        <Header title="About Us" />
+      </View>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.content}
@@ -90,14 +77,18 @@ export const AboutScreen: React.FC = () => {
           </Text>
         </Card>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.background,
+  },
+  headerContainer: {
+    backgroundColor: colors.background,
+    paddingTop: 0,
   },
   scrollView: {
     flex: 1,
