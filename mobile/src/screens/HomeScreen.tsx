@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ScrollView, Alert, Platform } from 'react-nativ
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
-import { Header, Card, QuranFeatureCard, AboutFeatureCard, ContactFeatureCard } from '@/components';
+import { Header, Card, QuranFeatureCard, AsmaUlHusnaFeatureCard, AboutFeatureCard, ContactFeatureCard } from '@/components';
 import { colors, spacing, typography } from '@/theme';
 import { useAuth } from '@/hooks/useAuth';
 import type { TabParamList } from '@/navigation/TabNavigator';
@@ -27,6 +27,14 @@ export const HomeScreen: React.FC = () => {
       return;
     }
     parentNavigation.navigate('QuranChapters' as never);
+  };
+
+  const handleOpenAsmaUlHusna = () => {
+    const parentNavigation = navigation.getParent();
+    if (!parentNavigation) {
+      return;
+    }
+    parentNavigation.navigate('AsmaUlHusna' as never);
   };
 
   const handleOpenAbout = () => {
@@ -62,6 +70,7 @@ export const HomeScreen: React.FC = () => {
         </Card>
 
         <QuranFeatureCard onPress={handleOpenQuran} />
+        <AsmaUlHusnaFeatureCard onPress={handleOpenAsmaUlHusna} />
         <AboutFeatureCard onPress={handleOpenAbout} />
         <ContactFeatureCard onPress={handleOpenContact} />
       </ScrollView>
