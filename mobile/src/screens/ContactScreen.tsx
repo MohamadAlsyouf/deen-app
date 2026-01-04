@@ -66,9 +66,10 @@ export const ContactScreen: React.FC = () => {
         style={styles.keyboardView}
       >
         <ScrollView
-          style={styles.scrollView}
+          style={[styles.scrollView, Platform.OS === 'web' && styles.webScrollView]}
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}
+          scrollEventThrottle={16}
         >
           <Card style={styles.infoCard}>
             <Text style={styles.infoTitle}>Get in Touch</Text>
@@ -137,6 +138,14 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
+  },
+  webScrollView: {
+    // @ts-ignore - web-specific CSS properties
+    overflowY: 'auto',
+    // @ts-ignore - web-specific CSS properties
+    WebkitOverflowScrolling: 'touch',
+    // @ts-ignore - web-specific CSS properties
+    touchAction: 'pan-y',
   },
   content: {
     padding: spacing.lg,

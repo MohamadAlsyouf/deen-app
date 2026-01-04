@@ -5,6 +5,7 @@ import {
   StyleSheet,
   ScrollView,
   ActivityIndicator,
+  Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation, useRoute } from "@react-navigation/native";
@@ -103,9 +104,13 @@ export const QuranChapterScreen: React.FC = () => {
         leftAction={{ iconName: "arrow-back", onPress: handleGoBack }}
       />
       <ScrollView
-        style={styles.scrollView}
+        style={[
+          styles.scrollView,
+          Platform.OS === "web" && styles.webScrollView,
+        ]}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
+        scrollEventThrottle={16}
       >
         <View style={styles.headerInfo}>
           {chapterArabicName ? (
@@ -144,6 +149,14 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
+  },
+  webScrollView: {
+    // @ts-ignore - web-specific CSS properties
+    overflowY: "auto",
+    // @ts-ignore - web-specific CSS properties
+    WebkitOverflowScrolling: "touch",
+    // @ts-ignore - web-specific CSS properties
+    touchAction: "pan-y",
   },
   listContent: {
     padding: spacing.lg,

@@ -143,8 +143,10 @@ export const LandingScreen: React.FC = () => {
         style={styles.container}
       >
         <ScrollView
+          style={Platform.OS === 'web' && styles.webScrollView}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
+          scrollEventThrottle={16}
         >
           <View style={styles.header}>
             <Text style={styles.title}>Welcome to Deen Learning</Text>
@@ -253,6 +255,14 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
+  },
+  webScrollView: {
+    // @ts-ignore - web-specific CSS properties
+    overflowY: 'auto',
+    // @ts-ignore - web-specific CSS properties
+    WebkitOverflowScrolling: 'touch',
+    // @ts-ignore - web-specific CSS properties
+    touchAction: 'pan-y',
   },
   scrollContent: {
     flexGrow: 1,

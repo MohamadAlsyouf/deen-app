@@ -30,6 +30,7 @@ export const TabNavigator: React.FC = () => {
           fontSize: 12,
           fontWeight: '600',
         },
+        sceneStyle: { flex: 1 },
       }}
     >
       <Tab.Screen

@@ -1,24 +1,34 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
-import type { StackNavigationProp } from '@react-navigation/stack';
-import { useQuery } from '@tanstack/react-query';
-import { Header } from '@/components';
-import { colors, spacing, typography } from '@/theme';
-import { quranService } from '@/services/quranService';
-import type { QuranChapter } from '@/types/quran';
-import { QuranChapterCard } from '@/components/quran/QuranChapterCard';
-import type { RootStackParamList } from '@/navigation/AppNavigator';
+import React from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  ActivityIndicator,
+  Platform,
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useNavigation } from "@react-navigation/native";
+import type { StackNavigationProp } from "@react-navigation/stack";
+import { useQuery } from "@tanstack/react-query";
+import { Header } from "@/components";
+import { colors, spacing, typography } from "@/theme";
+import { quranService } from "@/services/quranService";
+import type { QuranChapter } from "@/types/quran";
+import { QuranChapterCard } from "@/components/quran/QuranChapterCard";
+import type { RootStackParamList } from "@/navigation/AppNavigator";
 
-type QuranChaptersNavigationProp = StackNavigationProp<RootStackParamList, 'QuranChapters'>;
+type QuranChaptersNavigationProp = StackNavigationProp<
+  RootStackParamList,
+  "QuranChapters"
+>;
 
 export const QuranChaptersScreen: React.FC = () => {
   const navigation = useNavigation<QuranChaptersNavigationProp>();
   const insets = useSafeAreaInsets();
 
   const chaptersQuery = useQuery({
-    queryKey: ['quranChapters'],
+    queryKey: ["quranChapters"],
     queryFn: quranService.getChapters,
   });
 
@@ -27,7 +37,7 @@ export const QuranChaptersScreen: React.FC = () => {
   };
 
   const handleOpenChapter = (chapter: QuranChapter) => {
-    navigation.navigate('QuranChapter', {
+    navigation.navigate("QuranChapter", {
       chapterId: chapter.id,
       chapterName: chapter.name_simple,
       chapterArabicName: chapter.name_arabic,
@@ -38,7 +48,10 @@ export const QuranChaptersScreen: React.FC = () => {
     return (
       <View style={styles.container}>
         <View style={[styles.headerContainer, { paddingTop: insets.top }]}>
-          <Header title="Quran" leftAction={{ iconName: 'arrow-back', onPress: handleGoBack }} />
+          <Header
+            title="Quran"
+            leftAction={{ iconName: "arrow-back", onPress: handleGoBack }}
+          />
         </View>
         <View style={styles.center}>
           <ActivityIndicator size="large" color={colors.primary} />
@@ -50,11 +63,15 @@ export const QuranChaptersScreen: React.FC = () => {
 
   if (chaptersQuery.isError) {
     const message =
-      (chaptersQuery.error as any)?.message || 'Failed to load chapters. Please try again.';
+      (chaptersQuery.error as any)?.message ||
+      "Failed to load chapters. Please try again.";
     return (
       <View style={styles.container}>
         <View style={[styles.headerContainer, { paddingTop: insets.top }]}>
-          <Header title="Quran" leftAction={{ iconName: 'arrow-back', onPress: handleGoBack }} />
+          <Header
+            title="Quran"
+            leftAction={{ iconName: "arrow-back", onPress: handleGoBack }}
+          />
         </View>
         <View style={styles.center}>
           <Text style={styles.errorTitle}>Something went wrong</Text>
@@ -67,12 +84,19 @@ export const QuranChaptersScreen: React.FC = () => {
   return (
     <View style={styles.container}>
       <View style={[styles.headerContainer, { paddingTop: insets.top }]}>
-        <Header title="Chapters" leftAction={{ iconName: 'arrow-back', onPress: handleGoBack }} />
+        <Header
+          title="Chapters"
+          leftAction={{ iconName: "arrow-back", onPress: handleGoBack }}
+        />
       </View>
       <ScrollView
-        style={styles.scrollView}
+        style={[
+          styles.scrollView,
+          Platform.OS === "web" && styles.webScrollView,
+        ]}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
+        scrollEventThrottle={16}
       >
         <View style={styles.headerCard}>
           <Text style={styles.headerTitle}>Select a chapter</Text>
@@ -81,8 +105,12 @@ export const QuranChaptersScreen: React.FC = () => {
           </Text>
         </View>
 
-        {chaptersQuery.data.map((chapter) => (
-          <QuranChapterCard key={String(chapter.id)} chapter={chapter} onPress={handleOpenChapter} />
+        {chaptersQuery?.data?.map((chapter) => (
+          <QuranChapterCard
+            key={String(chapter.id)}
+            chapter={chapter}
+            onPress={handleOpenChapter}
+          />
         ))}
       </ScrollView>
     </View>
@@ -100,6 +128,14 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
+  },
+  webScrollView: {
+    // @ts-ignore - web-specific CSS properties
+    overflowY: "auto",
+    // @ts-ignore - web-specific CSS properties
+    WebkitOverflowScrolling: "touch",
+    // @ts-ignore - web-specific CSS properties
+    touchAction: "pan-y",
   },
   listContent: {
     padding: spacing.lg,
@@ -119,8 +155,8 @@ const styles = StyleSheet.create({
   },
   center: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     padding: spacing.lg,
   },
   loadingText: {
@@ -132,13 +168,11 @@ const styles = StyleSheet.create({
     ...typography.h4,
     color: colors.error,
     marginBottom: spacing.sm,
-    textAlign: 'center',
+    textAlign: "center",
   },
   errorText: {
     ...typography.body,
     color: colors.text.secondary,
-    textAlign: 'center',
+    textAlign: "center",
   },
 });
-
-

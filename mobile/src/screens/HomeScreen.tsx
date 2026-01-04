@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Alert, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
@@ -49,9 +49,10 @@ export const HomeScreen: React.FC = () => {
         />
       </View>
       <ScrollView
-        style={styles.scrollView}
+        style={[styles.scrollView, Platform.OS === 'web' && styles.webScrollView]}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
+        scrollEventThrottle={16}
       >
         <Card style={styles.welcomeCard}>
           <Text style={styles.title}>Welcome</Text>
@@ -79,6 +80,14 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
+  },
+  webScrollView: {
+    // @ts-ignore - web-specific CSS properties
+    overflowY: 'auto',
+    // @ts-ignore - web-specific CSS properties
+    WebkitOverflowScrolling: 'touch',
+    // @ts-ignore - web-specific CSS properties
+    touchAction: 'pan-y',
   },
   content: {
     padding: spacing.lg,

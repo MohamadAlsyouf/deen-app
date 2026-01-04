@@ -1,4 +1,5 @@
 import React from 'react';
+import { View, StyleSheet, Platform } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -17,16 +18,32 @@ const queryClient = new QueryClient({
 
 const App: React.FC = () => {
   return (
-    <SafeAreaProvider>
-      <QueryClientProvider client={queryClient}>
-        <AuthProvider>
-          <StatusBar style="auto" />
-          <AppNavigator />
-        </AuthProvider>
-      </QueryClientProvider>
-    </SafeAreaProvider>
+    <View style={styles.root}>
+      <SafeAreaProvider style={styles.safeArea}>
+        <QueryClientProvider client={queryClient}>
+          <AuthProvider>
+            <StatusBar style="auto" />
+            <AppNavigator />
+          </AuthProvider>
+        </QueryClientProvider>
+      </SafeAreaProvider>
+    </View>
   );
 };
+
+const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+    // Web-specific: ensure the root takes full viewport height
+    ...(Platform.OS === 'web' && {
+      height: '100vh',
+      overflow: 'hidden',
+    }),
+  },
+  safeArea: {
+    flex: 1,
+  },
+});
 
 export default App;
 
