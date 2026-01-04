@@ -7,6 +7,7 @@ type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
 interface HeaderProps {
   title: string;
+  titleNumberOfLines?: number;
   leftAction?: {
     iconName?: IoniconName;
     label?: string;
@@ -18,7 +19,7 @@ interface HeaderProps {
   };
 }
 
-export const Header: React.FC<HeaderProps> = ({ title, leftAction, rightAction }) => {
+export const Header: React.FC<HeaderProps> = ({ title, titleNumberOfLines = 1, leftAction, rightAction }) => {
   return (
     <View style={styles.header}>
       <View style={styles.sideLeft}>
@@ -38,7 +39,11 @@ export const Header: React.FC<HeaderProps> = ({ title, leftAction, rightAction }
       </View>
 
       <View style={styles.titleWrap}>
-        <Text style={styles.title} numberOfLines={1} ellipsizeMode="tail">
+        <Text 
+          style={styles.title} 
+          numberOfLines={titleNumberOfLines || undefined}
+          ellipsizeMode={titleNumberOfLines ? "tail" : undefined}
+        >
           {title}
         </Text>
       </View>
@@ -69,17 +74,17 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.border,
   },
   sideLeft: {
-    flex: 1,
+    width: 44,
     alignItems: 'flex-start',
     justifyContent: 'center',
   },
   sideRight: {
-    flex: 1,
+    width: 44,
     alignItems: 'flex-end',
     justifyContent: 'center',
   },
   titleWrap: {
-    flex: 2,
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },

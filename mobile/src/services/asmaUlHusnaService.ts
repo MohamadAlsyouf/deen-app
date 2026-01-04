@@ -1,4 +1,4 @@
-import type { AsmaUlHusnaName, AsmaUlHusnaResponse } from '@/types/asmaUlHusna';
+import type { AsmaUlHusnaData, AsmaUlHusnaResponse } from '@/types/asmaUlHusna';
 
 // Firebase Cloud Function URL - API key is securely stored on the server
 const FIREBASE_PROJECT_ID = process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID || '';
@@ -15,9 +15,9 @@ const fetchJson = async <T>(url: string): Promise<T> => {
 };
 
 export const asmaUlHusnaService = {
-  getNames: async (language: string = 'en'): Promise<AsmaUlHusnaName[]> => {
+  getData: async (language: string = 'en'): Promise<AsmaUlHusnaData> => {
     const url = `${ASMA_UL_HUSNA_FUNCTION_URL}?language=${language}`;
     const response = await fetchJson<AsmaUlHusnaResponse>(url);
-    return response.data?.names ?? [];
+    return response.data;
   },
 };
