@@ -1,12 +1,89 @@
-import type { QuranChaptersResponse, QuranChapter, QuranVersesResponse } from '@/types/quran';
+import type {
+  QuranChaptersResponse,
+  QuranChapter,
+  QuranVersesResponse,
+  QuranRecitersResponse,
+  QuranReciter,
+  ChapterAudioResponse,
+  ChapterAudioFile,
+} from "@/types/quran";
 
-const QURAN_API_BASE_URL = 'https://api.quran.com/api/v4';
+// Public API (for chapters and verses)
+const QURAN_API_BASE_URL = "https://api.quran.com/api/v4";
+
+// Authenticated API (for reciters and audio)
+const QURAN_AUTH_API_BASE_URL =
+  "https://apis-prelive.quran.foundation/content/api/v4";
+
+// Firebase Cloud Function URL for OAuth2 token exchange
+// This handles the OAuth2 flow server-side to avoid CORS issues
+const FIREBASE_PROJECT_ID = "deen-app-753e6";
+const FUNCTIONS_BASE_URL = `https://us-central1-${FIREBASE_PROJECT_ID}.cloudfunctions.net`;
+const QURAN_TOKEN_FUNCTION_URL = `${FUNCTIONS_BASE_URL}/getQuranToken`;
+
 const DEFAULT_ENGLISH_TRANSLATION_ID = 20;
+
+// Token cache
+let cachedAccessToken: string | null = null;
+let cachedClientId: string | null = null;
+let tokenExpiresAt: number = 0;
 
 type QueryValue = string | number | boolean | null | undefined;
 
-const buildUrl = (path: string, query?: Record<string, QueryValue>): string => {
-  const url = new URL(`${QURAN_API_BASE_URL}${path}`);
+type FirebaseTokenResponse = {
+  access_token: string;
+  token_type: string;
+  expires_in: number;
+  client_id: string;
+};
+
+/**
+ * Get OAuth2 access token via Firebase Cloud Function
+ * This avoids CORS issues by making the OAuth2 request server-side
+ */
+const getAccessToken = async (): Promise<{
+  accessToken: string;
+  clientId: string;
+}> => {
+  // Return cached token if still valid (with 60s buffer before expiry)
+  if (
+    cachedAccessToken &&
+    cachedClientId &&
+    Date.now() < tokenExpiresAt - 60000
+  ) {
+    return { accessToken: cachedAccessToken, clientId: cachedClientId };
+  }
+
+  const response = await fetch(QURAN_TOKEN_FUNCTION_URL, {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+    },
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text().catch(() => "");
+    console.error("Token request error:", errorText);
+    throw new Error(`Token request failed (${response.status}): ${errorText}`);
+  }
+
+  const data: FirebaseTokenResponse = await response.json();
+
+  // Cache the token with expiry time
+  cachedAccessToken = data.access_token;
+  cachedClientId = data.client_id;
+  tokenExpiresAt = Date.now() + data.expires_in * 1000;
+
+  return { accessToken: cachedAccessToken, clientId: cachedClientId };
+};
+
+const buildUrl = (
+  path: string,
+  query?: Record<string, QueryValue>,
+  useAuthApi: boolean = false
+): string => {
+  const baseUrl = useAuthApi ? QURAN_AUTH_API_BASE_URL : QURAN_API_BASE_URL;
+  const url = new URL(`${baseUrl}${path}`);
   if (!query) {
     return url.toString();
   }
@@ -21,10 +98,25 @@ const buildUrl = (path: string, query?: Record<string, QueryValue>): string => {
   return url.toString();
 };
 
-const fetchJson = async <T>(url: string): Promise<T> => {
-  const response = await fetch(url);
+const fetchJson = async <T>(
+  url: string,
+  useAuth: boolean = false
+): Promise<T> => {
+  const headers: HeadersInit = {
+    Accept: "application/json",
+  };
+
+  if (useAuth) {
+    // Get JWT access token from Firebase function
+    const { accessToken, clientId } = await getAccessToken();
+    headers["x-client-id"] = clientId;
+    headers["x-auth-token"] = accessToken;
+  }
+
+  const response = await fetch(url, { headers });
+
   if (!response.ok) {
-    const message = await response.text().catch(() => '');
+    const message = await response.text().catch(() => "");
     throw new Error(message || `Request failed (${response.status})`);
   }
   return (await response.json()) as T;
@@ -32,7 +124,7 @@ const fetchJson = async <T>(url: string): Promise<T> => {
 
 export const quranService = {
   getChapters: async (): Promise<QuranChapter[]> => {
-    const url = buildUrl('/chapters', { language: 'en' });
+    const url = buildUrl("/chapters", { language: "en" });
     const data = await fetchJson<QuranChaptersResponse>(url);
     return data.chapters;
   },
@@ -44,10 +136,10 @@ export const quranService = {
   }): Promise<QuranVersesResponse> => {
     const { chapterId, page, perPage } = params;
     const url = buildUrl(`/verses/by_chapter/${chapterId}`, {
-      language: 'en',
+      language: "en",
       words: true,
-      word_fields: 'text_uthmani,transliteration',
-      fields: 'text_uthmani,verse_key,verse_number',
+      word_fields: "text_uthmani,transliteration",
+      fields: "text_uthmani,verse_key,verse_number",
       translations: DEFAULT_ENGLISH_TRANSLATION_ID,
       page,
       per_page: perPage,
@@ -55,6 +147,24 @@ export const quranService = {
 
     return await fetchJson<QuranVersesResponse>(url);
   },
+
+  getReciters: async (language: string = "en"): Promise<QuranReciter[]> => {
+    const url = buildUrl("/resources/chapter_reciters", { language }, true);
+    const data = await fetchJson<QuranRecitersResponse>(url, true);
+    return data.reciters;
+  },
+
+  getChapterAudio: async (params: {
+    reciterId: number;
+    chapterId: number;
+  }): Promise<ChapterAudioFile> => {
+    const { reciterId, chapterId } = params;
+    const url = buildUrl(
+      `/chapter_recitations/${reciterId}/${chapterId}`,
+      { segments: true },
+      true
+    );
+    const data = await fetchJson<ChapterAudioResponse>(url, true);
+    return data.audio_file;
+  },
 };
-
-

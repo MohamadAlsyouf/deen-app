@@ -1,11 +1,33 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Card } from '@/components';
 import { colors, spacing, typography, borderRadius } from '@/theme';
 import type { QuranVerse, QuranWord } from '@/types/quran';
 
+type HighlightStatus = 'none' | 'current' | 'completed';
+
 type QuranVerseCardProps = {
   verse: QuranVerse;
+  highlightStatus?: HighlightStatus;
+  highlightedWordPosition?: number | null;
+};
+
+type ArabicWord = {
+  text: string;
+  position: number;
+  isWord: boolean;
+};
+
+const getArabicWords = (words: QuranWord[] | undefined): ArabicWord[] => {
+  if (!words || words.length === 0) {
+    return [];
+  }
+
+  return words.map((word) => ({
+    text: word.text_uthmani,
+    position: word.position,
+    isWord: word.char_type_name === 'word',
+  }));
 };
 
 const getWordTransliterations = (words: QuranWord[] | undefined): string[] => {
@@ -48,22 +70,79 @@ const sanitizeTranslationText = (value: string): string => {
   return normalizeWhitespace(decoded);
 };
 
-export const QuranVerseCard: React.FC<QuranVerseCardProps> = ({ verse }) => {
+export const QuranVerseCard: React.FC<QuranVerseCardProps> = ({
+  verse,
+  highlightStatus = 'none',
+  highlightedWordPosition = null,
+}) => {
+  const arabicWords = useMemo(() => getArabicWords(verse.words), [verse.words]);
   const transliterationWords = getWordTransliterations(verse.words);
   const ayahTransliteration = transliterationWords.join(' ');
   const translationRaw = verse.translations?.[0]?.text;
   const translationText = translationRaw ? sanitizeTranslationText(translationRaw) : '';
 
+  const isVerseHighlighted = highlightStatus === 'current' || highlightStatus === 'completed';
+
+  const renderArabicText = () => {
+    // If no words data or no highlighting needed, render plain text
+    if (arabicWords.length === 0 || highlightStatus === 'none') {
+      return <Text style={styles.arabic}>{verse.text_uthmani}</Text>;
+    }
+
+    // When verse is completed, all words are green
+    if (highlightStatus === 'completed') {
+      return (
+        <Text style={styles.arabic}>
+          {arabicWords.map((word, index) => (
+            <Text key={index} style={styles.highlightedWord}>
+              {word.text}
+              {index < arabicWords.length - 1 ? ' ' : ''}
+            </Text>
+          ))}
+        </Text>
+      );
+    }
+
+    // Current verse - highlight words up to and including the current position
+    return (
+      <Text style={styles.arabic}>
+        {arabicWords.map((word, index) => {
+          const shouldHighlight =
+            word.isWord &&
+            highlightedWordPosition !== null &&
+            word.position <= highlightedWordPosition;
+
+          return (
+            <Text
+              key={index}
+              style={shouldHighlight ? styles.highlightedWord : styles.normalWord}
+            >
+              {word.text}
+              {index < arabicWords.length - 1 ? ' ' : ''}
+            </Text>
+          );
+        })}
+      </Text>
+    );
+  };
+
   return (
-    <Card style={styles.card}>
+    <Card
+      style={[
+        styles.card,
+        isVerseHighlighted && styles.highlightedCard,
+      ]}
+    >
       <View style={styles.topRow}>
-        <View style={styles.badge}>
-          <Text style={styles.badgeText}>{verse.verse_number}</Text>
+        <View style={[styles.badge, isVerseHighlighted && styles.highlightedBadge]}>
+          <Text style={[styles.badgeText, isVerseHighlighted && styles.highlightedBadgeText]}>
+            {verse.verse_number}
+          </Text>
         </View>
         <Text style={styles.verseKey}>{verse.verse_key}</Text>
       </View>
 
-      <Text style={styles.arabic}>{verse.text_uthmani}</Text>
+      {renderArabicText()}
 
       {ayahTransliteration.length > 0 && (
         <Text style={styles.ayahTransliteration} selectable>
@@ -85,6 +164,10 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     marginBottom: spacing.lg,
   },
+  highlightedCard: {
+    borderLeftWidth: 3,
+    borderLeftColor: colors.primary,
+  },
   topRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -100,10 +183,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  highlightedBadge: {
+    backgroundColor: colors.primary,
+  },
   badgeText: {
     ...typography.caption,
     color: colors.primary,
     fontWeight: '700',
+  },
+  highlightedBadgeText: {
+    color: colors.text.white,
   },
   verseKey: {
     ...typography.caption,
@@ -114,6 +203,13 @@ const styles = StyleSheet.create({
     lineHeight: 42,
     color: colors.text.primary,
     textAlign: 'right',
+    writingDirection: 'rtl',
+  },
+  normalWord: {
+    color: colors.text.primary,
+  },
+  highlightedWord: {
+    color: colors.primary,
   },
   ayahTransliteration: {
     ...typography.body,
@@ -128,5 +224,3 @@ const styles = StyleSheet.create({
     lineHeight: 26,
   },
 });
-
-

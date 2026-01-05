@@ -64,4 +64,41 @@ export type QuranVersesResponse = {
   pagination: QuranPagination;
 };
 
+// Audio Types
+export type QuranReciter = {
+  id: number;
+  name: string;
+  arabic_name: string;
+  relative_path: string;
+  format: string;
+  files_size: number;
+};
+
+export type QuranRecitersResponse = {
+  reciters: QuranReciter[];
+};
+
+export type AudioSegment = [number, number, number]; // [word_position, start_timestamp_ms, end_timestamp_ms]
+
+export type VerseTimestamp = {
+  verse_key: string;
+  timestamp_from: number;
+  timestamp_to: number;
+  duration: number;
+  segments: AudioSegment[];
+};
+
+export type ChapterAudioFile = {
+  id: number;
+  chapter_id: number;
+  file_size: number;
+  format: string;
+  audio_url: string;
+  verse_timings: VerseTimestamp[];
+};
+
+export type ChapterAudioResponse = {
+  audio_file: ChapterAudioFile;
+};
+
 

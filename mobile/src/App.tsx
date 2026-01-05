@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from '@/hooks/AuthProvider';
+import { AudioPlayerProvider } from '@/contexts/AudioPlayerContext';
 import { AppNavigator } from '@/navigation/AppNavigator';
 
 // Create a client
@@ -22,8 +23,10 @@ const App: React.FC = () => {
       <SafeAreaProvider style={styles.safeArea}>
         <QueryClientProvider client={queryClient}>
           <AuthProvider>
-            <StatusBar style="auto" />
-            <AppNavigator />
+            <AudioPlayerProvider>
+              <StatusBar style="auto" />
+              <AppNavigator />
+            </AudioPlayerProvider>
           </AuthProvider>
         </QueryClientProvider>
       </SafeAreaProvider>

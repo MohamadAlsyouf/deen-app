@@ -6,4 +6,7 @@ export { QuranFeatureCard } from './featureCards/QuranFeatureCard';
 export { AsmaUlHusnaFeatureCard } from './featureCards/AsmaUlHusnaFeatureCard';
 export { AboutFeatureCard } from './featureCards/AboutFeatureCard';
 export { ContactFeatureCard } from './featureCards/ContactFeatureCard';
+export { QuranVerseCard } from './quran/QuranVerseCard';
+export { AudioPlayerBar } from './quran/AudioPlayerBar';
+export { ReciterSelectModal } from './quran/ReciterSelectModal';
 
