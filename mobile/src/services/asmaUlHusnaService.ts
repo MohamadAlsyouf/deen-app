@@ -1,9 +1,9 @@
 import type { AsmaUlHusnaData, AsmaUlHusnaResponse } from "@/types/asmaUlHusna";
 
 // Firebase Cloud Function URL - API key is securely stored on the server
-const FIREBASE_PROJECT_ID = process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID || "";
-const FUNCTIONS_BASE_URL = `https://us-central1-${FIREBASE_PROJECT_ID}.cloudfunctions.net`;
-const ASMA_UL_HUSNA_FUNCTION_URL = `${FUNCTIONS_BASE_URL}/getAsmaUlHusna`;
+// Hardcoded since project ID is public (in the URL) and ensures it works for all contributors
+const ASMA_UL_HUSNA_FUNCTION_URL =
+  "https://us-central1-deen-app-753e6.cloudfunctions.net/getAsmaUlHusna";
 
 const fetchJson = async <T>(url: string): Promise<T> => {
   const response = await fetch(url);
