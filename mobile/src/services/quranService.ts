@@ -3,7 +3,7 @@ import type {
   QuranChapter,
   QuranVersesResponse,
   QuranRecitersResponse,
-  QuranReciter,
+  NormalizedReciter,
   ChapterAudioResponse,
   ChapterAudioFile,
 } from "@/types/quran";
@@ -148,10 +148,16 @@ export const quranService = {
     return await fetchJson<QuranVersesResponse>(url);
   },
 
-  getReciters: async (language: string = "en"): Promise<QuranReciter[]> => {
-    const url = buildUrl("/resources/chapter_reciters", { language }, true);
-    const data = await fetchJson<QuranRecitersResponse>(url, true);
-    return data.reciters;
+  getReciters: async (language: string = "en"): Promise<NormalizedReciter[]> => {
+    // Use public API - no authentication required
+    const url = buildUrl("/resources/recitations", { language }, false);
+    const data = await fetchJson<QuranRecitersResponse>(url, false);
+    // Normalize the reciter data to a consistent format
+    return data.recitations.map((reciter) => ({
+      id: reciter.id,
+      name: reciter.reciter_name,
+      arabic_name: reciter.translated_name?.name || reciter.reciter_name,
+    }));
   },
 
   getChapterAudio: async (params: {
@@ -159,12 +165,22 @@ export const quranService = {
     chapterId: number;
   }): Promise<ChapterAudioFile> => {
     const { reciterId, chapterId } = params;
+    // Use public API - no authentication required
     const url = buildUrl(
       `/chapter_recitations/${reciterId}/${chapterId}`,
       { segments: true },
-      true
+      false
     );
-    const data = await fetchJson<ChapterAudioResponse>(url, true);
-    return data.audio_file;
+    const data = await fetchJson<ChapterAudioResponse>(url, false);
+    // Normalize: public API returns 'timestamps', we use 'verse_timings' internally
+    const rawFile = data.audio_file;
+    return {
+      id: rawFile.id,
+      chapter_id: rawFile.chapter_id,
+      file_size: rawFile.file_size,
+      format: rawFile.format,
+      audio_url: rawFile.audio_url,
+      verse_timings: rawFile.timestamps || [],
+    };
   },
 };

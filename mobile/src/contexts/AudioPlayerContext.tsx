@@ -11,13 +11,13 @@ import { Audio } from 'expo-av';
 import { useQuery } from '@tanstack/react-query';
 import { quranService } from '@/services/quranService';
 import type {
-  QuranReciter,
+  NormalizedReciter,
   ChapterAudioFile,
   VerseTimestamp,
   AudioSegment,
 } from '@/types/quran';
 
-const DEFAULT_RECITER_NAME = 'Yasser Al-Dossari';
+const DEFAULT_RECITER_NAME = 'Mishari Rashid';
 
 type PlaybackState = 'idle' | 'loading' | 'playing' | 'paused' | 'error';
 
@@ -35,8 +35,8 @@ type AudioPlayerContextValue = {
   highlightState: HighlightState;
 
   // Reciter state
-  reciters: QuranReciter[];
-  selectedReciter: QuranReciter | null;
+  reciters: NormalizedReciter[];
+  selectedReciter: NormalizedReciter | null;
   isLoadingReciters: boolean;
 
   // Actions
@@ -44,7 +44,7 @@ type AudioPlayerContextValue = {
   play: () => Promise<void>;
   pause: () => Promise<void>;
   seekTo: (positionMs: number) => Promise<void>;
-  selectReciter: (reciter: QuranReciter) => void;
+  selectReciter: (reciter: NormalizedReciter) => void;
   reset: () => Promise<void>;
 };
 
@@ -63,7 +63,7 @@ export const AudioPlayerProvider: React.FC<AudioPlayerProviderProps> = ({
   const [playbackState, setPlaybackState] = useState<PlaybackState>('idle');
   const [currentPosition, setCurrentPosition] = useState(0);
   const [duration, setDuration] = useState(0);
-  const [selectedReciter, setSelectedReciter] = useState<QuranReciter | null>(null);
+  const [selectedReciter, setSelectedReciter] = useState<NormalizedReciter | null>(null);
   const [audioFile, setAudioFile] = useState<ChapterAudioFile | null>(null);
   const [currentChapterId, setCurrentChapterId] = useState<number | null>(null);
   const [highlightState, setHighlightState] = useState<HighlightState>({
@@ -174,6 +174,9 @@ export const AudioPlayerProvider: React.FC<AudioPlayerProviderProps> = ({
     });
   }, [cleanup]);
 
+  // Track loading state to prevent concurrent loads
+  const isLoadingRef = useRef(false);
+
   // Load chapter audio
   const loadChapter = useCallback(
     async (chapterId: number) => {
@@ -181,7 +184,12 @@ export const AudioPlayerProvider: React.FC<AudioPlayerProviderProps> = ({
         return;
       }
 
-      // If same chapter and reciter, don't reload
+      // Prevent concurrent loads
+      if (isLoadingRef.current) {
+        return;
+      }
+
+      // If same chapter and reciter with loaded audio, don't reload
       if (
         currentChapterId === chapterId &&
         audioFile &&
@@ -190,6 +198,7 @@ export const AudioPlayerProvider: React.FC<AudioPlayerProviderProps> = ({
         return;
       }
 
+      isLoadingRef.current = true;
       await cleanup();
       setPlaybackState('loading');
       setHighlightState({
@@ -227,6 +236,8 @@ export const AudioPlayerProvider: React.FC<AudioPlayerProviderProps> = ({
       } catch (error) {
         console.error('Failed to load chapter audio:', error);
         setPlaybackState('error');
+      } finally {
+        isLoadingRef.current = false;
       }
     },
     [selectedReciter, currentChapterId, audioFile, cleanup]
@@ -326,19 +337,23 @@ export const AudioPlayerProvider: React.FC<AudioPlayerProviderProps> = ({
     [updateHighlightFromPosition]
   );
 
-  // Select reciter (triggers reload if chapter is loaded)
+  // Select reciter (does NOT auto-reload - the screen's useEffect handles that)
   const selectReciter = useCallback(
-    (reciter: QuranReciter) => {
+    async (reciter: NormalizedReciter) => {
+      // Clean up current audio first
+      await cleanup();
+      setAudioFile(null);
+      setPlaybackState('idle');
+      setCurrentChapterId(null);
+      setHighlightState({
+        verseKey: null,
+        wordPosition: null,
+        completedVerseKeys: new Set(),
+      });
+      // Set new reciter last - this triggers the screen's useEffect to reload
       setSelectedReciter(reciter);
-      // If a chapter is loaded, reload with new reciter
-      if (currentChapterId !== null) {
-        cleanup().then(() => {
-          setAudioFile(null);
-          setPlaybackState('idle');
-        });
-      }
     },
-    [currentChapterId, cleanup]
+    [cleanup]
   );
 
   // Cleanup on unmount

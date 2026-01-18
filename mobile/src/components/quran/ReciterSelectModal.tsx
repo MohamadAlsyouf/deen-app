@@ -12,7 +12,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius, shadows } from '@/theme';
 import { useAudioPlayer } from '@/contexts/AudioPlayerContext';
-import type { QuranReciter } from '@/types/quran';
+import type { NormalizedReciter } from '@/types/quran';
 
 type ReciterSelectModalProps = {
   visible: boolean;
@@ -20,7 +20,7 @@ type ReciterSelectModalProps = {
 };
 
 type ReciterItemProps = {
-  reciter: QuranReciter;
+  reciter: NormalizedReciter;
   isSelected: boolean;
   onPress: () => void;
 };
@@ -59,7 +59,7 @@ export const ReciterSelectModal: React.FC<ReciterSelectModalProps> = ({
     useAudioPlayer();
 
   const handleSelectReciter = useCallback(
-    (reciter: QuranReciter) => {
+    (reciter: NormalizedReciter) => {
       selectReciter(reciter);
       onClose();
     },
@@ -67,7 +67,7 @@ export const ReciterSelectModal: React.FC<ReciterSelectModalProps> = ({
   );
 
   const renderReciter = useCallback(
-    ({ item }: { item: QuranReciter }) => (
+    ({ item }: { item: NormalizedReciter }) => (
       <ReciterItem
         reciter={item}
         isSelected={selectedReciter?.id === item.id}
@@ -78,7 +78,7 @@ export const ReciterSelectModal: React.FC<ReciterSelectModalProps> = ({
   );
 
   const keyExtractor = useCallback(
-    (item: QuranReciter) => item.id.toString(),
+    (item: NormalizedReciter) => item.id.toString(),
     []
   );
 

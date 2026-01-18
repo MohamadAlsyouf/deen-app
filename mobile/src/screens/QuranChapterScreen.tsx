@@ -1,4 +1,4 @@
-import React, { useMemo, useEffect, useState, useCallback } from "react";
+import React, { useMemo, useEffect, useState, useCallback, useRef } from "react";
 import {
   View,
   Text,
@@ -6,6 +6,7 @@ import {
   ScrollView,
   ActivityIndicator,
   Platform,
+  LayoutChangeEvent,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
@@ -40,6 +41,12 @@ export const QuranChapterScreen: React.FC = () => {
   const { chapterId, chapterName, chapterArabicName } = route.params;
 
   const [isReciterModalVisible, setIsReciterModalVisible] = useState(false);
+  const [containerHeight, setContainerHeight] = useState(0);
+
+  // Refs for auto-scrolling
+  const scrollViewRef = useRef<ScrollView>(null);
+  const versePositions = useRef<Map<string, { y: number; height: number }>>(new Map());
+  const lastHighlightedVerseKey = useRef<string | null>(null);
 
   const { loadChapter, reset, highlightState, playbackState, selectedReciter } =
     useAudioPlayer();
@@ -66,7 +73,8 @@ export const QuranChapterScreen: React.FC = () => {
     if (selectedReciter && chapterId) {
       loadChapter(chapterId);
     }
-  }, [chapterId, selectedReciter, loadChapter]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chapterId, selectedReciter?.id]);
 
   // Reset audio when leaving screen
   useFocusEffect(
@@ -76,6 +84,43 @@ export const QuranChapterScreen: React.FC = () => {
       };
     }, [reset])
   );
+
+  // Auto-scroll to highlighted verse
+  useEffect(() => {
+    const verseKey = highlightState.verseKey;
+    
+    // Only scroll if we have a new verse to highlight
+    if (!verseKey || verseKey === lastHighlightedVerseKey.current) {
+      return;
+    }
+    
+    lastHighlightedVerseKey.current = verseKey;
+    
+    const verseInfo = versePositions.current.get(verseKey);
+    if (!verseInfo || !scrollViewRef.current || containerHeight === 0) {
+      return;
+    }
+
+    // Calculate scroll position to center the verse
+    const { y, height } = verseInfo;
+    const scrollTo = y - (containerHeight / 2) + (height / 2);
+    
+    scrollViewRef.current.scrollTo({
+      y: Math.max(0, scrollTo),
+      animated: true,
+    });
+  }, [highlightState.verseKey, containerHeight]);
+
+  // Handler for tracking verse positions
+  const handleVerseLayout = useCallback((verseKey: string, event: LayoutChangeEvent) => {
+    const { y, height } = event.nativeEvent.layout;
+    versePositions.current.set(verseKey, { y, height });
+  }, []);
+
+  // Handler for container height
+  const handleContainerLayout = useCallback((event: LayoutChangeEvent) => {
+    setContainerHeight(event.nativeEvent.layout.height);
+  }, []);
 
   const handleGoBack = () => {
     navigation.goBack();
@@ -103,12 +148,16 @@ export const QuranChapterScreen: React.FC = () => {
   const getVerseHighlightStatus = (
     verseKey: string
   ): "none" | "current" | "completed" => {
+    // Show highlighting when playing, paused, or loading (if we have state)
+    // Only hide highlighting when idle (no audio loaded) or error
     if (playbackState === "idle" || playbackState === "error") {
       return "none";
     }
+    // Check if this verse has been completed
     if (highlightState.completedVerseKeys.has(verseKey)) {
       return "completed";
     }
+    // Check if this is the current verse being recited
     if (highlightState.verseKey === verseKey) {
       return "current";
     }
@@ -164,8 +213,9 @@ export const QuranChapterScreen: React.FC = () => {
         title={title}
         leftAction={{ iconName: "arrow-back", onPress: handleGoBack }}
       />
-      <View style={styles.contentWrapper}>
+      <View style={styles.contentWrapper} onLayout={handleContainerLayout}>
         <ScrollView
+          ref={scrollViewRef}
           style={[
             styles.scrollView,
             Platform.OS === "web" && styles.webScrollView,
@@ -184,14 +234,18 @@ export const QuranChapterScreen: React.FC = () => {
           </View>
 
           {verses.map((verse) => (
-            <QuranVerseCard
+            <View
               key={verse.verse_key}
-              verse={verse}
-              highlightStatus={getVerseHighlightStatus(verse.verse_key)}
-              highlightedWordPosition={getVerseHighlightedWordPosition(
-                verse.verse_key
-              )}
-            />
+              onLayout={(event) => handleVerseLayout(verse.verse_key, event)}
+            >
+              <QuranVerseCard
+                verse={verse}
+                highlightStatus={getVerseHighlightStatus(verse.verse_key)}
+                highlightedWordPosition={getVerseHighlightedWordPosition(
+                  verse.verse_key
+                )}
+              />
+            </View>
           ))}
 
           {versesQuery.isFetchingNextPage ? (
