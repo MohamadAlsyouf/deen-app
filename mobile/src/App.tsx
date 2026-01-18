@@ -39,8 +39,8 @@ const styles = StyleSheet.create({
     flex: 1,
     // Web-specific: ensure the root takes full viewport height
     ...(Platform.OS === 'web' && {
-      height: '100vh',
-      overflow: 'hidden',
+      height: '100%' as const,
+      overflow: 'hidden' as const,
     }),
   },
   safeArea: {

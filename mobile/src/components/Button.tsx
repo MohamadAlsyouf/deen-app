@@ -31,7 +31,7 @@ export const Button: React.FC<ButtonProps> = ({
   textStyle,
 }) => {
   const getButtonStyle = (): ViewStyle => {
-    const baseStyle = [styles.button];
+    const baseStyle: ViewStyle[] = [styles.button];
 
     if (variant === 'primary') {
       baseStyle.push(styles.primaryButton);
@@ -49,7 +49,7 @@ export const Button: React.FC<ButtonProps> = ({
   };
 
   const getTextStyle = (): TextStyle => {
-    const baseStyle = [styles.buttonText];
+    const baseStyle: TextStyle[] = [styles.buttonText];
 
     if (variant === 'outline') {
       baseStyle.push(styles.outlineButtonText);
