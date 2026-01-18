@@ -67,15 +67,20 @@ export type QuranVersesResponse = {
 // Audio Types
 export type QuranReciter = {
   id: number;
+  reciter_name: string;
+  style: string | null;
+  translated_name?: QuranTranslatedName;
+};
+
+// Normalized reciter type used in the app
+export type NormalizedReciter = {
+  id: number;
   name: string;
   arabic_name: string;
-  relative_path: string;
-  format: string;
-  files_size: number;
 };
 
 export type QuranRecitersResponse = {
-  reciters: QuranReciter[];
+  recitations: QuranReciter[];
 };
 
 export type AudioSegment = [number, number, number]; // [word_position, start_timestamp_ms, end_timestamp_ms]
@@ -97,8 +102,18 @@ export type ChapterAudioFile = {
   verse_timings: VerseTimestamp[];
 };
 
+// Raw API response uses 'timestamps' instead of 'verse_timings'
+export type ChapterAudioFileRaw = {
+  id: number;
+  chapter_id: number;
+  file_size: number;
+  format: string;
+  audio_url: string;
+  timestamps?: VerseTimestamp[];
+};
+
 export type ChapterAudioResponse = {
-  audio_file: ChapterAudioFile;
+  audio_file: ChapterAudioFileRaw;
 };
 
 

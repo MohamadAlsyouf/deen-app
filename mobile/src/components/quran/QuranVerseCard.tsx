@@ -81,20 +81,31 @@ export const QuranVerseCard: React.FC<QuranVerseCardProps> = ({
   const translationRaw = verse.translations?.[0]?.text;
   const translationText = translationRaw ? sanitizeTranslationText(translationRaw) : '';
 
-  const isVerseHighlighted = highlightStatus === 'current' || highlightStatus === 'completed';
+  const isCurrentVerse = highlightStatus === 'current';
+  const isCompletedVerse = highlightStatus === 'completed';
+  const isVerseHighlighted = isCurrentVerse || isCompletedVerse;
 
   const renderArabicText = () => {
-    // If no words data or no highlighting needed, render plain text
-    if (arabicWords.length === 0 || highlightStatus === 'none') {
+    // If no words data, render plain text with potential highlighting
+    if (arabicWords.length === 0) {
+      return (
+        <Text style={[styles.arabic, isCurrentVerse && styles.currentVerseText]}>
+          {verse.text_uthmani}
+        </Text>
+      );
+    }
+
+    // No highlighting needed
+    if (highlightStatus === 'none') {
       return <Text style={styles.arabic}>{verse.text_uthmani}</Text>;
     }
 
     // When verse is completed, all words are green
-    if (highlightStatus === 'completed') {
+    if (isCompletedVerse) {
       return (
         <Text style={styles.arabic}>
           {arabicWords.map((word, index) => (
-            <Text key={index} style={styles.highlightedWord}>
+            <Text key={index} style={styles.completedWord}>
               {word.text}
               {index < arabicWords.length - 1 ? ' ' : ''}
             </Text>
@@ -104,6 +115,7 @@ export const QuranVerseCard: React.FC<QuranVerseCardProps> = ({
     }
 
     // Current verse - highlight words up to and including the current position
+    // If no word position yet, still show the verse as current (highlighted card)
     return (
       <Text style={styles.arabic}>
         {arabicWords.map((word, index) => {
@@ -115,7 +127,7 @@ export const QuranVerseCard: React.FC<QuranVerseCardProps> = ({
           return (
             <Text
               key={index}
-              style={shouldHighlight ? styles.highlightedWord : styles.normalWord}
+              style={shouldHighlight ? styles.currentWord : styles.normalWord}
             >
               {word.text}
               {index < arabicWords.length - 1 ? ' ' : ''}
@@ -130,16 +142,26 @@ export const QuranVerseCard: React.FC<QuranVerseCardProps> = ({
     <Card
       style={[
         styles.card,
-        isVerseHighlighted && styles.highlightedCard,
+        isCurrentVerse && styles.currentCard,
+        isCompletedVerse && styles.completedCard,
       ]}
     >
       <View style={styles.topRow}>
-        <View style={[styles.badge, isVerseHighlighted && styles.highlightedBadge]}>
-          <Text style={[styles.badgeText, isVerseHighlighted && styles.highlightedBadgeText]}>
+        <View style={[
+          styles.badge,
+          isCurrentVerse && styles.currentBadge,
+          isCompletedVerse && styles.completedBadge,
+        ]}>
+          <Text style={[
+            styles.badgeText,
+            isVerseHighlighted && styles.highlightedBadgeText,
+          ]}>
             {verse.verse_number}
           </Text>
         </View>
-        <Text style={styles.verseKey}>{verse.verse_key}</Text>
+        <Text style={[styles.verseKey, isCurrentVerse && styles.currentVerseKey]}>
+          {verse.verse_key}
+        </Text>
       </View>
 
       {renderArabicText()}
@@ -164,9 +186,17 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     marginBottom: spacing.lg,
   },
-  highlightedCard: {
-    borderLeftWidth: 3,
+  currentCard: {
+    backgroundColor: '#E8F5E9', // Light green background for current verse
+    borderLeftWidth: 4,
     borderLeftColor: colors.primary,
+    borderWidth: 2,
+    borderColor: colors.primary,
+  },
+  completedCard: {
+    backgroundColor: '#F1F8E9', // Very light green for completed verses
+    borderLeftWidth: 3,
+    borderLeftColor: colors.primaryLight,
   },
   topRow: {
     flexDirection: 'row',
@@ -183,8 +213,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  highlightedBadge: {
+  currentBadge: {
     backgroundColor: colors.primary,
+  },
+  completedBadge: {
+    backgroundColor: colors.primaryLight,
   },
   badgeText: {
     ...typography.caption,
@@ -198,6 +231,10 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.text.secondary,
   },
+  currentVerseKey: {
+    color: colors.primary,
+    fontWeight: '600',
+  },
   arabic: {
     fontSize: 26,
     lineHeight: 42,
@@ -205,11 +242,18 @@ const styles = StyleSheet.create({
     textAlign: 'right',
     writingDirection: 'rtl',
   },
+  currentVerseText: {
+    color: colors.primaryDark,
+  },
   normalWord: {
     color: colors.text.primary,
   },
-  highlightedWord: {
-    color: colors.primary,
+  currentWord: {
+    color: colors.primaryDark,
+    fontWeight: '600',
+  },
+  completedWord: {
+    color: colors.primaryLight,
   },
   ayahTransliteration: {
     ...typography.body,
