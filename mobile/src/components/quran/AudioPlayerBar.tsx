@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius, shadows } from '@/theme';
 import { useAudioPlayer } from '@/contexts/AudioPlayerContext';
@@ -24,6 +25,7 @@ const formatTime = (ms: number): string => {
 export const AudioPlayerBar: React.FC<AudioPlayerBarProps> = ({
   onReciterPress,
 }) => {
+  const insets = useSafeAreaInsets();
   const {
     playbackState,
     currentPosition,
@@ -48,7 +50,7 @@ export const AudioPlayerBar: React.FC<AudioPlayerBarProps> = ({
   const progress = duration > 0 ? (currentPosition / duration) * 100 : 0;
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingBottom: Math.max(insets.bottom, spacing.xs) }]}>
       {/* Progress bar */}
       <View style={styles.progressContainer}>
         <View style={[styles.progressFill, { width: `${progress}%` }]} />
@@ -74,7 +76,7 @@ export const AudioPlayerBar: React.FC<AudioPlayerBarProps> = ({
           ) : (
             <Ionicons
               name={isPlaying ? 'pause' : 'play'}
-              size={28}
+              size={20}
               color={colors.text.white}
               style={!isPlaying ? styles.playIcon : undefined}
             />
@@ -142,8 +144,8 @@ const styles = StyleSheet.create({
     marginHorizontal: 2,
   },
   playButton: {
-    width: 52,
-    height: 52,
+    width: 40,
+    height: 40,
     borderRadius: borderRadius.round,
     backgroundColor: colors.primary,
     alignItems: 'center',
@@ -154,7 +156,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.text.disabled,
   },
   playIcon: {
-    marginLeft: 3, // Visual centering for play icon
+    marginLeft: 2, // Visual centering for play icon
   },
   reciterButton: {
     flex: 1,

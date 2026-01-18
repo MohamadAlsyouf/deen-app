@@ -114,6 +114,7 @@ export const ReciterSelectModal: React.FC<ReciterSelectModalProps> = ({
               data={reciters}
               renderItem={renderReciter}
               keyExtractor={keyExtractor}
+              style={styles.list}
               contentContainerStyle={styles.listContent}
               showsVerticalScrollIndicator={false}
               ItemSeparatorComponent={() => <View style={styles.separator} />}
@@ -135,6 +136,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
     borderTopLeftRadius: borderRadius.xl,
     borderTopRightRadius: borderRadius.xl,
+    minHeight: '50%',
     maxHeight: '70%',
     ...shadows.large,
   },
@@ -169,8 +171,12 @@ const styles = StyleSheet.create({
     color: colors.text.secondary,
     marginTop: spacing.md,
   },
+  list: {
+    flex: 1,
+  },
   listContent: {
     paddingVertical: spacing.md,
+    flexGrow: 1,
   },
   reciterItem: {
     flexDirection: 'row',
