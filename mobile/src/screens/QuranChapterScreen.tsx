@@ -24,6 +24,7 @@ import type { QuranVerse } from "@/types/quran";
 import { QuranVerseCard } from "@/components/quran/QuranVerseCard";
 import { AudioPlayerBar } from "@/components/quran/AudioPlayerBar";
 import { ReciterSelectModal } from "@/components/quran/ReciterSelectModal";
+import { VerseRangeSidebar } from "@/components/quran/VerseRangeSidebar";
 import { useAudioPlayer } from "@/contexts/AudioPlayerContext";
 import type { RootStackParamList } from "@/navigation/AppNavigator";
 
@@ -41,6 +42,7 @@ export const QuranChapterScreen: React.FC = () => {
   const { chapterId, chapterName, chapterArabicName } = route.params;
 
   const [isReciterModalVisible, setIsReciterModalVisible] = useState(false);
+  const [isVerseRangeSidebarVisible, setIsVerseRangeSidebarVisible] = useState(false);
   const [containerHeight, setContainerHeight] = useState(0);
 
   // Refs for auto-scrolling
@@ -48,7 +50,7 @@ export const QuranChapterScreen: React.FC = () => {
   const versePositions = useRef<Map<string, { y: number; height: number }>>(new Map());
   const lastHighlightedVerseKey = useRef<string | null>(null);
 
-  const { loadChapter, reset, highlightState, playbackState, selectedReciter } =
+  const { loadChapter, reset, resetPlaybackSettings, highlightState, playbackState, selectedReciter } =
     useAudioPlayer();
 
   // Fetch verses
@@ -68,6 +70,11 @@ export const QuranChapterScreen: React.FC = () => {
     return versesQuery.data?.pages.flatMap((page) => page.verses) ?? [];
   }, [versesQuery.data?.pages]);
 
+  // Get total verses count from pagination
+  const totalVerses = useMemo(() => {
+    return versesQuery.data?.pages[0]?.pagination.total_records ?? 0;
+  }, [versesQuery.data?.pages]);
+
   // Load audio when chapter or reciter changes
   useEffect(() => {
     if (selectedReciter && chapterId) {
@@ -76,13 +83,14 @@ export const QuranChapterScreen: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chapterId, selectedReciter?.id]);
 
-  // Reset audio when leaving screen
+  // Reset audio and playback settings when leaving screen
   useFocusEffect(
     useCallback(() => {
       return () => {
         reset();
+        resetPlaybackSettings();
       };
-    }, [reset])
+    }, [reset, resetPlaybackSettings])
   );
 
   // Auto-scroll to highlighted verse
@@ -144,6 +152,14 @@ export const QuranChapterScreen: React.FC = () => {
     setIsReciterModalVisible(false);
   };
 
+  const handleOpenVerseRangeSidebar = () => {
+    setIsVerseRangeSidebarVisible(true);
+  };
+
+  const handleCloseVerseRangeSidebar = () => {
+    setIsVerseRangeSidebarVisible(false);
+  };
+
   // Helper to get highlight status for a verse
   const getVerseHighlightStatus = (
     verseKey: string
@@ -180,6 +196,7 @@ export const QuranChapterScreen: React.FC = () => {
         <Header
           title={title}
           leftAction={{ iconName: "arrow-back", onPress: handleGoBack }}
+          rightAction={{ iconName: "menu", onPress: handleOpenVerseRangeSidebar }}
         />
         <View style={styles.center}>
           <ActivityIndicator size="large" color={colors.primary} />
@@ -198,6 +215,7 @@ export const QuranChapterScreen: React.FC = () => {
         <Header
           title={title}
           leftAction={{ iconName: "arrow-back", onPress: handleGoBack }}
+          rightAction={{ iconName: "menu", onPress: handleOpenVerseRangeSidebar }}
         />
         <View style={styles.center}>
           <Text style={styles.errorTitle}>Something went wrong</Text>
@@ -212,6 +230,7 @@ export const QuranChapterScreen: React.FC = () => {
       <Header
         title={title}
         leftAction={{ iconName: "arrow-back", onPress: handleGoBack }}
+        rightAction={{ iconName: "menu", onPress: handleOpenVerseRangeSidebar }}
       />
       <View style={styles.contentWrapper} onLayout={handleContainerLayout}>
         <ScrollView
@@ -270,6 +289,14 @@ export const QuranChapterScreen: React.FC = () => {
       <ReciterSelectModal
         visible={isReciterModalVisible}
         onClose={handleCloseReciterModal}
+      />
+
+      {/* Verse Range Sidebar */}
+      <VerseRangeSidebar
+        visible={isVerseRangeSidebarVisible}
+        onClose={handleCloseVerseRangeSidebar}
+        totalVerses={totalVerses}
+        chapterId={chapterId}
       />
     </SafeAreaView>
   );

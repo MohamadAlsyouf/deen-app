@@ -14,7 +14,8 @@ interface HeaderProps {
     onPress: () => void;
   };
   rightAction?: {
-    label: string;
+    iconName?: IoniconName;
+    label?: string;
     onPress: () => void;
   };
 }
@@ -55,7 +56,11 @@ export const Header: React.FC<HeaderProps> = ({ title, titleNumberOfLines = 1, l
             activeOpacity={0.7}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <Text style={styles.actionText}>{rightAction.label}</Text>
+            {rightAction.iconName ? (
+              <Ionicons name={rightAction.iconName} size={22} color={colors.primary} />
+            ) : (
+              <Text style={styles.actionText}>{rightAction.label}</Text>
+            )}
           </TouchableOpacity>
         ) : null}
       </View>
