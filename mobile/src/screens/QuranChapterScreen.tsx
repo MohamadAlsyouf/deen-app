@@ -25,6 +25,7 @@ import { QuranVerseCard } from "@/components/quran/QuranVerseCard";
 import { AudioPlayerBar } from "@/components/quran/AudioPlayerBar";
 import { ReciterSelectModal } from "@/components/quran/ReciterSelectModal";
 import { VerseRangeSidebar } from "@/components/quran/VerseRangeSidebar";
+import { ViewModeToggle, type ViewMode } from "@/components/quran/ViewModeToggle";
 import { useAudioPlayer } from "@/contexts/AudioPlayerContext";
 import type { RootStackParamList } from "@/navigation/AppNavigator";
 
@@ -44,6 +45,7 @@ export const QuranChapterScreen: React.FC = () => {
   const [isReciterModalVisible, setIsReciterModalVisible] = useState(false);
   const [isVerseRangeSidebarVisible, setIsVerseRangeSidebarVisible] = useState(false);
   const [containerHeight, setContainerHeight] = useState(0);
+  const [viewMode, setViewMode] = useState<ViewMode>('all');
 
   // Refs for auto-scrolling
   const scrollViewRef = useRef<ScrollView>(null);
@@ -225,6 +227,18 @@ export const QuranChapterScreen: React.FC = () => {
     );
   }
 
+  // Get subtitle text based on view mode
+  const getSubtitleText = () => {
+    switch (viewMode) {
+      case 'arabic':
+        return 'Arabic text only.';
+      case 'english':
+        return 'English translation only.';
+      default:
+        return 'Arabic verses with English transliteration.';
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <Header
@@ -232,6 +246,7 @@ export const QuranChapterScreen: React.FC = () => {
         leftAction={{ iconName: "arrow-back", onPress: handleGoBack }}
         rightAction={{ iconName: "menu", onPress: handleOpenVerseRangeSidebar }}
       />
+      <ViewModeToggle viewMode={viewMode} onViewModeChange={setViewMode} />
       <View style={styles.contentWrapper} onLayout={handleContainerLayout}>
         <ScrollView
           ref={scrollViewRef}
@@ -244,12 +259,10 @@ export const QuranChapterScreen: React.FC = () => {
           scrollEventThrottle={16}
         >
           <View style={styles.headerInfo}>
-            {chapterArabicName ? (
+            {chapterArabicName && viewMode !== 'english' ? (
               <Text style={styles.arabicName}>{chapterArabicName}</Text>
             ) : null}
-            <Text style={styles.subtitle}>
-              Arabic verses with English transliteration (ayah + per-word).
-            </Text>
+            <Text style={styles.subtitle}>{getSubtitleText()}</Text>
           </View>
 
           {verses.map((verse) => (
@@ -259,6 +272,7 @@ export const QuranChapterScreen: React.FC = () => {
             >
               <QuranVerseCard
                 verse={verse}
+                viewMode={viewMode}
                 highlightStatus={getVerseHighlightStatus(verse.verse_key)}
                 highlightedWordPosition={getVerseHighlightedWordPosition(
                   verse.verse_key

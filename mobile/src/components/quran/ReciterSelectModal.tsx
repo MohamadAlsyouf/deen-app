@@ -200,9 +200,10 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   reciterArabicName: {
-    ...typography.caption,
+    fontSize: 15,
     color: colors.text.secondary,
-    marginTop: 2,
+    marginTop: 4,
+    textAlign: 'left',
   },
   separator: {
     height: 1,

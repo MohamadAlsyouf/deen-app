@@ -4,10 +4,13 @@ import { Card } from '@/components';
 import { colors, spacing, typography, borderRadius } from '@/theme';
 import type { QuranVerse, QuranWord } from '@/types/quran';
 
+export type ViewMode = 'all' | 'arabic' | 'english';
+
 type HighlightStatus = 'none' | 'current' | 'completed';
 
 type QuranVerseCardProps = {
   verse: QuranVerse;
+  viewMode?: ViewMode;
   highlightStatus?: HighlightStatus;
   highlightedWordPosition?: number | null;
 };
@@ -72,6 +75,7 @@ const sanitizeTranslationText = (value: string): string => {
 
 export const QuranVerseCard: React.FC<QuranVerseCardProps> = ({
   verse,
+  viewMode = 'all',
   highlightStatus = 'none',
   highlightedWordPosition = null,
 }) => {
@@ -85,11 +89,20 @@ export const QuranVerseCard: React.FC<QuranVerseCardProps> = ({
   const isCompletedVerse = highlightStatus === 'completed';
   const isVerseHighlighted = isCurrentVerse || isCompletedVerse;
 
+  // Determine what to show based on view mode
+  const showArabic = viewMode === 'all' || viewMode === 'arabic';
+  const showTransliteration = viewMode === 'all';
+  const showTranslation = viewMode === 'all' || viewMode === 'english';
+
   const renderArabicText = () => {
     // If no words data, render plain text with potential highlighting
     if (arabicWords.length === 0) {
       return (
-        <Text style={[styles.arabic, isCurrentVerse && styles.currentVerseText]}>
+        <Text style={[
+          styles.arabic,
+          isCurrentVerse && styles.currentVerseText,
+          viewMode === 'arabic' && styles.arabicOnlyText,
+        ]}>
           {verse.text_uthmani}
         </Text>
       );
@@ -97,13 +110,23 @@ export const QuranVerseCard: React.FC<QuranVerseCardProps> = ({
 
     // No highlighting needed
     if (highlightStatus === 'none') {
-      return <Text style={styles.arabic}>{verse.text_uthmani}</Text>;
+      return (
+        <Text style={[
+          styles.arabic,
+          viewMode === 'arabic' && styles.arabicOnlyText,
+        ]}>
+          {verse.text_uthmani}
+        </Text>
+      );
     }
 
     // When verse is completed, all words are green
     if (isCompletedVerse) {
       return (
-        <Text style={styles.arabic}>
+        <Text style={[
+          styles.arabic,
+          viewMode === 'arabic' && styles.arabicOnlyText,
+        ]}>
           {arabicWords.map((word, index) => (
             <Text key={index} style={styles.completedWord}>
               {word.text}
@@ -117,7 +140,10 @@ export const QuranVerseCard: React.FC<QuranVerseCardProps> = ({
     // Current verse - highlight words up to and including the current position
     // If no word position yet, still show the verse as current (highlighted card)
     return (
-      <Text style={styles.arabic}>
+      <Text style={[
+        styles.arabic,
+        viewMode === 'arabic' && styles.arabicOnlyText,
+      ]}>
         {arabicWords.map((word, index) => {
           const shouldHighlight =
             word.isWord &&
@@ -138,10 +164,50 @@ export const QuranVerseCard: React.FC<QuranVerseCardProps> = ({
     );
   };
 
+  // English-only mode renders differently - larger, more prominent text
+  if (viewMode === 'english') {
+    return (
+      <Card
+        style={[
+          styles.card,
+          styles.englishOnlyCard,
+          isCurrentVerse && styles.currentCard,
+          isCompletedVerse && styles.completedCard,
+        ]}
+      >
+        <View style={styles.englishOnlyHeader}>
+          <View style={[
+            styles.badge,
+            isCurrentVerse && styles.currentBadge,
+            isCompletedVerse && styles.completedBadge,
+          ]}>
+            <Text style={[
+              styles.badgeText,
+              isVerseHighlighted && styles.highlightedBadgeText,
+            ]}>
+              {verse.verse_number}
+            </Text>
+          </View>
+        </View>
+
+        {translationText.length > 0 && (
+          <Text style={[
+            styles.englishOnlyText,
+            isCurrentVerse && styles.englishOnlyTextCurrent,
+            isCompletedVerse && styles.englishOnlyTextCompleted,
+          ]} selectable>
+            {translationText}
+          </Text>
+        )}
+      </Card>
+    );
+  }
+
   return (
     <Card
       style={[
         styles.card,
+        viewMode === 'arabic' && styles.arabicOnlyCard,
         isCurrentVerse && styles.currentCard,
         isCompletedVerse && styles.completedCard,
       ]}
@@ -159,20 +225,22 @@ export const QuranVerseCard: React.FC<QuranVerseCardProps> = ({
             {verse.verse_number}
           </Text>
         </View>
-        <Text style={[styles.verseKey, isCurrentVerse && styles.currentVerseKey]}>
-          {verse.verse_key}
-        </Text>
+        {viewMode === 'all' && (
+          <Text style={[styles.verseKey, isCurrentVerse && styles.currentVerseKey]}>
+            {verse.verse_key}
+          </Text>
+        )}
       </View>
 
-      {renderArabicText()}
+      {showArabic && renderArabicText()}
 
-      {ayahTransliteration.length > 0 && (
+      {showTransliteration && ayahTransliteration.length > 0 && (
         <Text style={styles.ayahTransliteration} selectable>
           {ayahTransliteration}
         </Text>
       )}
 
-      {translationText.length > 0 && (
+      {showTranslation && translationText.length > 0 && (
         <Text style={styles.translation} selectable>
           {translationText}
         </Text>
@@ -266,5 +334,34 @@ const styles = StyleSheet.create({
     color: colors.primaryDark,
     marginTop: spacing.sm,
     lineHeight: 26,
+  },
+  // Arabic-only mode styles
+  arabicOnlyCard: {
+    paddingVertical: spacing.xl,
+  },
+  arabicOnlyText: {
+    fontSize: 32,
+    lineHeight: 54,
+  },
+  // English-only mode styles
+  englishOnlyCard: {
+    paddingVertical: spacing.lg,
+  },
+  englishOnlyHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  englishOnlyText: {
+    ...typography.body,
+    fontSize: 18,
+    lineHeight: 30,
+    color: colors.text.primary,
+  },
+  englishOnlyTextCurrent: {
+    color: colors.primaryDark,
+  },
+  englishOnlyTextCompleted: {
+    color: colors.primaryLight,
   },
 });

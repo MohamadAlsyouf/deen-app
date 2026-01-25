@@ -148,15 +148,34 @@ export const quranService = {
     return await fetchJson<QuranVersesResponse>(url);
   },
 
-  getReciters: async (language: string = "en"): Promise<NormalizedReciter[]> => {
-    // Use public API - no authentication required
-    const url = buildUrl("/resources/recitations", { language }, false);
-    const data = await fetchJson<QuranRecitersResponse>(url, false);
-    // Normalize the reciter data to a consistent format
-    return data.recitations.map((reciter) => ({
+  getReciters: async (): Promise<NormalizedReciter[]> => {
+    // Fetch reciters in both English and Arabic to get proper names
+    const [englishData, arabicData] = await Promise.all([
+      fetchJson<QuranRecitersResponse>(
+        buildUrl("/resources/recitations", { language: "en" }, false),
+        false
+      ),
+      fetchJson<QuranRecitersResponse>(
+        buildUrl("/resources/recitations", { language: "ar" }, false),
+        false
+      ),
+    ]);
+
+    // Create a map of Arabic names by reciter ID
+    const arabicNameMap = new Map<number, string>();
+    arabicData.recitations.forEach((reciter) => {
+      // The translated_name when fetched with Arabic contains the Arabic name
+      arabicNameMap.set(
+        reciter.id,
+        reciter.translated_name?.name || ""
+      );
+    });
+
+    // Normalize the reciter data with both English and Arabic names
+    return englishData.recitations.map((reciter) => ({
       id: reciter.id,
       name: reciter.reciter_name,
-      arabic_name: reciter.translated_name?.name || reciter.reciter_name,
+      arabic_name: arabicNameMap.get(reciter.id) || "",
     }));
   },
 
