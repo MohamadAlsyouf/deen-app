@@ -1,4 +1,5 @@
 import React from 'react';
+import { Platform } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { AboutScreen, ContactScreen, HomeScreen } from '@/screens';
@@ -12,6 +13,8 @@ export type TabParamList = {
 
 const Tab = createBottomTabNavigator<TabParamList>();
 
+const isWeb = Platform.OS === 'web';
+
 export const TabNavigator: React.FC = () => {
   return (
     <Tab.Navigator
@@ -20,7 +23,8 @@ export const TabNavigator: React.FC = () => {
         headerShown: false,
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.text.secondary,
-        tabBarStyle: {
+        // Hide tab bar on web - sidebar handles navigation
+        tabBarStyle: isWeb ? { display: 'none' } : {
           borderTopColor: colors.border,
           paddingBottom: 28,
           paddingTop: 8,

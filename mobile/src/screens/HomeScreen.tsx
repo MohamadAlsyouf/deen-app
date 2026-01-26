@@ -7,8 +7,15 @@ import { Header, Card, QuranFeatureCard, PillarsFeatureCard, AsmaUlHusnaFeatureC
 import { colors, spacing, typography } from '@/theme';
 import { useAuth } from '@/hooks/useAuth';
 import type { TabParamList } from '@/navigation/TabNavigator';
+import { WebHomeScreen } from './WebHomeScreen';
 
 export const HomeScreen: React.FC = () => {
+  // Use the dedicated web dashboard on web
+  if (Platform.OS === 'web') {
+    return <WebHomeScreen />;
+  }
+
+  // Mobile version
   const navigation = useNavigation<BottomTabNavigationProp<TabParamList, 'Home'>>();
   const { signOut } = useAuth();
   const insets = useSafeAreaInsets();
@@ -65,7 +72,7 @@ export const HomeScreen: React.FC = () => {
         />
       </View>
       <ScrollView
-        style={[styles.scrollView, Platform.OS === 'web' && styles.webScrollView]}
+        style={styles.scrollView}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
         scrollEventThrottle={16}
@@ -98,14 +105,6 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
-  },
-  webScrollView: {
-    // @ts-ignore - web-specific CSS properties
-    overflowY: 'auto',
-    // @ts-ignore - web-specific CSS properties
-    WebkitOverflowScrolling: 'touch',
-    // @ts-ignore - web-specific CSS properties
-    touchAction: 'pan-y',
   },
   content: {
     padding: spacing.lg,

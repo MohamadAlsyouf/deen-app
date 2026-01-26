@@ -1,12 +1,35 @@
-<!DOCTYPE html>
+#!/usr/bin/env node
+/**
+ * Post-build script to enhance the web build with SEO and custom styling
+ * Run after: expo export --platform web
+ */
+
+const fs = require('fs');
+const path = require('path');
+
+const distPath = path.join(__dirname, '..', 'dist');
+const indexPath = path.join(distPath, 'index.html');
+
+// Check if dist exists
+if (!fs.existsSync(distPath)) {
+  console.log('No dist folder found. Run expo export --platform web first.');
+  process.exit(1);
+}
+
+// Read the generated index.html to get the script src
+let originalHtml = fs.readFileSync(indexPath, 'utf8');
+
+// Extract the script src from the original file
+const scriptMatch = originalHtml.match(/<script src="([^"]+)" defer><\/script>/);
+const scriptSrc = scriptMatch ? scriptMatch[1] : '/_expo/static/js/web/index.js';
+
+// Create enhanced HTML
+const enhancedHtml = `<!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
-    <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1, shrink-to-fit=no, user-scalable=no, viewport-fit=cover"
-    />
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no, user-scalable=no, viewport-fit=cover" />
 
     <!-- Primary Meta Tags -->
     <title>Deen Learning - Your Journey to Islamic Knowledge</title>
@@ -40,57 +63,35 @@
     <link rel="icon" href="/favicon.ico" />
     <link rel="apple-touch-icon" sizes="180x180" href="/assets/icon.png" />
 
-    <!-- Google Fonts - Cormorant Garamond for headings, DM Sans for body, Amiri for Arabic -->
+    <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Amiri:wght@400;700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
 
-    <style>
-      /* Critical: Set full height on html and body for React Native Web scrolling */
-      html,
-      body,
-      #root {
-        width: 100%;
+    <!-- Expo Reset + Custom Styles -->
+    <style id="expo-reset">
+      html, body {
         height: 100%;
         margin: 0;
         padding: 0;
-        overflow: hidden;
-        -webkit-overflow-scrolling: touch;
       }
-
       body {
-        font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        overflow: hidden;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
         -webkit-font-smoothing: antialiased;
         -moz-osx-font-smoothing: grayscale;
-        background-color: #FAFBFA;
-        color: #1A1A1A;
+        background-color: #FFFFFF;
       }
-
-      /* Ensure the app container fills the viewport */
       #root {
         display: flex;
-        flex-direction: column;
+        height: 100%;
+        flex: 1;
       }
-
-      /* Enable smooth scrolling and touch-action for scroll containers */
-      * {
-        box-sizing: border-box;
-      }
-
-      /* Fix for React Native Web ScrollView mouse scrolling */
-      [data-testid="scrollview"],
-      [role="scrollbar"],
-      div[style*="overflow"] {
-        -webkit-overflow-scrolling: touch;
-      }
-
-      /* Arabic text styling */
       .arabic-text {
         font-family: 'Amiri', serif;
         direction: rtl;
       }
-
-      /* Loading state */
+      /* Loading Screen */
       #loading-screen {
         position: fixed;
         top: 0;
@@ -105,28 +106,16 @@
         z-index: 9999;
         transition: opacity 0.4s ease-out;
       }
-
       #loading-screen.fade-out {
         opacity: 0;
         pointer-events: none;
       }
-
       .loader-icon {
         width: 80px;
         height: 80px;
         margin-bottom: 1.5rem;
         animation: pulse 2s ease-in-out infinite;
       }
-
-      .loader-title {
-        color: #FFFFFF;
-        font-size: 2.5rem;
-        font-weight: 700;
-        margin-bottom: 0.5rem;
-        letter-spacing: -0.02em;
-        text-align: center;
-      }
-
       .loader-arabic {
         font-family: 'Amiri', serif;
         color: #D4A373;
@@ -134,14 +123,18 @@
         margin-bottom: 0.5rem;
         direction: rtl;
       }
-
+      .loader-title {
+        color: #FFFFFF;
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+        letter-spacing: -0.02em;
+      }
       .loader-subtitle {
         color: rgba(255, 255, 255, 0.8);
         font-size: 1rem;
         margin-bottom: 2rem;
-        text-align: center;
       }
-
       .loader-spinner {
         width: 40px;
         height: 40px;
@@ -150,120 +143,24 @@
         border-radius: 50%;
         animation: spin 1s linear infinite;
       }
-
       @keyframes spin {
-        to {
-          transform: rotate(360deg);
-        }
+        to { transform: rotate(360deg); }
       }
-
       @keyframes pulse {
-        0%, 100% {
-          transform: scale(1);
-          opacity: 1;
-        }
-        50% {
-          transform: scale(1.05);
-          opacity: 0.9;
-        }
+        0%, 100% { transform: scale(1); opacity: 1; }
+        50% { transform: scale(1.05); opacity: 0.9; }
       }
-
-      @keyframes fadeInUp {
-        from {
-          opacity: 0;
-          transform: translateY(30px);
-        }
-        to {
-          opacity: 1;
-          transform: translateY(0);
-        }
-      }
-
-      @keyframes fadeIn {
-        from { opacity: 0; }
-        to { opacity: 1; }
-      }
-
-      @keyframes slideInLeft {
-        from {
-          opacity: 0;
-          transform: translateX(-20px);
-        }
-        to {
-          opacity: 1;
-          transform: translateX(0);
-        }
-      }
-
-      /* Audio wave animation for playing indicator */
-      @keyframes audioWave {
-        0%, 100% {
-          height: 8px;
-          opacity: 0.6;
-        }
-        50% {
-          height: 20px;
-          opacity: 1;
-        }
-      }
-
-      /* Smooth scrolling */
-      html {
-        scroll-behavior: smooth;
-      }
-
-      /* Selection color */
       ::selection {
         background-color: #2D6A4F;
         color: #FFFFFF;
       }
-
-      /* Focus styles for accessibility */
       :focus-visible {
         outline: 2px solid #D4A373;
         outline-offset: 2px;
       }
-
-      /* Custom scrollbar styling */
-      ::-webkit-scrollbar {
-        width: 10px;
-        height: 10px;
-      }
-
-      ::-webkit-scrollbar-track {
-        background: #F1F5F3;
-        border-radius: 5px;
-      }
-
-      ::-webkit-scrollbar-thumb {
-        background: linear-gradient(135deg, #1B4332 0%, #2D6A4F 100%);
-        border-radius: 5px;
-        transition: background 0.3s ease;
-      }
-
-      ::-webkit-scrollbar-thumb:hover {
-        background: linear-gradient(135deg, #2D6A4F 0%, #40916C 100%);
-      }
-
-      /* Firefox scrollbar */
-      * {
-        scrollbar-width: thin;
-        scrollbar-color: #2D6A4F #F1F5F3;
-      }
-
-      /* Smooth transitions for all interactive elements */
-      button, a, [role="button"], input, textarea, select {
-        transition: all 0.2s ease-out;
-      }
-
-      /* Better text rendering */
-      * {
-        -webkit-font-smoothing: antialiased;
-        -moz-osx-font-smoothing: grayscale;
-        text-rendering: optimizeLegibility;
-      }
     </style>
   </head>
+
   <body>
     <!-- Loading Screen -->
     <div id="loading-screen">
@@ -283,8 +180,8 @@
     <noscript>You need to enable JavaScript to run this app.</noscript>
     <div id="root"></div>
 
+    <script src="${scriptSrc}" defer></script>
     <script>
-      // Hide loading screen when app is ready
       window.addEventListener('load', function() {
         var loadingScreen = document.getElementById('loading-screen');
         if (loadingScreen) {
@@ -298,4 +195,8 @@
       });
     </script>
   </body>
-</html>
+</html>`;
+
+// Write enhanced HTML
+fs.writeFileSync(indexPath, enhancedHtml);
+console.log('Enhanced index.html with SEO, fonts, and loading screen.');
