@@ -44,6 +44,7 @@ type AudioPlayerContextValue = {
   currentPosition: number;
   duration: number;
   highlightState: HighlightState;
+  errorMessage: string | null;
 
   // Reciter state
   reciters: NormalizedReciter[];
@@ -70,6 +71,7 @@ type AudioPlayerContextValue = {
   setLoopSettings: (loopCount: number | null, isInfiniteLoop: boolean) => void;
   clearLoopSettings: () => void;
   resetPlaybackSettings: () => void;
+  clearError: () => void;
   reset: () => Promise<void>;
 };
 
@@ -86,6 +88,7 @@ export const AudioPlayerProvider: React.FC<AudioPlayerProviderProps> = ({
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const [playbackState, setPlaybackState] = useState<PlaybackState>('idle');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [currentPosition, setCurrentPosition] = useState(0);
   const [duration, setDuration] = useState(0);
   const [selectedReciter, setSelectedReciter] = useState<NormalizedReciter | null>(null);
@@ -313,6 +316,13 @@ export const AudioPlayerProvider: React.FC<AudioPlayerProviderProps> = ({
         setPlaybackState('paused');
       } catch (error) {
         console.error('Failed to load chapter audio:', error);
+        // Check if it's a file not found error (reciter doesn't have this chapter)
+        const errorStr = String(error);
+        if (errorStr.includes('-1100') || errorStr.includes('NSURLErrorDomain')) {
+          setErrorMessage('Audio not available for this reciter. Please select a different reciter.');
+        } else {
+          setErrorMessage('Failed to load audio. Please try again.');
+        }
         setPlaybackState('error');
       } finally {
         isLoadingRef.current = false;
@@ -320,6 +330,12 @@ export const AudioPlayerProvider: React.FC<AudioPlayerProviderProps> = ({
     },
     [selectedReciter, currentChapterId, audioFile, cleanup]
   );
+
+  // Clear error state
+  const clearError = useCallback(() => {
+    setErrorMessage(null);
+    setPlaybackState('idle');
+  }, []);
 
   // Ref to access verse range in interval without causing re-renders
   const verseRangeRef = useRef<VerseRange>({ startVerse: null, endVerse: null });
@@ -664,7 +680,12 @@ export const AudioPlayerProvider: React.FC<AudioPlayerProviderProps> = ({
       await cleanup();
       setAudioFile(null);
       setPlaybackState('idle');
+      setErrorMessage(null); // Clear any previous error
       setCurrentChapterId(null);
+      // Reset position and duration immediately so UI updates
+      setCurrentPosition(0);
+      setDuration(0);
+      loopStartPositionRef.current = 0;
       setHighlightState({
         verseKey: null,
         wordPosition: null,
@@ -733,6 +754,7 @@ export const AudioPlayerProvider: React.FC<AudioPlayerProviderProps> = ({
       currentPosition,
       duration,
       highlightState,
+      errorMessage,
       reciters,
       selectedReciter,
       isLoadingReciters: recitersQuery.isLoading,
@@ -749,6 +771,7 @@ export const AudioPlayerProvider: React.FC<AudioPlayerProviderProps> = ({
       setLoopSettings,
       clearLoopSettings,
       resetPlaybackSettings,
+      clearError,
       reset,
     }),
     [
@@ -756,6 +779,7 @@ export const AudioPlayerProvider: React.FC<AudioPlayerProviderProps> = ({
       currentPosition,
       duration,
       highlightState,
+      errorMessage,
       reciters,
       selectedReciter,
       recitersQuery.isLoading,
@@ -772,6 +796,7 @@ export const AudioPlayerProvider: React.FC<AudioPlayerProviderProps> = ({
       setLoopSettings,
       clearLoopSettings,
       resetPlaybackSettings,
+      clearError,
       reset,
     ]
   );

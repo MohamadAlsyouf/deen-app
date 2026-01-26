@@ -171,12 +171,18 @@ export const quranService = {
       );
     });
 
+    // Filter out reciters with known broken/incomplete audio
+    // ID 8 is Mohamed Siddiq al-Minshawi (Mujawwad) - has missing chapter audio
+    const BROKEN_RECITER_IDS = new Set([8]);
+
     // Normalize the reciter data with both English and Arabic names
-    return englishData.recitations.map((reciter) => ({
-      id: reciter.id,
-      name: reciter.reciter_name,
-      arabic_name: arabicNameMap.get(reciter.id) || "",
-    }));
+    return englishData.recitations
+      .filter((reciter) => !BROKEN_RECITER_IDS.has(reciter.id))
+      .map((reciter) => ({
+        id: reciter.id,
+        name: reciter.reciter_name,
+        arabic_name: arabicNameMap.get(reciter.id) || "",
+      }));
   },
 
   getChapterAudio: async (params: {

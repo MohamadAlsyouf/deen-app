@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -13,6 +13,7 @@ import {
   Platform,
   Switch,
   ScrollView,
+  Keyboard,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -31,6 +32,7 @@ type VerseRangeSidebarProps = {
   onClose: () => void;
   totalVerses: number;
   chapterId: number;
+  onScrollToVerse?: (verseNumber: number) => void;
 };
 
 export const VerseRangeSidebar: React.FC<VerseRangeSidebarProps> = ({
@@ -38,6 +40,7 @@ export const VerseRangeSidebar: React.FC<VerseRangeSidebarProps> = ({
   onClose,
   totalVerses,
   chapterId,
+  onScrollToVerse,
 }) => {
   const insets = useSafeAreaInsets();
   const { 
@@ -57,6 +60,84 @@ export const VerseRangeSidebar: React.FC<VerseRangeSidebarProps> = ({
   const [isInfiniteLoop, setIsInfiniteLoop] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const slideAnim = useState(new Animated.Value(SIDEBAR_WIDTH))[0];
+  const overlayAnim = useState(new Animated.Value(0))[0];
+  
+  // Track which verse field was edited last (for auto-correction when start > end)
+  const [lastEditedField, setLastEditedField] = useState<'start' | 'end' | null>(null);
+  
+  // Track which input is currently focused (for keyboard toolbar)
+  const [focusedInput, setFocusedInput] = useState<'start' | 'end' | 'loop' | null>(null);
+  
+  // Refs for TextInputs to enable "Next" functionality
+  const startInputRef = useRef<TextInput>(null);
+  const endInputRef = useRef<TextInput>(null);
+  const loopInputRef = useRef<TextInput>(null);
+
+  // Auto-correct start input when it loses focus
+  const handleStartBlur = () => {
+    if (startInput.trim() === '') return;
+    
+    let value = parseInt(startInput, 10);
+    if (isNaN(value) || value < 1) {
+      setStartInput('1');
+      value = 1;
+    } else if (value > totalVerses) {
+      // Cap at totalVerses
+      setStartInput(totalVerses.toString());
+      value = totalVerses;
+    }
+    
+    // If start > end and start was edited last, adjust start to match end
+    const endValue = endInput.trim() === '' ? null : parseInt(endInput, 10);
+    if (endValue !== null && !isNaN(endValue) && value > endValue) {
+      if (lastEditedField === 'start') {
+        // Start was edited last, so adjust start to match end
+        setStartInput(endValue.toString());
+      } else {
+        // End was edited first, so adjust end to match start
+        setEndInput(value.toString());
+      }
+    }
+  };
+
+  // Auto-correct end input when it loses focus
+  const handleEndBlur = () => {
+    if (endInput.trim() === '') return;
+    
+    let value = parseInt(endInput, 10);
+    if (isNaN(value) || value < 1) {
+      setEndInput('1');
+      value = 1;
+    } else if (value > totalVerses) {
+      // Cap at totalVerses
+      setEndInput(totalVerses.toString());
+      value = totalVerses;
+    }
+    
+    // If start > end and end was edited last, adjust end to match start
+    const startValue = startInput.trim() === '' ? null : parseInt(startInput, 10);
+    if (startValue !== null && !isNaN(startValue) && startValue > value) {
+      if (lastEditedField === 'end') {
+        // End was edited last, so adjust end to match start
+        setEndInput(startValue.toString());
+      } else {
+        // Start was edited first, so adjust start to match end
+        setStartInput(value.toString());
+      }
+    }
+  };
+
+  // Handle start input change
+  const handleStartChange = (text: string) => {
+    setStartInput(text);
+    setLastEditedField('start');
+  };
+
+  // Handle end input change
+  const handleEndChange = (text: string) => {
+    setEndInput(text);
+    setLastEditedField('end');
+  };
 
   // Initialize inputs from current settings
   useEffect(() => {
@@ -66,21 +147,37 @@ export const VerseRangeSidebar: React.FC<VerseRangeSidebarProps> = ({
       setLoopCountInput(loopSettings.loopCount?.toString() ?? '');
       setIsInfiniteLoop(loopSettings.isInfiniteLoop);
       setError(null);
-      // Animate in
-      Animated.timing(slideAnim, {
+      setLastEditedField(null);
+      // Animate in - both overlay and sidebar together
+      Animated.parallel([
+        Animated.timing(overlayAnim, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+        Animated.timing(slideAnim, {
+          toValue: 0,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+  }, [visible, verseRange.startVerse, verseRange.endVerse, loopSettings.loopCount, loopSettings.isInfiniteLoop, slideAnim, overlayAnim]);
+
+  const handleClose = () => {
+    // Animate out - both overlay and sidebar together
+    Animated.parallel([
+      Animated.timing(overlayAnim, {
         toValue: 0,
         duration: 250,
         useNativeDriver: true,
-      }).start();
-    }
-  }, [visible, verseRange.startVerse, verseRange.endVerse, loopSettings.loopCount, loopSettings.isInfiniteLoop, slideAnim]);
-
-  const handleClose = () => {
-    Animated.timing(slideAnim, {
-      toValue: SIDEBAR_WIDTH,
-      duration: 200,
-      useNativeDriver: true,
-    }).start(() => {
+      }),
+      Animated.timing(slideAnim, {
+        toValue: SIDEBAR_WIDTH,
+        duration: 250,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
       onClose();
     });
   };
@@ -88,31 +185,15 @@ export const VerseRangeSidebar: React.FC<VerseRangeSidebarProps> = ({
   const validateAndApply = () => {
     setError(null);
 
+    // Run blur handlers to ensure any pending corrections are applied
+    handleStartBlur();
+    handleEndBlur();
+
     const start = startInput.trim() === '' ? null : parseInt(startInput, 10);
     const end = endInput.trim() === '' ? null : parseInt(endInput, 10);
     const loopCount = loopCountInput.trim() === '' ? null : parseInt(loopCountInput, 10);
 
-    // Verse range validation
-    if (start !== null) {
-      if (isNaN(start) || start < 1 || start > totalVerses) {
-        setError(`Start verse must be between 1 and ${totalVerses}`);
-        return;
-      }
-    }
-
-    if (end !== null) {
-      if (isNaN(end) || end < 1 || end > totalVerses) {
-        setError(`End verse must be between 1 and ${totalVerses}`);
-        return;
-      }
-    }
-
-    if (start !== null && end !== null && start > end) {
-      setError('Start verse cannot be greater than end verse');
-      return;
-    }
-
-    // Loop count validation
+    // Loop count validation (verse range is auto-corrected)
     if (loopCount !== null && !isInfiniteLoop) {
       if (isNaN(loopCount) || loopCount < 1) {
         setError('Loop count must be at least 1');
@@ -155,6 +236,11 @@ export const VerseRangeSidebar: React.FC<VerseRangeSidebarProps> = ({
       }
     }
 
+    // Scroll to start verse (will load more pages if needed)
+    if (start !== null && start > 1 && onScrollToVerse) {
+      onScrollToVerse(start);
+    }
+
     handleClose();
   };
 
@@ -186,8 +272,15 @@ export const VerseRangeSidebar: React.FC<VerseRangeSidebarProps> = ({
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.modalContainer}
       >
-        {/* Overlay */}
-        <Pressable style={styles.overlay} onPress={handleClose} />
+        {/* Animated Overlay */}
+        <Animated.View 
+          style={[
+            styles.overlay,
+            { opacity: overlayAnim }
+          ]}
+        >
+          <Pressable style={StyleSheet.absoluteFill} onPress={handleClose} />
+        </Animated.View>
 
         {/* Sidebar */}
         <Animated.View
@@ -249,13 +342,18 @@ export const VerseRangeSidebar: React.FC<VerseRangeSidebarProps> = ({
                 <View style={styles.inputWrapper}>
                   <Text style={styles.label}>Start</Text>
                   <TextInput
+                    ref={startInputRef}
                     style={styles.input}
                     placeholder={`1`}
                     placeholderTextColor={colors.text.disabled}
                     value={startInput}
-                    onChangeText={setStartInput}
-                    keyboardType="number-pad"
-                    returnKeyType="next"
+                    onChangeText={handleStartChange}
+                    onBlur={() => {
+                      handleStartBlur();
+                      setFocusedInput(null);
+                    }}
+                    onFocus={() => setFocusedInput('start')}
+                    keyboardType="numeric"
                     maxLength={4}
                   />
                 </View>
@@ -267,13 +365,18 @@ export const VerseRangeSidebar: React.FC<VerseRangeSidebarProps> = ({
                 <View style={styles.inputWrapper}>
                   <Text style={styles.label}>End</Text>
                   <TextInput
+                    ref={endInputRef}
                     style={styles.input}
                     placeholder={`${totalVerses}`}
                     placeholderTextColor={colors.text.disabled}
                     value={endInput}
-                    onChangeText={setEndInput}
-                    keyboardType="number-pad"
-                    returnKeyType="done"
+                    onChangeText={handleEndChange}
+                    onBlur={() => {
+                      handleEndBlur();
+                      setFocusedInput(null);
+                    }}
+                    onFocus={() => setFocusedInput('end')}
+                    keyboardType="numeric"
                     maxLength={4}
                   />
                 </View>
@@ -317,12 +420,15 @@ export const VerseRangeSidebar: React.FC<VerseRangeSidebarProps> = ({
                   <Text style={styles.label}>Number of loops</Text>
                   <View style={styles.loopCountInputRow}>
                     <TextInput
+                      ref={loopInputRef}
                       style={[styles.input, styles.loopCountInput]}
                       placeholder="1"
                       placeholderTextColor={colors.text.disabled}
                       value={loopCountInput}
                       onChangeText={setLoopCountInput}
-                      keyboardType="number-pad"
+                      onFocus={() => setFocusedInput('loop')}
+                      onBlur={() => setFocusedInput(null)}
+                      keyboardType="numeric"
                       maxLength={3}
                     />
                     <Text style={styles.loopCountHint}>
@@ -372,8 +478,25 @@ export const VerseRangeSidebar: React.FC<VerseRangeSidebarProps> = ({
               )}
             </View>
           </ScrollView>
+
+          {/* Keyboard Toolbar - simple Done button */}
+          {focusedInput !== null && (
+            <View style={styles.keyboardToolbar}>
+              <TouchableOpacity
+                style={styles.keyboardToolbarDoneButton}
+                onPress={() => {
+                  Keyboard.dismiss();
+                  setFocusedInput(null);
+                }}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.keyboardToolbarDoneText}>Done</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </Animated.View>
       </KeyboardAvoidingView>
+
     </Modal>
   );
 };
@@ -584,5 +707,29 @@ const styles = StyleSheet.create({
   resetButtonText: {
     ...typography.button,
     color: colors.primary,
+  },
+  // Keyboard toolbar styles - simple Done button
+  keyboardToolbar: {
+    backgroundColor: colors.background,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  keyboardToolbarDoneButton: {
+    backgroundColor: colors.primary,
+    borderRadius: borderRadius.md,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  keyboardToolbarDoneText: {
+    color: colors.text.white,
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

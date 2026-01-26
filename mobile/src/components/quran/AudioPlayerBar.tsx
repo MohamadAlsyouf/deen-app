@@ -31,8 +31,10 @@ export const AudioPlayerBar: React.FC<AudioPlayerBarProps> = ({
     currentPosition,
     duration,
     selectedReciter,
+    errorMessage,
     play,
     pause,
+    clearError,
   } = useAudioPlayer();
 
   const handlePlayPause = useCallback(async () => {
@@ -43,36 +45,59 @@ export const AudioPlayerBar: React.FC<AudioPlayerBarProps> = ({
     }
   }, [playbackState, play, pause]);
 
+  const handleReciterPress = useCallback(() => {
+    // Clear any error when opening reciter selection
+    if (playbackState === 'error') {
+      clearError();
+    }
+    onReciterPress();
+  }, [playbackState, clearError, onReciterPress]);
+
   const isLoading = playbackState === 'loading';
   const isPlaying = playbackState === 'playing';
-  const isDisabled = playbackState === 'idle' || playbackState === 'error';
+  const isError = playbackState === 'error';
+  const isDisabled = playbackState === 'idle' || isError;
 
   const progress = duration > 0 ? (currentPosition / duration) * 100 : 0;
 
   return (
     <View style={[styles.container, { paddingBottom: Math.max(insets.bottom, spacing.xs) }]}>
+      {/* Error message banner */}
+      {isError && errorMessage && (
+        <View style={styles.errorBanner}>
+          <Ionicons name="alert-circle" size={16} color={colors.error} />
+          <Text style={styles.errorText} numberOfLines={1}>{errorMessage}</Text>
+        </View>
+      )}
+
       {/* Progress bar */}
       <View style={styles.progressContainer}>
-        <View style={[styles.progressFill, { width: `${progress}%` }]} />
+        <View style={[styles.progressFill, isError && styles.progressFillError, { width: `${progress}%` }]} />
       </View>
 
       <View style={styles.content}>
         {/* Time display */}
         <View style={styles.timeContainer}>
-          <Text style={styles.timeText}>{formatTime(currentPosition)}</Text>
+          <Text style={[styles.timeText, isError && styles.timeTextError]}>
+            {formatTime(currentPosition)}
+          </Text>
           <Text style={styles.timeSeparator}>/</Text>
-          <Text style={styles.timeText}>{formatTime(duration)}</Text>
+          <Text style={[styles.timeText, isError && styles.timeTextError]}>
+            {formatTime(duration)}
+          </Text>
         </View>
 
         {/* Play/Pause button */}
         <TouchableOpacity
-          style={[styles.playButton, isDisabled && styles.playButtonDisabled]}
+          style={[styles.playButton, isDisabled && styles.playButtonDisabled, isError && styles.playButtonError]}
           onPress={handlePlayPause}
           disabled={isDisabled || isLoading}
           activeOpacity={0.7}
         >
           {isLoading ? (
             <ActivityIndicator size="small" color={colors.text.white} />
+          ) : isError ? (
+            <Ionicons name="alert" size={20} color={colors.text.white} />
           ) : (
             <Ionicons
               name={isPlaying ? 'pause' : 'play'}
@@ -85,20 +110,22 @@ export const AudioPlayerBar: React.FC<AudioPlayerBarProps> = ({
 
         {/* Reciter selector */}
         <TouchableOpacity
-          style={styles.reciterButton}
-          onPress={onReciterPress}
+          style={[styles.reciterButton, isError && styles.reciterButtonError]}
+          onPress={handleReciterPress}
           activeOpacity={0.7}
         >
           <View style={styles.reciterInfo}>
-            <Text style={styles.reciterLabel}>Reciter</Text>
-            <Text style={styles.reciterName} numberOfLines={1}>
+            <Text style={[styles.reciterLabel, isError && styles.reciterLabelError]}>
+              {isError ? 'Select Different Reciter' : 'Reciter'}
+            </Text>
+            <Text style={[styles.reciterName, isError && styles.reciterNameError]} numberOfLines={1}>
               {selectedReciter?.name ?? 'Select'}
             </Text>
           </View>
           <Ionicons
             name="chevron-down"
             size={18}
-            color={colors.text.secondary}
+            color={isError ? colors.error : colors.text.secondary}
           />
         </TouchableOpacity>
       </View>
@@ -113,6 +140,19 @@ const styles = StyleSheet.create({
     borderTopColor: colors.border,
     ...shadows.medium,
   },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF3F3',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    gap: spacing.xs,
+  },
+  errorText: {
+    ...typography.caption,
+    color: colors.error,
+    flex: 1,
+  },
   progressContainer: {
     height: 3,
     backgroundColor: colors.border,
@@ -120,6 +160,9 @@ const styles = StyleSheet.create({
   progressFill: {
     height: '100%',
     backgroundColor: colors.primary,
+  },
+  progressFillError: {
+    backgroundColor: colors.error,
   },
   content: {
     flexDirection: 'row',
@@ -155,6 +198,12 @@ const styles = StyleSheet.create({
   playButtonDisabled: {
     backgroundColor: colors.text.disabled,
   },
+  playButtonError: {
+    backgroundColor: colors.error,
+  },
+  timeTextError: {
+    color: colors.error,
+  },
   playIcon: {
     marginLeft: 2, // Visual centering for play icon
   },
@@ -183,6 +232,17 @@ const styles = StyleSheet.create({
     color: colors.text.primary,
     fontWeight: '600',
     fontSize: 14,
+  },
+  reciterButtonError: {
+    borderWidth: 1,
+    borderColor: colors.error,
+    backgroundColor: '#FFF3F3',
+  },
+  reciterLabelError: {
+    color: colors.error,
+  },
+  reciterNameError: {
+    color: colors.error,
   },
 });
 

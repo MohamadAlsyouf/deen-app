@@ -146,6 +146,45 @@ export const QuranChapterScreen: React.FC = () => {
     versesQuery.fetchNextPage();
   };
 
+  // Target verse to scroll to (set when user applies a range)
+  const [targetScrollVerse, setTargetScrollVerse] = useState<number | null>(null);
+
+  // Load verses until target verse is available, then scroll to it
+  useEffect(() => {
+    if (targetScrollVerse === null) return;
+    
+    const verseKey = `${chapterId}:${targetScrollVerse}`;
+    
+    // Check if verse is loaded
+    const isVerseLoaded = verses.some((v) => v.verse_key === verseKey);
+    
+    if (isVerseLoaded) {
+      // Wait for layout to update, then scroll
+      setTimeout(() => {
+        const verseInfo = versePositions.current.get(verseKey);
+        if (verseInfo && scrollViewRef.current && containerHeight > 0) {
+          const { y, height } = verseInfo;
+          const scrollTo = y - (containerHeight / 2) + (height / 2);
+          scrollViewRef.current.scrollTo({
+            y: Math.max(0, scrollTo),
+            animated: true,
+          });
+        }
+        // Clear target after scrolling
+        setTargetScrollVerse(null);
+      }, 150);
+    } else if (versesQuery.hasNextPage && !versesQuery.isFetchingNextPage) {
+      // Need to load more verses
+      versesQuery.fetchNextPage();
+    }
+  }, [targetScrollVerse, verses, chapterId, containerHeight, versesQuery]);
+
+  // Function to trigger scroll to a verse (called from sidebar)
+  const scrollToVerse = useCallback((verseNumber: number) => {
+    if (verseNumber <= 0) return;
+    setTargetScrollVerse(verseNumber);
+  }, []);
+
   const handleOpenReciterModal = () => {
     setIsReciterModalVisible(true);
   };
@@ -311,6 +350,7 @@ export const QuranChapterScreen: React.FC = () => {
         onClose={handleCloseVerseRangeSidebar}
         totalVerses={totalVerses}
         chapterId={chapterId}
+        onScrollToVerse={scrollToVerse}
       />
     </SafeAreaView>
   );
