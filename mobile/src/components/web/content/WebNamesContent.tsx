@@ -196,8 +196,10 @@ const NameCard: React.FC<{
 
 export const WebNamesContent: React.FC = () => {
   const { width } = useWindowDimensions();
-  const isWide = width >= 1400;
-  const isMedium = width >= 1000;
+  // Responsive breakpoints for grid columns
+  const isCompact = width < 700;
+  const isMedium = width >= 700 && width < 1100;
+  const isWide = width >= 1100;
 
   const dataQuery = useQuery({
     queryKey: ['asmaUlHusna'],
@@ -265,6 +267,7 @@ export const WebNamesContent: React.FC = () => {
           {/* Names Grid */}
           <View style={[
             styles.namesGrid,
+            isCompact && styles.namesGridCompact,
             isMedium && styles.namesGridMedium,
             isWide && styles.namesGridWide,
           ]}>
@@ -283,8 +286,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: 40,
-    paddingBottom: 60,
+    padding: 32,
+    paddingBottom: 80,
+    // @ts-ignore
+    maxWidth: 1400,
+    marginHorizontal: 'auto',
+    width: '100%',
   },
   pageHeader: {
     alignItems: 'center',
@@ -327,14 +334,13 @@ const styles = StyleSheet.create({
     fontFamily: "'DM Sans', sans-serif",
   },
   infoCardsContainer: {
-    flexDirection: 'row',
     gap: 20,
     marginBottom: 40,
-    flexWrap: 'wrap',
+    // @ts-ignore - Use CSS grid for consistent layout
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
   },
   infoCard: {
-    flex: 1,
-    minWidth: 300,
     backgroundColor: colors.background,
     borderRadius: 16,
     padding: 24,
@@ -366,15 +372,22 @@ const styles = StyleSheet.create({
     fontFamily: "'DM Sans', sans-serif",
   },
   namesGrid: {
-    gap: 16,
+    gap: 20,
+    // @ts-ignore - Use CSS grid for consistent columns
+    display: 'grid',
+    gridTemplateColumns: '1fr',
+  },
+  namesGridCompact: {
+    // @ts-ignore - Single column on small screens
+    gridTemplateColumns: '1fr',
   },
   namesGridMedium: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    // @ts-ignore - 2 columns on medium screens
+    gridTemplateColumns: 'repeat(2, 1fr)',
   },
   namesGridWide: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    // @ts-ignore - 3 columns on wide screens
+    gridTemplateColumns: 'repeat(3, 1fr)',
   },
   nameCard: {
     backgroundColor: colors.background,
@@ -385,9 +398,7 @@ const styles = StyleSheet.create({
     // @ts-ignore
     boxShadow: '0 4px 16px rgba(0, 0, 0, 0.06)',
     cursor: 'pointer',
-    // @ts-ignore
-    flex: '0 0 calc(33.333% - 11px)',
-    minWidth: 280,
+    width: '100%',
   },
   nameHeader: {
     flexDirection: 'row',
