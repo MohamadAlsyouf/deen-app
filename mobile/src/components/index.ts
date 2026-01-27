@@ -7,6 +7,7 @@ export { PillarsFeatureCard } from './featureCards/PillarsFeatureCard';
 export { AsmaUlHusnaFeatureCard } from './featureCards/AsmaUlHusnaFeatureCard';
 export { AboutFeatureCard } from './featureCards/AboutFeatureCard';
 export { ContactFeatureCard } from './featureCards/ContactFeatureCard';
+export { PrayerGuideFeatureCard } from './featureCards/PrayerGuideFeatureCard';
 export { QuranVerseCard } from './quran/QuranVerseCard';
 export { AudioPlayerBar } from './quran/AudioPlayerBar';
 export { ReciterSelectModal } from './quran/ReciterSelectModal';
