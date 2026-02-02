@@ -8,4 +8,5 @@ export { QuranChapterScreen } from './QuranChapterScreen';
 export { AsmaUlHusnaScreen } from './AsmaUlHusnaScreen';
 export { PillarsScreen } from './PillarsScreen';
 export { PrayerGuideScreen } from './PrayerGuideScreen';
+export { DuaScreen } from './DuaScreen';
 

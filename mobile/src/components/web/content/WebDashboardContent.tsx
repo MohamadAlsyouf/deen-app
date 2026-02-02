@@ -75,6 +75,18 @@ const FEATURE_CARDS: FeatureCardData[] = [
       { label: 'Attributes', value: '∞' },
     ],
   },
+  {
+    id: 'dua',
+    title: 'Dua & Dhikr',
+    subtitle: 'Daily Supplications',
+    description: 'Morning, evening, and daily duas with Arabic text, transliteration, translation, and benefits.',
+    icon: 'hand-left',
+    gradient: ['#667eea', '#764ba2'],
+    stats: [
+      { label: 'Categories', value: '4' },
+      { label: 'Duas', value: '25+' },
+    ],
+  },
 ];
 
 const FeatureCard: React.FC<{

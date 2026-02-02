@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ScrollView, Alert, Platform } from 'react-nativ
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
-import { Header, Card, QuranFeatureCard, PillarsFeatureCard, AsmaUlHusnaFeatureCard, PrayerGuideFeatureCard, AboutFeatureCard, ContactFeatureCard } from '@/components';
+import { Header, Card, QuranFeatureCard, PillarsFeatureCard, AsmaUlHusnaFeatureCard, PrayerGuideFeatureCard, DuaFeatureCard, AboutFeatureCard, ContactFeatureCard } from '@/components';
 import { colors, spacing, typography } from '@/theme';
 import { useAuth } from '@/hooks/useAuth';
 import type { TabParamList } from '@/navigation/TabNavigator';
@@ -60,6 +60,14 @@ export const HomeScreen: React.FC = () => {
     parentNavigation.navigate('PrayerGuide' as never);
   };
 
+  const handleOpenDua = () => {
+    const parentNavigation = navigation.getParent();
+    if (!parentNavigation) {
+      return;
+    }
+    parentNavigation.navigate('Dua' as never);
+  };
+
   const handleOpenAbout = () => {
     navigation.navigate('About');
   };
@@ -96,6 +104,7 @@ export const HomeScreen: React.FC = () => {
         <PrayerGuideFeatureCard onPress={handleOpenPrayerGuide} />
         <PillarsFeatureCard onPress={handleOpenPillars} />
         <AsmaUlHusnaFeatureCard onPress={handleOpenAsmaUlHusna} />
+        <DuaFeatureCard onPress={handleOpenDua} />
         <AboutFeatureCard onPress={handleOpenAbout} />
         <ContactFeatureCard onPress={handleOpenContact} />
       </ScrollView>
