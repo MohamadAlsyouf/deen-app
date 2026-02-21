@@ -32,6 +32,7 @@ export const AsmaUlHusnaNameCard: React.FC<AsmaUlHusnaNameCardProps> = ({ name }
         return;
       }
 
+      await Audio.setAudioModeAsync({ playsInSilentModeIOS: true });
       const { sound: newSound } = await Audio.Sound.createAsync(
         { uri: audioUrl },
         { shouldPlay: true }

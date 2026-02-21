@@ -6,5 +6,10 @@ export { ContactScreen } from './ContactScreen';
 export { QuranChaptersScreen } from './QuranChaptersScreen';
 export { QuranChapterScreen } from './QuranChapterScreen';
 export { AsmaUlHusnaScreen } from './AsmaUlHusnaScreen';
+export { AsmaUlHusnaMenuScreen } from './AsmaUlHusnaMenuScreen';
+export { AsmaUlHusnaGamesScreen } from './AsmaUlHusnaGamesScreen';
+export { AsmaUlHusnaFlashcardsScreen } from './AsmaUlHusnaFlashcardsScreen';
+export { AsmaUlHusnaMultipleChoiceScreen } from './AsmaUlHusnaMultipleChoiceScreen';
+export { AsmaUlHusnaMatchingScreen } from './AsmaUlHusnaMatchingScreen';
 export { PillarsScreen } from './PillarsScreen';
 

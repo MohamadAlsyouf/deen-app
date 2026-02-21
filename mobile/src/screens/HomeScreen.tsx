@@ -41,7 +41,7 @@ export const HomeScreen: React.FC = () => {
     if (!parentNavigation) {
       return;
     }
-    parentNavigation.navigate('AsmaUlHusna' as never);
+    parentNavigation.navigate('AsmaUlHusnaMenu' as never);
   };
 
   const handleOpenPillars = () => {

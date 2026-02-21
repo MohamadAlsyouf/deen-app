@@ -10,6 +10,7 @@ import {
   Animated,
   Dimensions,
   KeyboardAvoidingView,
+  InputAccessoryView,
   Platform,
   Switch,
   ScrollView,
@@ -22,6 +23,7 @@ import { useAudioPlayer } from '@/contexts/AudioPlayerContext';
 
 const SIDEBAR_WIDTH = 300;
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const DONE_ACCESSORY_ID = 'verse-range-keyboard-done';
 
 // Buffer to skip residual audio from previous verse when seeking
 // The API timestamps tend to be significantly early, so we need a larger buffer
@@ -65,10 +67,7 @@ export const VerseRangeSidebar: React.FC<VerseRangeSidebarProps> = ({
   // Track which verse field was edited last (for auto-correction when start > end)
   const [lastEditedField, setLastEditedField] = useState<'start' | 'end' | null>(null);
   
-  // Track which input is currently focused (for keyboard toolbar)
-  const [focusedInput, setFocusedInput] = useState<'start' | 'end' | 'loop' | null>(null);
-  
-  // Refs for TextInputs to enable "Next" functionality
+  // Refs for TextInputs
   const startInputRef = useRef<TextInput>(null);
   const endInputRef = useRef<TextInput>(null);
   const loopInputRef = useRef<TextInput>(null);
@@ -348,13 +347,10 @@ export const VerseRangeSidebar: React.FC<VerseRangeSidebarProps> = ({
                     placeholderTextColor={colors.text.disabled}
                     value={startInput}
                     onChangeText={handleStartChange}
-                    onBlur={() => {
-                      handleStartBlur();
-                      setFocusedInput(null);
-                    }}
-                    onFocus={() => setFocusedInput('start')}
+                    onBlur={handleStartBlur}
                     keyboardType="numeric"
                     maxLength={4}
+                    inputAccessoryViewID={Platform.OS === 'ios' ? DONE_ACCESSORY_ID : undefined}
                   />
                 </View>
 
@@ -371,13 +367,10 @@ export const VerseRangeSidebar: React.FC<VerseRangeSidebarProps> = ({
                     placeholderTextColor={colors.text.disabled}
                     value={endInput}
                     onChangeText={handleEndChange}
-                    onBlur={() => {
-                      handleEndBlur();
-                      setFocusedInput(null);
-                    }}
-                    onFocus={() => setFocusedInput('end')}
+                    onBlur={handleEndBlur}
                     keyboardType="numeric"
                     maxLength={4}
+                    inputAccessoryViewID={Platform.OS === 'ios' ? DONE_ACCESSORY_ID : undefined}
                   />
                 </View>
               </View>
@@ -426,10 +419,9 @@ export const VerseRangeSidebar: React.FC<VerseRangeSidebarProps> = ({
                       placeholderTextColor={colors.text.disabled}
                       value={loopCountInput}
                       onChangeText={setLoopCountInput}
-                      onFocus={() => setFocusedInput('loop')}
-                      onBlur={() => setFocusedInput(null)}
                       keyboardType="numeric"
                       maxLength={3}
+                      inputAccessoryViewID={Platform.OS === 'ios' ? DONE_ACCESSORY_ID : undefined}
                     />
                     <Text style={styles.loopCountHint}>
                       {loopCountInput && parseInt(loopCountInput, 10) > 1
@@ -479,24 +471,24 @@ export const VerseRangeSidebar: React.FC<VerseRangeSidebarProps> = ({
             </View>
           </ScrollView>
 
-          {/* Keyboard Toolbar - simple Done button */}
-          {focusedInput !== null && (
-            <View style={styles.keyboardToolbar}>
-              <TouchableOpacity
-                style={styles.keyboardToolbarDoneButton}
-                onPress={() => {
-                  Keyboard.dismiss();
-                  setFocusedInput(null);
-                }}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.keyboardToolbarDoneText}>Done</Text>
-              </TouchableOpacity>
-            </View>
-          )}
         </Animated.View>
       </KeyboardAvoidingView>
 
+      {/* Native iOS keyboard accessory — replaces the system toolbar entirely */}
+      {Platform.OS === 'ios' && (
+        <InputAccessoryView nativeID={DONE_ACCESSORY_ID}>
+          <View style={styles.keyboardToolbar}>
+            <View style={styles.keyboardToolbarSpacer} />
+            <TouchableOpacity
+              style={styles.keyboardToolbarDoneButton}
+              onPress={() => Keyboard.dismiss()}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.keyboardToolbarDoneText}>Done</Text>
+            </TouchableOpacity>
+          </View>
+        </InputAccessoryView>
+      )}
     </Modal>
   );
 };
@@ -708,27 +700,27 @@ const styles = StyleSheet.create({
     ...typography.button,
     color: colors.primary,
   },
-  // Keyboard toolbar styles - simple Done button
+  // Native keyboard accessory toolbar
   keyboardToolbar: {
-    backgroundColor: colors.background,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: '#F1F1F1',
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#B0B0B0',
+    paddingHorizontal: spacing.md,
+    paddingVertical: 6,
+  },
+  keyboardToolbarSpacer: {
+    flex: 1,
   },
   keyboardToolbarDoneButton: {
     backgroundColor: colors.primary,
     borderRadius: borderRadius.md,
-    paddingHorizontal: spacing.xl,
-    paddingVertical: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 8,
   },
   keyboardToolbarDoneText: {
-    color: colors.text.white,
+    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
   },
