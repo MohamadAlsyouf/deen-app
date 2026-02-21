@@ -23,8 +23,10 @@ import { useAuth } from '@/hooks/useAuth';
 // Content components
 import { WebDashboardContent } from './content/WebDashboardContent';
 import { WebQuranContent } from './content/WebQuranContent';
+import { WebPrayerGuideContent } from './content/WebPrayerGuideContent';
 import { WebPillarsContent } from './content/WebPillarsContent';
 import { WebNamesContent } from './content/WebNamesContent';
+import { WebDuaContent } from './content/WebDuaContent';
 import { WebAboutContent } from './content/WebAboutContent';
 import { WebContactContent } from './content/WebContactContent';
 
@@ -76,8 +78,10 @@ type NavItem = {
 const NAV_ITEMS: NavItem[] = [
   { id: 'home', label: 'Dashboard', icon: 'grid-outline', activeIcon: 'grid' },
   { id: 'quran', label: 'Quran', icon: 'book-outline', activeIcon: 'book' },
+  { id: 'prayer', label: 'Prayer Guide', icon: 'hand-left-outline', activeIcon: 'hand-left' },
   { id: 'pillars', label: 'Pillars', icon: 'compass-outline', activeIcon: 'compass' },
   { id: 'names', label: '99 Names', icon: 'heart-outline', activeIcon: 'heart' },
+  { id: 'dua', label: 'Dua & Dhikr', icon: 'hand-left-outline', activeIcon: 'hand-left' },
   { id: 'about', label: 'About', icon: 'information-circle-outline', activeIcon: 'information-circle' },
   { id: 'contact', label: 'Contact', icon: 'mail-outline', activeIcon: 'mail' },
 ];
@@ -263,10 +267,14 @@ export const WebAppShell: React.FC<WebAppShellProps> = ({ initialScreen = 'home'
             onBack={handleBack}
           />
         );
+      case 'prayer':
+        return <WebPrayerGuideContent />;
       case 'pillars':
         return <WebPillarsContent />;
       case 'names':
         return <WebNamesContent />;
+      case 'dua':
+        return <WebDuaContent />;
       case 'about':
         return <WebAboutContent />;
       case 'contact':
@@ -323,7 +331,7 @@ export const WebAppShell: React.FC<WebAppShellProps> = ({ initialScreen = 'home'
           <Text style={[styles.navSectionTitle, isCollapsed && styles.hidden]}>
             EXPLORE
           </Text>
-          {NAV_ITEMS.slice(0, 4).map((item, index) => (
+          {NAV_ITEMS.slice(0, 6).map((item, index) => (
             <View
               key={item.id}
               style={mounted ? {
@@ -346,7 +354,7 @@ export const WebAppShell: React.FC<WebAppShellProps> = ({ initialScreen = 'home'
           <Text style={[styles.navSectionTitle, isCollapsed && styles.hidden]}>
             MORE
           </Text>
-          {NAV_ITEMS.slice(4).map((item, index) => (
+          {NAV_ITEMS.slice(6).map((item, index) => (
             <View
               key={item.id}
               style={mounted ? {

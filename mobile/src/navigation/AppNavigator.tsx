@@ -13,6 +13,8 @@ import {
   AsmaUlHusnaMultipleChoiceScreen,
   AsmaUlHusnaMatchingScreen,
   PillarsScreen,
+  PrayerGuideScreen,
+  DuaScreen,
 } from '@/screens';
 import { TabNavigator } from './TabNavigator';
 import { useAuth } from '@/hooks/useAuth';
@@ -34,6 +36,8 @@ export type RootStackParamList = {
   AsmaUlHusnaMultipleChoice: undefined;
   AsmaUlHusnaMatching: undefined;
   Pillars: undefined;
+  PrayerGuide: undefined;
+  Dua: undefined;
 };
 
 const Stack = createStackNavigator<RootStackParamList>();
@@ -69,6 +73,8 @@ export const AppNavigator: React.FC = () => {
             <Stack.Screen name="AsmaUlHusnaMultipleChoice" component={AsmaUlHusnaMultipleChoiceScreen} />
             <Stack.Screen name="AsmaUlHusnaMatching" component={AsmaUlHusnaMatchingScreen} />
             <Stack.Screen name="Pillars" component={PillarsScreen} />
+            <Stack.Screen name="PrayerGuide" component={PrayerGuideScreen} />
+            <Stack.Screen name="Dua" component={DuaScreen} />
           </>
         ) : (
           <Stack.Screen name="Landing" component={LandingScreen} />

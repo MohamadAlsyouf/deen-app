@@ -40,6 +40,18 @@ const FEATURE_CARDS: FeatureCardData[] = [
     ],
   },
   {
+    id: 'prayer',
+    title: 'Prayer Guide',
+    subtitle: 'Step by Step',
+    description: 'Learn to perform the 5 daily prayers with complete step-by-step instructions, Arabic text, and translations.',
+    icon: 'hand-left',
+    gradient: ['#667eea', '#764ba2'],
+    stats: [
+      { label: 'Prayers', value: '5' },
+      { label: 'Daily', value: '17+' },
+    ],
+  },
+  {
     id: 'pillars',
     title: 'Pillars of Faith',
     subtitle: 'Islam & Iman',
@@ -61,6 +73,18 @@ const FEATURE_CARDS: FeatureCardData[] = [
     stats: [
       { label: 'Names', value: '99' },
       { label: 'Attributes', value: '∞' },
+    ],
+  },
+  {
+    id: 'dua',
+    title: 'Dua & Dhikr',
+    subtitle: 'Daily Supplications',
+    description: 'Morning, evening, and daily duas with Arabic text, transliteration, translation, and benefits.',
+    icon: 'hand-left',
+    gradient: ['#667eea', '#764ba2'],
+    stats: [
+      { label: 'Categories', value: '4' },
+      { label: 'Duas', value: '25+' },
     ],
   },
 ];

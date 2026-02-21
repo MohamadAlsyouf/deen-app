@@ -1,124 +1,90 @@
-# Deen Learning App
+# Deen App
 
-A modern React Native mobile application for learning about Deen (Islamic knowledge), built with Expo, TypeScript, TanStack Query, and Firebase.
+A beautiful, cross-platform mobile and web application for exploring and learning about Islamic knowledge -- built with React Native, Expo, and Firebase.
+
+---
+
+## Overview
+
+Deen App provides Muslims with easy access to essential Islamic resources in a clean, modern interface. Whether on mobile or web, users can read the Quran, learn duas, explore the 99 Names of Allah, understand the Pillars of Islam, and more.
 
 ## Features
 
-- 🔐 **Authentication**: Email/password authentication with Firebase
-- 📱 **Modern UI**: Clean, simple, and intuitive user interface
-- 📚 **About Section**: Learn about the Deen Learning platform and its mission
-- 💬 **Contact Form**: Easy communication with form validation
-- 🎨 **Beautiful Design**: Modern gradient backgrounds and smooth animations
-- 🔄 **State Management**: TanStack Query for efficient data fetching and caching
-- 📂 **Clean Architecture**: Well-organized file structure following best practices
+- **Quran Reader** -- Browse chapters, read verses with Arabic text, and listen to audio recitations
+- **Dua Collection** -- Curated supplications for daily life
+- **99 Names of Allah** -- Explore Asma Ul Husna with meanings and details
+- **Pillars of Islam** -- Learn about the five foundational pillars
+- **Prayer Guide** -- Step-by-step guidance for performing salah
+- **Authentication** -- Secure sign-in/sign-up with Firebase
+- **Contact Form** -- Reach out directly through the app
+- **Cross-Platform** -- Runs on iOS, Android, and Web
 
 ## Tech Stack
 
-- **Frontend**: React Native with Expo
-- **Language**: TypeScript
-- **Navigation**: React Navigation (Stack + Bottom Tabs)
-- **State Management**: TanStack Query (React Query)
-- **Backend**: Firebase (Authentication + Firestore)
-- **Storage**: AsyncStorage for auth persistence
-- **UI**: Custom components with gradient backgrounds
+| Layer            | Technology                             |
+| ---------------- | -------------------------------------- |
+| Framework        | React Native + Expo (SDK 54)           |
+| Language         | TypeScript                             |
+| Navigation       | React Navigation (Stack + Bottom Tabs) |
+| State Management | TanStack Query v5                      |
+| Backend          | Firebase (Auth, Firestore, Functions)  |
+| Styling          | Custom theme system with gradients     |
+| Web Support      | react-native-web                       |
 
 ## Project Structure
 
 ```
 deen-app/
-├── mobile/                           # React Native app
+├── mobile/
 │   ├── src/
-│   │   ├── components/              # Reusable UI components
-│   │   │   ├── Button.tsx
-│   │   │   ├── Input.tsx
-│   │   │   ├── Card.tsx
-│   │   │   └── Header.tsx
-│   │   ├── screens/                 # Screen components
-│   │   │   ├── LandingScreen.tsx
-│   │   │   ├── AboutScreen.tsx
-│   │   │   └── ContactScreen.tsx
-│   │   ├── navigation/              # Navigation setup
-│   │   │   ├── AppNavigator.tsx
-│   │   │   └── TabNavigator.tsx
-│   │   ├── services/                # API services
-│   │   │   ├── authService.ts
-│   │   │   └── contactService.ts
-│   │   ├── hooks/                   # Custom hooks
-│   │   │   ├── useAuth.ts
-│   │   │   └── AuthProvider.tsx
-│   │   ├── types/                   # TypeScript types
-│   │   │   ├── user.ts
-│   │   │   └── contact.ts
-│   │   ├── config/                  # Configuration
-│   │   │   └── firebase.ts
-│   │   ├── theme/                   # Theme constants
-│   │   │   ├── colors.ts
-│   │   │   ├── spacing.ts
-│   │   │   ├── typography.ts
-│   │   │   └── index.ts
-│   │   └── App.tsx                  # Root component
-│   ├── assets/                      # Images, fonts
-│   ├── app.json                     # Expo config
-│   ├── package.json
-│   ├── tsconfig.json
-│   └── babel.config.js
-├── firebase/                        # Firebase config
-│   └── firestore.rules             # Firestore security rules
+│   │   ├── components/         # Reusable UI components
+│   │   │   ├── web/            # Web-specific layout & content
+│   │   │   ├── quran/          # Quran reader components
+│   │   │   ├── pillars/        # Pillars of Islam components
+│   │   │   ├── featureCards/   # Home screen feature cards
+│   │   │   └── asmaUlHusna/   # 99 Names components
+│   │   ├── screens/            # App screens
+│   │   ├── navigation/         # Stack & tab navigators
+│   │   ├── services/           # Firebase API services
+│   │   ├── hooks/              # Custom hooks & auth provider
+│   │   ├── contexts/           # React contexts (audio player)
+│   │   ├── types/              # TypeScript type definitions
+│   │   ├── config/             # Firebase configuration
+│   │   ├── theme/              # Colors, spacing, typography
+│   │   └── App.tsx             # Root component
+│   └── package.json
+├── functions/                  # Firebase Cloud Functions
+├── firebase/                   # Firestore security rules
 └── README.md
 ```
 
-## Prerequisites
+## Getting Started
 
-Before you begin, ensure you have the following installed:
+### Prerequisites
 
-- Node.js (v18 or higher)
+- Node.js v18+
 - npm or yarn
-- Expo CLI (`npm install -g expo-cli`)
-- iOS Simulator (Mac only) or Android Studio for Android Emulator
-- Expo Go app on your physical device (optional)
+- Expo CLI
+- Firebase project with Auth & Firestore enabled
 
-## Firebase Setup
+### Installation
 
-1. Go to [Firebase Console](https://console.firebase.google.com/)
-2. Create a new project or use an existing one
-3. Enable Authentication:
-   - Go to Authentication > Sign-in method
-   - Enable Email/Password authentication
-4. Create a Firestore Database:
-   - Go to Firestore Database
-   - Create database in test mode (or production mode)
-5. Get your Firebase config:
-   - Go to Project Settings > General
-   - Scroll down to "Your apps" section
-   - Click on the web icon (</>) to create a web app
-   - Copy the Firebase configuration
-
-## Installation
-
-1. Clone the repository:
 ```bash
-git clone <repository-url>
-cd deen-app
-```
+# Clone the repository
+git clone https://github.com/your-username/deen-app.git
+cd deen-app/mobile
 
-2. Navigate to the mobile directory:
-```bash
-cd mobile
-```
-
-3. Install dependencies:
-```bash
+# Install dependencies
 npm install
-```
 
-4. Create environment file:
-```bash
+# Set up environment variables
 cp .env.example .env
 ```
 
-5. Update `.env` with your Firebase credentials:
+Add your Firebase credentials to `.env`:
+
 ```env
-EXPO_PUBLIC_FIREBASE_API_KEY=your-api-key-here
+EXPO_PUBLIC_FIREBASE_API_KEY=your-api-key
 EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
 EXPO_PUBLIC_FIREBASE_PROJECT_ID=your-project-id
 EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET=your-project.appspot.com
@@ -126,120 +92,41 @@ EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your-sender-id
 EXPO_PUBLIC_FIREBASE_APP_ID=your-app-id
 ```
 
-6. (Optional) Deploy Firestore security rules:
-```bash
-firebase deploy --only firestore:rules
-```
+### Running the App
 
-## Running the App
-
-### Start the development server:
 ```bash
+# Start dev server
 npm start
+
+# Platform-specific
+npm run ios       # iOS Simulator
+npm run android   # Android Emulator
+npm run web       # Web Browser
 ```
 
-### Run on specific platforms:
+### Deploying Cloud Functions
 
-**iOS Simulator** (Mac only):
 ```bash
-npm run ios
+cd functions
+npm install
+npm run deploy
 ```
 
-**Android Emulator**:
-```bash
-npm run android
-```
+## Scripts
 
-**Web Browser**:
-```bash
-npm run web
-```
-
-**Physical Device**:
-1. Install the Expo Go app from App Store or Google Play
-2. Scan the QR code shown in the terminal
-3. The app will open in Expo Go
-
-## Features Walkthrough
-
-### Landing Screen
-- Beautiful gradient background
-- Email/password authentication
-- Toggle between Sign In and Sign Up modes
-- Form validation
-- Loading states
-
-### About Screen
-- Information about the Deen Learning platform
-- Mission statement and vision
-- Key features and values
-- Sign out functionality
-
-### Contact Screen
-- Contact form with validation
-- Name, email, and message fields
-- Form submission to Firebase Firestore
-- Success/error feedback
-- Uses TanStack Query for state management
-
-## Key Technologies Explained
-
-### React Navigation
-Handles navigation between screens with Stack Navigator (for auth flow) and Bottom Tab Navigator (for main app tabs).
-
-### TanStack Query
-Manages server state, caching, and mutations. Used for contact form submission with automatic error handling and loading states.
-
-### Firebase Authentication
-Provides secure user authentication with email/password. Auth state persists using AsyncStorage.
-
-### Firebase Firestore
-NoSQL database for storing contact form submissions with real-time capabilities.
-
-## Development Tips
-
-- **Hot Reload**: Changes to the code will automatically reload the app
-- **Debugging**: Shake your device or press `Cmd+D` (iOS) / `Cmd+M` (Android) to open the developer menu
-- **Clear Cache**: If you encounter issues, try `expo start -c` to clear the cache
-
-## Building for Production
-
-### iOS:
-```bash
-expo build:ios
-```
-
-### Android:
-```bash
-expo build:android
-```
-
-## Troubleshooting
-
-**Issue**: Firebase not connecting
-- Verify your `.env` file has the correct credentials
-- Make sure you've enabled Email/Password authentication in Firebase Console
-
-**Issue**: Metro bundler errors
-- Clear cache: `expo start -c`
-- Delete node_modules and reinstall: `rm -rf node_modules && npm install`
-
-**Issue**: Android emulator not starting
-- Make sure Android Studio is installed
-- Check that ANDROID_HOME environment variable is set
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
+| Command             | Description                         |
+| ------------------- | ----------------------------------- |
+| `npm start`         | Start Expo dev server (cache clear) |
+| `npm run ios`       | Run on iOS simulator                |
+| `npm run android`   | Run on Android emulator             |
+| `npm run web`       | Run in web browser                  |
+| `npm run build:web` | Build for web deployment            |
+| `npm run typecheck` | Run TypeScript type checking        |
 
 ## License
 
 This project is licensed under the MIT License.
 
-## Support
-
-For questions or support, please use the Contact form in the app or open an issue on GitHub.
-
 ---
 
-Built with ❤️ for the Muslim community
+Built with ❤️ for the Muslim community.

@@ -108,7 +108,9 @@ const ChapterCard: React.FC<{
       </View>
       <View style={styles.chapterInfo}>
         <Text style={styles.chapterName}>{chapter.name_simple}</Text>
-        <Text style={styles.chapterMeaning}>{chapter.translated_name?.name}</Text>
+        <Text style={styles.chapterMeaning}>
+          {chapter.translated_name?.name}
+        </Text>
         <Text style={styles.chapterMeta}>
           {chapter.verses_count} verses • {chapter.revelation_place}
         </Text>
@@ -1119,7 +1121,7 @@ export const WebQuranContent: React.FC<WebQuranContentProps> = ({
           <Text style={styles.errorText}>Please try again later</Text>
         </View>
       ) : (
-        <View style={[styles.chaptersGrid, isWide && styles.chaptersGridWide]}>
+        <View style={styles.chaptersGrid}>
           {chaptersQuery.data?.map((chapter, index) => (
             <ChapterCard
               key={chapter.id}
@@ -1179,36 +1181,40 @@ const styles = StyleSheet.create({
     fontFamily: "'DM Sans', sans-serif",
   },
   chaptersGrid: {
-    gap: 16,
-  },
-  chaptersGridWide: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    // @ts-ignore - CSS Grid for responsive layout that fills width
+    display: 'grid',
+    gap: 20,
+    width: '100%',
+    // @ts-ignore - Increased minimum width to 360px for more breathing room
+    // This ensures cards always fill the entire width with uniform columns
+    gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))',
   },
   chapterCard: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.background,
     borderRadius: 16,
-    padding: 20,
+    padding: 24,
     // @ts-ignore
     boxShadow: '0 4px 16px rgba(0, 0, 0, 0.06)',
     cursor: 'pointer',
+    width: '100%',
     // @ts-ignore
-    flex: '0 0 calc(50% - 8px)',
-    minWidth: 300,
+    transition: 'all 0.2s ease-out',
+    minHeight: 100,
   },
   chapterNumber: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
+    width: 36,
+    height: 36,
+    borderRadius: 10,
     backgroundColor: `${colors.primary}15`,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 16,
+    flexShrink: 0,
   },
   chapterNumberText: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '700',
     color: colors.primary,
     // @ts-ignore
@@ -1216,21 +1222,25 @@ const styles = StyleSheet.create({
   },
   chapterInfo: {
     flex: 1,
+    minWidth: 0, // Allows flex item to shrink below content size
+    marginRight: 16,
   },
   chapterName: {
     fontSize: 17,
     fontWeight: '600',
     color: colors.text.primary,
-    marginBottom: 2,
+    marginBottom: 6,
     // @ts-ignore
     fontFamily: "'DM Sans', sans-serif",
   },
   chapterMeaning: {
-    fontSize: 13,
+    fontSize: 14,
     color: colors.text.secondary,
-    marginBottom: 4,
+    marginBottom: 6,
     // @ts-ignore
     fontFamily: "'DM Sans', sans-serif",
+    // @ts-ignore - Allow wrapping but with better spacing
+    lineHeight: 20,
   },
   chapterMeta: {
     fontSize: 12,
@@ -1240,7 +1250,8 @@ const styles = StyleSheet.create({
     fontFamily: "'DM Sans', sans-serif",
   },
   chapterArabic: {
-    marginRight: 12,
+    marginRight: 16,
+    flexShrink: 0,
   },
   chapterArabicText: {
     fontSize: 24,
@@ -1286,7 +1297,7 @@ const styles = StyleSheet.create({
     backgroundSize: '60px 60px',
   },
   chapterHeaderContent: {
-    padding: 48,
+    padding: 15,
     alignItems: 'center',
   },
   chapterHeaderArabic: {

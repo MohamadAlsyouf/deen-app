@@ -12,4 +12,6 @@ export { AsmaUlHusnaFlashcardsScreen } from './AsmaUlHusnaFlashcardsScreen';
 export { AsmaUlHusnaMultipleChoiceScreen } from './AsmaUlHusnaMultipleChoiceScreen';
 export { AsmaUlHusnaMatchingScreen } from './AsmaUlHusnaMatchingScreen';
 export { PillarsScreen } from './PillarsScreen';
+export { PrayerGuideScreen } from './PrayerGuideScreen';
+export { DuaScreen } from './DuaScreen';
 
