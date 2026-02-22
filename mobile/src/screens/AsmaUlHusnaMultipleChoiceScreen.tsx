@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -6,10 +6,14 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   ScrollView,
+  Animated,
+  Easing,
+  Dimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { useQuery } from '@tanstack/react-query';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { Header } from '@/components';
 import { colors, spacing, typography, borderRadius } from '@/theme';
@@ -57,6 +61,121 @@ function getRandomCorrectMessage() {
   return CORRECT_MESSAGES[Math.floor(Math.random() * CORRECT_MESSAGES.length)];
 }
 
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+
+const CONFETTI_COLORS = [
+  colors.islamic.gold, colors.accentLight, '#FFD700', colors.secondary,
+  colors.secondaryLight, '#FF8C42', '#87CEEB', '#DDA0DD',
+];
+
+type ParticleConfig = {
+  startX: number;
+  color: string;
+  width: number;
+  height: number;
+  delay: number;
+  duration: number;
+  driftX: number;
+  rotations: number;
+};
+
+function createParticleConfigs(count: number): ParticleConfig[] {
+  return Array.from({ length: count }, () => ({
+    startX: Math.random() * SCREEN_WIDTH,
+    color: CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)],
+    width: 4 + Math.random() * 10,
+    height: Math.random() > 0.5 ? 4 + Math.random() * 6 : 8 + Math.random() * 12,
+    delay: Math.random() * 1500,
+    duration: 2500 + Math.random() * 2500,
+    driftX: (Math.random() - 0.5) * 200,
+    rotations: 2 + Math.random() * 6,
+  }));
+}
+
+function getScoreGradient(pct: number): [string, string] {
+  if (pct >= 90) return [colors.islamic.gold, colors.accentLight];
+  if (pct >= 70) return [colors.primary, colors.secondary];
+  if (pct >= 50) return [colors.info, '#7C4DFF'];
+  return ['#9C27B0', '#E91E63'];
+}
+
+function getBackgroundGradient(pct: number): [string, string, string] {
+  if (pct >= 90) return ['#FFF8E1', '#FFFDE7', colors.background];
+  if (pct >= 70) return ['#E8F5E9', '#F1F8E9', colors.background];
+  if (pct >= 50) return ['#E3F2FD', '#E8EAF6', colors.background];
+  return ['#F3E5F5', '#EDE7F6', colors.background];
+}
+
+function getResultsConfig(pct: number) {
+  if (pct === 100) return { title: 'Perfect Score!', icon: 'trophy' as const, iconColor: colors.islamic.gold };
+  if (pct >= 90) return { title: 'Outstanding!', icon: 'star' as const, iconColor: colors.islamic.gold };
+  if (pct >= 70) return { title: 'Great Job!', icon: 'ribbon' as const, iconColor: colors.primary };
+  if (pct >= 50) return { title: 'Good Effort!', icon: 'thumbs-up' as const, iconColor: colors.info };
+  return { title: 'Keep Learning!', icon: 'book' as const, iconColor: '#9C27B0' };
+}
+
+const ConfettiOverlay: React.FC = React.memo(() => {
+  const configs = useRef(createParticleConfigs(50)).current;
+  const anims = useRef(configs.map(() => new Animated.Value(0))).current;
+
+  useEffect(() => {
+    Animated.parallel(
+      anims.map((a, i) =>
+        Animated.timing(a, {
+          toValue: 1,
+          duration: configs[i].duration,
+          delay: configs[i].delay,
+          easing: Easing.linear,
+          useNativeDriver: true,
+        })
+      )
+    ).start();
+  }, []);
+
+  return (
+    <View style={StyleSheet.absoluteFill} pointerEvents="none">
+      {configs.map((cfg, i) => (
+        <Animated.View
+          key={i}
+          style={{
+            position: 'absolute',
+            left: cfg.startX,
+            top: -20,
+            width: cfg.width,
+            height: cfg.height,
+            borderRadius: Math.min(cfg.width, cfg.height) / 2,
+            backgroundColor: cfg.color,
+            opacity: anims[i].interpolate({
+              inputRange: [0, 0.05, 0.7, 1],
+              outputRange: [0, 1, 0.8, 0],
+            }),
+            transform: [
+              {
+                translateY: anims[i].interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0, SCREEN_HEIGHT + 40],
+                }),
+              },
+              {
+                translateX: anims[i].interpolate({
+                  inputRange: [0, 0.3, 0.7, 1],
+                  outputRange: [0, cfg.driftX * 0.4, cfg.driftX, cfg.driftX * 0.6],
+                }),
+              },
+              {
+                rotate: anims[i].interpolate({
+                  inputRange: [0, 1],
+                  outputRange: ['0deg', `${cfg.rotations * 360}deg`],
+                }),
+              },
+            ],
+          }}
+        />
+      ))}
+    </View>
+  );
+});
+
 export const AsmaUlHusnaMultipleChoiceScreen: React.FC = () => {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
@@ -66,6 +185,69 @@ export const AsmaUlHusnaMultipleChoiceScreen: React.FC = () => {
   const [score, setScore] = useState(0);
   const [isFinished, setIsFinished] = useState(false);
   const [feedbackMessage, setFeedbackMessage] = useState('');
+  const [quizKey, setQuizKey] = useState(0);
+  const [displayPercent, setDisplayPercent] = useState(0);
+
+  const resultsFade = useRef(new Animated.Value(0)).current;
+  const scoreSlide = useRef(new Animated.Value(-60)).current;
+  const scoreScale = useRef(new Animated.Value(0.3)).current;
+  const titleFade = useRef(new Animated.Value(0)).current;
+  const subtitleFade = useRef(new Animated.Value(0)).current;
+  const statsFade = useRef(new Animated.Value(0)).current;
+  const statsSlide = useRef(new Animated.Value(30)).current;
+  const buttonsFade = useRef(new Animated.Value(0)).current;
+  const percentCounter = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (!isFinished) return;
+
+    const pct = Math.round((score / TOTAL_QUESTIONS) * 100);
+
+    resultsFade.setValue(0);
+    scoreSlide.setValue(-60);
+    scoreScale.setValue(0.3);
+    titleFade.setValue(0);
+    subtitleFade.setValue(0);
+    statsFade.setValue(0);
+    statsSlide.setValue(30);
+    buttonsFade.setValue(0);
+    percentCounter.setValue(0);
+    setDisplayPercent(0);
+
+    Animated.timing(resultsFade, {
+      toValue: 1, duration: 400, useNativeDriver: true,
+    }).start();
+
+    Animated.sequence([
+      Animated.delay(200),
+      Animated.parallel([
+        Animated.spring(scoreSlide, { toValue: 0, tension: 60, friction: 8, useNativeDriver: true }),
+        Animated.spring(scoreScale, { toValue: 1, tension: 60, friction: 8, useNativeDriver: true }),
+      ]),
+      Animated.sequence([
+        Animated.timing(scoreScale, { toValue: 1.08, duration: 200, useNativeDriver: true }),
+        Animated.timing(scoreScale, { toValue: 1, duration: 200, useNativeDriver: true }),
+      ]),
+    ]).start();
+
+    const listener = percentCounter.addListener(({ value }) => {
+      setDisplayPercent(Math.round(value));
+    });
+    Animated.timing(percentCounter, {
+      toValue: pct, duration: 1000, delay: 500,
+      easing: Easing.out(Easing.cubic), useNativeDriver: false,
+    }).start();
+
+    Animated.timing(titleFade, { toValue: 1, duration: 400, delay: 700, useNativeDriver: true }).start();
+    Animated.timing(subtitleFade, { toValue: 1, duration: 400, delay: 900, useNativeDriver: true }).start();
+    Animated.parallel([
+      Animated.timing(statsFade, { toValue: 1, duration: 400, delay: 1100, useNativeDriver: true }),
+      Animated.timing(statsSlide, { toValue: 0, duration: 400, delay: 1100, useNativeDriver: true }),
+    ]).start();
+    Animated.timing(buttonsFade, { toValue: 1, duration: 400, delay: 1300, useNativeDriver: true }).start();
+
+    return () => percentCounter.removeListener(listener);
+  }, [isFinished, score]);
 
   const dataQuery = useQuery({
     queryKey: ['asmaUlHusna'],
@@ -77,7 +259,8 @@ export const AsmaUlHusnaMultipleChoiceScreen: React.FC = () => {
   const questions = useMemo(() => {
     if (names.length < 4) return [];
     return generateQuestions(names, TOTAL_QUESTIONS);
-  }, [names]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [names, quizKey]);
 
   const currentQuestion = questions[questionIndex];
 
@@ -116,6 +299,16 @@ export const AsmaUlHusnaMultipleChoiceScreen: React.FC = () => {
     setScore(0);
     setIsFinished(false);
     setFeedbackMessage('');
+  }, []);
+
+  const handleNewQuiz = useCallback(() => {
+    setQuestionIndex(0);
+    setSelectedIndex(null);
+    setIsSubmitted(false);
+    setScore(0);
+    setIsFinished(false);
+    setFeedbackMessage('');
+    setQuizKey((k) => k + 1);
   }, []);
 
   const wasCorrect = isSubmitted && selectedIndex !== null && currentQuestion
@@ -159,32 +352,111 @@ export const AsmaUlHusnaMultipleChoiceScreen: React.FC = () => {
 
   if (isFinished) {
     const percentage = Math.round((score / TOTAL_QUESTIONS) * 100);
+    const showConfetti = percentage >= 90;
+    const { title: tierTitle, icon: tierIcon, iconColor: tierIconColor } = getResultsConfig(percentage);
+    const bgGradient = getBackgroundGradient(percentage);
+    const ringGradient = getScoreGradient(percentage);
+
     return (
       <View style={styles.container}>
+        <LinearGradient colors={bgGradient} style={StyleSheet.absoluteFill} />
         <View style={[styles.headerContainer, { paddingTop: insets.top }]}>
           <Header
             title="Results"
             leftAction={{ iconName: 'arrow-back', onPress: () => navigation.goBack() }}
           />
         </View>
-        <View style={styles.resultsContainer}>
-          <View style={styles.scoreCircle}>
-            <Text style={styles.scorePercent}>{percentage}%</Text>
-          </View>
-          <Text style={styles.resultsTitle}>
-            {percentage >= 80 ? 'Excellent!' : percentage >= 50 ? 'Good effort!' : 'Keep practicing!'}
-          </Text>
-          <Text style={styles.resultsSubtitle}>
-            You answered {score} out of {TOTAL_QUESTIONS} questions correctly.
-          </Text>
-          <TouchableOpacity style={styles.restartButton} onPress={handleRestart} activeOpacity={0.8}>
-            <Ionicons name="refresh" size={20} color={colors.text.white} />
-            <Text style={styles.restartButtonText}>Play Again</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()} activeOpacity={0.8}>
-            <Text style={styles.backButtonText}>Back to Games</Text>
-          </TouchableOpacity>
-        </View>
+
+        <Animated.ScrollView
+          style={{ flex: 1, opacity: resultsFade }}
+          contentContainerStyle={styles.resultsContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <Animated.View
+            style={{
+              transform: [{ translateY: scoreSlide }, { scale: scoreScale }],
+              marginBottom: spacing.lg,
+            }}
+          >
+            <LinearGradient
+              colors={ringGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.scoreRing}
+            >
+              <View style={styles.scoreInner}>
+                <Text style={[styles.scorePercentLarge, { color: ringGradient[0] }]}>
+                  {displayPercent}%
+                </Text>
+              </View>
+            </LinearGradient>
+          </Animated.View>
+
+          <Animated.View style={{ opacity: titleFade, alignItems: 'center', marginBottom: spacing.sm }}>
+            <View style={[styles.tierIconBadge, { backgroundColor: tierIconColor + '20' }]}>
+              <Ionicons name={tierIcon} size={28} color={tierIconColor} />
+            </View>
+            <Text style={styles.resultsTitleLarge}>{tierTitle}</Text>
+          </Animated.View>
+
+          <Animated.Text style={[styles.resultsSubtitleText, { opacity: subtitleFade }]}>
+            You answered {score} out of {TOTAL_QUESTIONS} questions correctly
+          </Animated.Text>
+
+          <Animated.View
+            style={[
+              styles.statsRow,
+              { opacity: statsFade, transform: [{ translateY: statsSlide }] },
+            ]}
+          >
+            <View style={[styles.statCard, { borderTopColor: colors.success }]}>
+              <Ionicons name="checkmark-circle" size={22} color={colors.success} />
+              <Text style={styles.statValue}>{score}</Text>
+              <Text style={styles.statLabel}>Correct</Text>
+            </View>
+            <View style={[styles.statCard, { borderTopColor: colors.error }]}>
+              <Ionicons name="close-circle" size={22} color={colors.error} />
+              <Text style={styles.statValue}>{TOTAL_QUESTIONS - score}</Text>
+              <Text style={styles.statLabel}>Incorrect</Text>
+            </View>
+            <View style={[styles.statCard, { borderTopColor: colors.info }]}>
+              <Ionicons name="analytics" size={22} color={colors.info} />
+              <Text style={styles.statValue}>{percentage}%</Text>
+              <Text style={styles.statLabel}>Accuracy</Text>
+            </View>
+          </Animated.View>
+
+          <Animated.View style={{ opacity: buttonsFade, width: '100%', alignItems: 'center' }}>
+            <TouchableOpacity
+              style={styles.playAgainButton}
+              onPress={handleNewQuiz}
+              activeOpacity={0.8}
+            >
+              <LinearGradient
+                colors={[colors.primary, colors.secondary]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.playAgainGradient}
+              >
+                <Ionicons name="shuffle" size={20} color={colors.text.white} />
+                <Text style={styles.playAgainText}>New Quiz</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.reviewButton}
+              onPress={handleRestart}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="refresh" size={18} color={colors.primary} />
+              <Text style={styles.reviewButtonText}>Review Same Questions</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()} activeOpacity={0.8}>
+              <Text style={styles.backButtonText}>Back to Games</Text>
+            </TouchableOpacity>
+          </Animated.View>
+        </Animated.ScrollView>
+
+        {showConfetti && <ConfettiOverlay />}
       </View>
     );
   }
@@ -522,55 +794,110 @@ const styles = StyleSheet.create({
     ...typography.button,
     color: colors.text.white,
   },
-  resultsContainer: {
-    flex: 1,
+  resultsContent: {
+    flexGrow: 1,
     alignItems: 'center',
     justifyContent: 'center',
     padding: spacing.xl,
+    paddingBottom: spacing.xxl,
   },
-  scoreCircle: {
-    width: 130,
-    height: 130,
-    borderRadius: 65,
-    backgroundColor: colors.surface,
+  scoreRing: {
+    width: 168,
+    height: 168,
+    borderRadius: 84,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 4,
-    borderColor: colors.primary,
-    marginBottom: spacing.md,
   },
-  scorePercent: {
-    fontSize: 36,
-    fontWeight: '700',
-    color: colors.primary,
+  scoreInner: {
+    width: 148,
+    height: 148,
+    borderRadius: 74,
+    backgroundColor: colors.background,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  scorePercentLarge: {
+    fontSize: 44,
+    fontWeight: '800',
     textAlign: 'center',
   },
-  resultsTitle: {
-    ...typography.h3,
-    color: colors.text.primary,
+  tierIconBadge: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    alignItems: 'center',
+    justifyContent: 'center',
     marginBottom: spacing.sm,
   },
-  resultsSubtitle: {
+  resultsTitleLarge: {
+    fontSize: 26,
+    fontWeight: '700',
+    color: colors.text.primary,
+    textAlign: 'center',
+  },
+  resultsSubtitleText: {
     ...typography.body,
     color: colors.text.secondary,
     textAlign: 'center',
-    marginBottom: spacing.xl,
+    marginBottom: spacing.lg,
+    lineHeight: 22,
   },
-  restartButton: {
+  statsRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginBottom: spacing.xl,
+    width: '100%',
+  },
+  statCard: {
+    flex: 1,
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+    alignItems: 'center',
+    borderTopWidth: 3,
+    gap: 4,
+  },
+  statValue: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: colors.text.primary,
+  },
+  statLabel: {
+    ...typography.caption,
+    color: colors.text.secondary,
+  },
+  playAgainButton: {
+    width: '100%',
+    borderRadius: borderRadius.md,
+    overflow: 'hidden',
+    marginBottom: spacing.md,
+  },
+  playAgainGradient: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.primary,
-    borderRadius: borderRadius.md,
     paddingVertical: spacing.md,
-    paddingHorizontal: spacing.xl,
     gap: spacing.sm,
-    marginBottom: spacing.md,
-    width: '100%',
   },
-  restartButtonText: {
+  playAgainText: {
     ...typography.button,
     color: colors.text.white,
+  },
+  reviewButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+    borderRadius: borderRadius.md,
+    paddingVertical: spacing.md,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+    gap: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  reviewButtonText: {
+    ...typography.button,
+    color: colors.primary,
   },
   backButton: {
     paddingVertical: spacing.md,
