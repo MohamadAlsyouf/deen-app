@@ -6,10 +6,14 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   ScrollView,
+  Animated,
+  Easing,
+  Dimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { useQuery } from '@tanstack/react-query';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { Header } from '@/components';
 import { colors, spacing, typography, borderRadius } from '@/theme';
@@ -52,6 +56,129 @@ function buildTiles(names: AsmaUlHusnaName[]): { arabic: Tile[]; english: Tile[]
   return { arabic: shuffleArray(arabic), english: shuffleArray(english) };
 }
 
+// --- Results helpers ---
+
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+
+const CONFETTI_COLORS = [
+  colors.islamic.gold, colors.accentLight, '#FFD700', colors.secondary,
+  colors.secondaryLight, '#FF8C42', '#87CEEB', '#DDA0DD',
+];
+
+type ParticleConfig = {
+  startX: number;
+  color: string;
+  width: number;
+  height: number;
+  delay: number;
+  duration: number;
+  driftX: number;
+  rotations: number;
+};
+
+function createParticleConfigs(count: number): ParticleConfig[] {
+  return Array.from({ length: count }, () => ({
+    startX: Math.random() * SCREEN_WIDTH,
+    color: CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)],
+    width: 4 + Math.random() * 10,
+    height: Math.random() > 0.5 ? 4 + Math.random() * 6 : 8 + Math.random() * 12,
+    delay: Math.random() * 1500,
+    duration: 2500 + Math.random() * 2500,
+    driftX: (Math.random() - 0.5) * 200,
+    rotations: 2 + Math.random() * 6,
+  }));
+}
+
+function getEfficiency(moves: number): number {
+  return Math.min(100, Math.round((PAIRS_PER_ROUND / moves) * 100));
+}
+
+function getScoreGradient(eff: number): [string, string] {
+  if (eff >= 80) return [colors.islamic.gold, colors.accentLight];
+  if (eff >= 60) return [colors.primary, colors.secondary];
+  if (eff >= 40) return [colors.info, '#7C4DFF'];
+  return ['#9C27B0', '#E91E63'];
+}
+
+function getBackgroundGradient(eff: number): [string, string, string] {
+  if (eff >= 80) return ['#FFF8E1', '#FFFDE7', colors.background];
+  if (eff >= 60) return ['#E8F5E9', '#F1F8E9', colors.background];
+  if (eff >= 40) return ['#E3F2FD', '#E8EAF6', colors.background];
+  return ['#F3E5F5', '#EDE7F6', colors.background];
+}
+
+function getResultsConfig(eff: number) {
+  if (eff === 100) return { title: 'Perfect Match!', icon: 'trophy' as const, iconColor: colors.islamic.gold };
+  if (eff >= 80) return { title: 'Outstanding!', icon: 'star' as const, iconColor: colors.islamic.gold };
+  if (eff >= 60) return { title: 'Great Job!', icon: 'ribbon' as const, iconColor: colors.primary };
+  if (eff >= 40) return { title: 'Good Effort!', icon: 'thumbs-up' as const, iconColor: colors.info };
+  return { title: 'Keep Practicing!', icon: 'book' as const, iconColor: '#9C27B0' };
+}
+
+const ConfettiOverlay: React.FC = React.memo(() => {
+  const configs = useRef(createParticleConfigs(50)).current;
+  const anims = useRef(configs.map(() => new Animated.Value(0))).current;
+
+  useEffect(() => {
+    Animated.parallel(
+      anims.map((a, i) =>
+        Animated.timing(a, {
+          toValue: 1,
+          duration: configs[i].duration,
+          delay: configs[i].delay,
+          easing: Easing.linear,
+          useNativeDriver: true,
+        })
+      )
+    ).start();
+  }, []);
+
+  return (
+    <View style={StyleSheet.absoluteFill} pointerEvents="none">
+      {configs.map((cfg, i) => (
+        <Animated.View
+          key={i}
+          style={{
+            position: 'absolute',
+            left: cfg.startX,
+            top: -20,
+            width: cfg.width,
+            height: cfg.height,
+            borderRadius: Math.min(cfg.width, cfg.height) / 2,
+            backgroundColor: cfg.color,
+            opacity: anims[i].interpolate({
+              inputRange: [0, 0.05, 0.7, 1],
+              outputRange: [0, 1, 0.8, 0],
+            }),
+            transform: [
+              {
+                translateY: anims[i].interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0, SCREEN_HEIGHT + 40],
+                }),
+              },
+              {
+                translateX: anims[i].interpolate({
+                  inputRange: [0, 0.3, 0.7, 1],
+                  outputRange: [0, cfg.driftX * 0.4, cfg.driftX, cfg.driftX * 0.6],
+                }),
+              },
+              {
+                rotate: anims[i].interpolate({
+                  inputRange: [0, 1],
+                  outputRange: ['0deg', `${cfg.rotations * 360}deg`],
+                }),
+              },
+            ],
+          }}
+        />
+      ))}
+    </View>
+  );
+});
+
+// --- Main component ---
+
 export const AsmaUlHusnaMatchingScreen: React.FC = () => {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
@@ -72,6 +199,68 @@ export const AsmaUlHusnaMatchingScreen: React.FC = () => {
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [isFinished, setIsFinished] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [displayEfficiency, setDisplayEfficiency] = useState(0);
+
+  const resultsFade = useRef(new Animated.Value(0)).current;
+  const scoreSlide = useRef(new Animated.Value(-60)).current;
+  const scoreScale = useRef(new Animated.Value(0.3)).current;
+  const titleFade = useRef(new Animated.Value(0)).current;
+  const subtitleFade = useRef(new Animated.Value(0)).current;
+  const statsFade = useRef(new Animated.Value(0)).current;
+  const statsSlide = useRef(new Animated.Value(30)).current;
+  const buttonsFade = useRef(new Animated.Value(0)).current;
+  const percentCounter = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (!isFinished) return;
+
+    const eff = getEfficiency(moves);
+
+    resultsFade.setValue(0);
+    scoreSlide.setValue(-60);
+    scoreScale.setValue(0.3);
+    titleFade.setValue(0);
+    subtitleFade.setValue(0);
+    statsFade.setValue(0);
+    statsSlide.setValue(30);
+    buttonsFade.setValue(0);
+    percentCounter.setValue(0);
+    setDisplayEfficiency(0);
+
+    Animated.timing(resultsFade, {
+      toValue: 1, duration: 400, useNativeDriver: true,
+    }).start();
+
+    Animated.sequence([
+      Animated.delay(200),
+      Animated.parallel([
+        Animated.spring(scoreSlide, { toValue: 0, tension: 60, friction: 8, useNativeDriver: true }),
+        Animated.spring(scoreScale, { toValue: 1, tension: 60, friction: 8, useNativeDriver: true }),
+      ]),
+      Animated.sequence([
+        Animated.timing(scoreScale, { toValue: 1.08, duration: 200, useNativeDriver: true }),
+        Animated.timing(scoreScale, { toValue: 1, duration: 200, useNativeDriver: true }),
+      ]),
+    ]).start();
+
+    const listener = percentCounter.addListener(({ value }) => {
+      setDisplayEfficiency(Math.round(value));
+    });
+    Animated.timing(percentCounter, {
+      toValue: eff, duration: 1000, delay: 500,
+      easing: Easing.out(Easing.cubic), useNativeDriver: false,
+    }).start();
+
+    Animated.timing(titleFade, { toValue: 1, duration: 400, delay: 700, useNativeDriver: true }).start();
+    Animated.timing(subtitleFade, { toValue: 1, duration: 400, delay: 900, useNativeDriver: true }).start();
+    Animated.parallel([
+      Animated.timing(statsFade, { toValue: 1, duration: 400, delay: 1100, useNativeDriver: true }),
+      Animated.timing(statsSlide, { toValue: 0, duration: 400, delay: 1100, useNativeDriver: true }),
+    ]).start();
+    Animated.timing(buttonsFade, { toValue: 1, duration: 400, delay: 1300, useNativeDriver: true }).start();
+
+    return () => percentCounter.removeListener(listener);
+  }, [isFinished, moves]);
 
   const allTiles = useMemo(() => [...arabicTiles, ...englishTiles], [arabicTiles, englishTiles]);
 
@@ -88,13 +277,21 @@ export const AsmaUlHusnaMatchingScreen: React.FC = () => {
     setIsFinished(false);
   }, [names]);
 
+  const handleReplaySame = useCallback(() => {
+    setSelectedTile(null);
+    setMatchedPairs(new Set());
+    setWrongPair(null);
+    setMoves(0);
+    setElapsedSeconds(0);
+    setIsFinished(false);
+  }, []);
+
   useEffect(() => {
     if (names.length >= PAIRS_PER_ROUND && arabicTiles.length === 0) {
       startNewRound();
     }
   }, [names, arabicTiles.length, startNewRound]);
 
-  // Timer
   useEffect(() => {
     if (arabicTiles.length > 0 && !isFinished) {
       timerRef.current = setInterval(() => {
@@ -170,6 +367,7 @@ export const AsmaUlHusnaMatchingScreen: React.FC = () => {
     return tile.type === 'arabic' ? styles.tileTextArabic : styles.tileTextEnglish;
   };
 
+  // --- Loading ---
   if (dataQuery.isLoading || names.length < PAIRS_PER_ROUND) {
     return (
       <View style={styles.container}>
@@ -186,45 +384,120 @@ export const AsmaUlHusnaMatchingScreen: React.FC = () => {
     );
   }
 
+  // --- Results ---
   if (isFinished) {
+    const efficiency = getEfficiency(moves);
+    const showConfetti = efficiency >= 80;
+    const { title: tierTitle, icon: tierIcon, iconColor: tierIconColor } = getResultsConfig(efficiency);
+    const bgGradient = getBackgroundGradient(efficiency);
+    const ringGradient = getScoreGradient(efficiency);
+
     return (
       <View style={styles.container}>
+        <LinearGradient colors={bgGradient} style={StyleSheet.absoluteFill} />
         <View style={[styles.headerContainer, { paddingTop: insets.top }]}>
           <Header
-            title="Matching"
+            title="Results"
             leftAction={{ iconName: 'arrow-back', onPress: () => navigation.goBack() }}
           />
         </View>
-        <View style={styles.resultsContainer}>
-          <Ionicons name="trophy" size={64} color={colors.accent} />
-          <Text style={styles.resultsTitle}>Round Complete!</Text>
-          <View style={styles.statsRow}>
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>{moves}</Text>
-              <Text style={styles.statLabel}>Moves</Text>
+
+        <Animated.ScrollView
+          style={{ flex: 1, opacity: resultsFade }}
+          contentContainerStyle={styles.resultsContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <Animated.View
+            style={{
+              transform: [{ translateY: scoreSlide }, { scale: scoreScale }],
+              marginBottom: spacing.lg,
+            }}
+          >
+            <LinearGradient
+              colors={ringGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.scoreRing}
+            >
+              <View style={styles.scoreInner}>
+                <Text style={[styles.scorePercentLarge, { color: ringGradient[0] }]}>
+                  {displayEfficiency}%
+                </Text>
+              </View>
+            </LinearGradient>
+          </Animated.View>
+
+          <Animated.View style={{ opacity: titleFade, alignItems: 'center', marginBottom: spacing.sm }}>
+            <View style={[styles.tierIconBadge, { backgroundColor: tierIconColor + '20' }]}>
+              <Ionicons name={tierIcon} size={28} color={tierIconColor} />
             </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>{formatTime(elapsedSeconds)}</Text>
-              <Text style={styles.statLabel}>Time</Text>
+            <Text style={styles.resultsTitleLarge}>{tierTitle}</Text>
+          </Animated.View>
+
+          <Animated.Text style={[styles.resultsSubtitleText, { opacity: subtitleFade }]}>
+            Completed in {moves} moves and {formatTime(elapsedSeconds)}
+          </Animated.Text>
+
+          <Animated.View
+            style={[
+              styles.resultsStatsRow,
+              { opacity: statsFade, transform: [{ translateY: statsSlide }] },
+            ]}
+          >
+            <View style={[styles.resultsStatCard, { borderTopColor: colors.primary }]}>
+              <Ionicons name="swap-horizontal" size={22} color={colors.primary} />
+              <Text style={styles.resultsStatValue}>{moves}</Text>
+              <Text style={styles.resultsStatLabel}>Moves</Text>
             </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>{PAIRS_PER_ROUND}</Text>
-              <Text style={styles.statLabel}>Pairs</Text>
+            <View style={[styles.resultsStatCard, { borderTopColor: colors.accent }]}>
+              <Ionicons name="time-outline" size={22} color={colors.accent} />
+              <Text style={styles.resultsStatValue}>{formatTime(elapsedSeconds)}</Text>
+              <Text style={styles.resultsStatLabel}>Time</Text>
             </View>
-          </View>
-          <TouchableOpacity style={styles.restartButton} onPress={startNewRound} activeOpacity={0.8}>
-            <Ionicons name="refresh" size={20} color={colors.text.white} />
-            <Text style={styles.restartButtonText}>Play Again</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()} activeOpacity={0.8}>
-            <Text style={styles.backButtonText}>Back to Games</Text>
-          </TouchableOpacity>
-        </View>
+            <View style={[styles.resultsStatCard, { borderTopColor: colors.info }]}>
+              <Ionicons name="analytics" size={22} color={colors.info} />
+              <Text style={styles.resultsStatValue}>{efficiency}%</Text>
+              <Text style={styles.resultsStatLabel}>Efficiency</Text>
+            </View>
+          </Animated.View>
+
+          <Animated.View style={{ opacity: buttonsFade, width: '100%', alignItems: 'center' }}>
+            <TouchableOpacity
+              style={styles.newRoundButton}
+              onPress={startNewRound}
+              activeOpacity={0.8}
+            >
+              <LinearGradient
+                colors={[colors.primary, colors.secondary]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.newRoundGradient}
+              >
+                <Ionicons name="shuffle" size={20} color={colors.text.white} />
+                <Text style={styles.newRoundText}>New Round</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.replayButton}
+              onPress={handleReplaySame}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="refresh" size={18} color={colors.primary} />
+              <Text style={styles.replayButtonText}>Replay</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()} activeOpacity={0.8}>
+              <Text style={styles.backButtonText}>Back to Games</Text>
+            </TouchableOpacity>
+          </Animated.View>
+        </Animated.ScrollView>
+
+        {showConfetti && <ConfettiOverlay />}
       </View>
     );
   }
+
+  // --- Gameplay ---
+  const progress = matchedPairs.size / PAIRS_PER_ROUND;
 
   return (
     <View style={styles.container}>
@@ -235,17 +508,23 @@ export const AsmaUlHusnaMatchingScreen: React.FC = () => {
         />
       </View>
 
-      {/* Stats bar */}
       <View style={styles.statsBar}>
-        <Text style={styles.statsBarText}>
-          <Ionicons name="swap-horizontal" size={14} color={colors.text.secondary} /> {moves} moves
-        </Text>
-        <Text style={styles.statsBarText}>
-          {matchedPairs.size}/{PAIRS_PER_ROUND} matched
-        </Text>
-        <Text style={styles.statsBarText}>
-          <Ionicons name="time-outline" size={14} color={colors.text.secondary} /> {formatTime(elapsedSeconds)}
-        </Text>
+        <View style={styles.statPill}>
+          <Ionicons name="swap-horizontal" size={14} color={colors.primary} />
+          <Text style={styles.statPillText}>{moves} moves</Text>
+        </View>
+        <View style={styles.statPill}>
+          <Ionicons name="checkmark-done" size={14} color={colors.success} />
+          <Text style={styles.statPillText}>{matchedPairs.size}/{PAIRS_PER_ROUND}</Text>
+        </View>
+        <View style={styles.statPill}>
+          <Ionicons name="time-outline" size={14} color={colors.accent} />
+          <Text style={styles.statPillText}>{formatTime(elapsedSeconds)}</Text>
+        </View>
+      </View>
+
+      <View style={styles.progressBar}>
+        <View style={[styles.progressFill, { width: `${progress * 100}%` }]} />
       </View>
 
       <ScrollView
@@ -254,26 +533,38 @@ export const AsmaUlHusnaMatchingScreen: React.FC = () => {
         showsVerticalScrollIndicator={false}
       >
         <Text style={styles.instructions}>
-          Match each Arabic name with its English meaning. Tap one from each column.
+          Match each Arabic name with its English meaning
         </Text>
 
-        {/* Column headers */}
         <View style={styles.headerRow}>
-          <Text style={styles.columnHeader}>Arabic</Text>
-          <Text style={styles.columnHeader}>English</Text>
+          <View style={styles.columnHeaderWrap}>
+            <Ionicons name="language" size={14} color={colors.text.tertiary} />
+            <Text style={styles.columnHeader}>Arabic</Text>
+          </View>
+          <View style={styles.columnHeaderWrap}>
+            <Ionicons name="text" size={14} color={colors.text.tertiary} />
+            <Text style={styles.columnHeader}>English</Text>
+          </View>
         </View>
 
-        {/* Paired rows — Arabic left, English right, always aligned */}
         {arabicTiles.map((arTile, i) => {
           const enTile = englishTiles[i];
+          const arMatched = matchedPairs.has(arTile.nameNumber);
+          const enMatched = matchedPairs.has(enTile.nameNumber);
+
           return (
             <View key={arTile.id} style={styles.tileRow}>
               <TouchableOpacity
                 style={[styles.tile, getTileStyle(arTile)]}
                 onPress={() => handleTilePress(arTile.id)}
                 activeOpacity={0.7}
-                disabled={matchedPairs.has(arTile.nameNumber)}
+                disabled={arMatched}
               >
+                {arMatched && (
+                  <View style={styles.matchedBadge}>
+                    <Ionicons name="checkmark" size={10} color={colors.text.white} />
+                  </View>
+                )}
                 <Text style={[styles.tileText, getTileTextStyle(arTile)]}>{arTile.display}</Text>
               </TouchableOpacity>
 
@@ -281,8 +572,13 @@ export const AsmaUlHusnaMatchingScreen: React.FC = () => {
                 style={[styles.tile, getTileStyle(enTile)]}
                 onPress={() => handleTilePress(enTile.id)}
                 activeOpacity={0.7}
-                disabled={matchedPairs.has(enTile.nameNumber)}
+                disabled={enMatched}
               >
+                {enMatched && (
+                  <View style={styles.matchedBadge}>
+                    <Ionicons name="checkmark" size={10} color={colors.text.white} />
+                  </View>
+                )}
                 <Text style={[styles.tileText, getTileTextStyle(enTile)]} numberOfLines={2}>{enTile.display}</Text>
               </TouchableOpacity>
             </View>
@@ -314,6 +610,8 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     paddingBottom: spacing.xxl,
   },
+
+  // Stats bar
   statsBar: {
     flexDirection: 'row',
     justifyContent: 'space-around',
@@ -324,11 +622,35 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
-  statsBarText: {
+  statPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.background,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    borderRadius: borderRadius.round,
+    gap: 4,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+  },
+  statPillText: {
     ...typography.caption,
     color: colors.text.secondary,
     fontWeight: '600',
   },
+
+  // Progress bar
+  progressBar: {
+    height: 3,
+    backgroundColor: colors.border,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: colors.success,
+  },
+
+  // Instructions & headers
   instructions: {
     ...typography.caption,
     color: colors.text.secondary,
@@ -341,15 +663,22 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     marginBottom: spacing.sm,
   },
+  columnHeaderWrap: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+  },
   columnHeader: {
     ...typography.caption,
-    flex: 1,
     color: colors.text.tertiary,
     fontWeight: '700',
-    textAlign: 'center',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
+
+  // Tiles
   tileRow: {
     flexDirection: 'row',
     gap: spacing.sm,
@@ -361,7 +690,7 @@ const styles = StyleSheet.create({
     padding: spacing.sm,
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 52,
+    minHeight: 56,
     borderWidth: 1.5,
   },
   tileDefault: {
@@ -371,11 +700,12 @@ const styles = StyleSheet.create({
   tileSelected: {
     backgroundColor: '#E1F5FE',
     borderColor: colors.info,
+    borderWidth: 2,
   },
   tileMatched: {
     backgroundColor: '#E8F5E9',
     borderColor: colors.success,
-    opacity: 0.6,
+    opacity: 0.65,
   },
   tileWrong: {
     backgroundColor: '#FFEBEE',
@@ -406,56 +736,123 @@ const styles = StyleSheet.create({
     color: colors.error,
     fontWeight: '600',
   },
-  resultsContainer: {
-    flex: 1,
+  matchedBadge: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: colors.success,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  // Results screen
+  resultsContent: {
+    flexGrow: 1,
     alignItems: 'center',
     justifyContent: 'center',
     padding: spacing.xl,
+    paddingBottom: spacing.xxl,
   },
-  resultsTitle: {
-    ...typography.h3,
+  scoreRing: {
+    width: 168,
+    height: 168,
+    borderRadius: 84,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  scoreInner: {
+    width: 148,
+    height: 148,
+    borderRadius: 74,
+    backgroundColor: colors.background,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  scorePercentLarge: {
+    fontSize: 44,
+    fontWeight: '800',
+    textAlign: 'center',
+  },
+  tierIconBadge: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.sm,
+  },
+  resultsTitleLarge: {
+    fontSize: 26,
+    fontWeight: '700',
     color: colors.text.primary,
-    marginTop: spacing.lg,
+    textAlign: 'center',
+  },
+  resultsSubtitleText: {
+    ...typography.body,
+    color: colors.text.secondary,
+    textAlign: 'center',
     marginBottom: spacing.lg,
+    lineHeight: 22,
   },
-  statsRow: {
+  resultsStatsRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    gap: spacing.sm,
     marginBottom: spacing.xl,
+    width: '100%',
   },
-  statItem: {
+  resultsStatCard: {
+    flex: 1,
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
     alignItems: 'center',
-    paddingHorizontal: spacing.lg,
+    borderTopWidth: 3,
+    gap: 4,
   },
-  statValue: {
-    ...typography.h3,
-    color: colors.primary,
+  resultsStatValue: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: colors.text.primary,
   },
-  statLabel: {
+  resultsStatLabel: {
     ...typography.caption,
     color: colors.text.secondary,
-    marginTop: 2,
   },
-  statDivider: {
-    width: 1,
-    height: 40,
-    backgroundColor: colors.border,
+  newRoundButton: {
+    width: '100%',
+    borderRadius: borderRadius.md,
+    overflow: 'hidden',
+    marginBottom: spacing.md,
   },
-  restartButton: {
+  newRoundGradient: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.primary,
-    borderRadius: borderRadius.md,
     paddingVertical: spacing.md,
-    paddingHorizontal: spacing.xl,
     gap: spacing.sm,
-    marginBottom: spacing.md,
-    width: '100%',
   },
-  restartButtonText: {
+  newRoundText: {
     ...typography.button,
     color: colors.text.white,
+  },
+  replayButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+    borderRadius: borderRadius.md,
+    paddingVertical: spacing.md,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+    gap: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  replayButtonText: {
+    ...typography.button,
+    color: colors.primary,
   },
   backButton: {
     paddingVertical: spacing.md,

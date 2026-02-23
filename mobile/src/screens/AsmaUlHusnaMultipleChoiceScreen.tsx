@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { useQuery } from '@tanstack/react-query';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Audio } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
 import { Header } from '@/components';
 import { colors, spacing, typography, borderRadius } from '@/theme';
@@ -47,6 +48,7 @@ function generateQuestions(names: AsmaUlHusnaName[], count: number) {
 }
 
 const TOTAL_QUESTIONS = 10;
+const AUDIO_BASE_URL = 'https://islamicapi.com';
 
 const CORRECT_MESSAGES = [
   'Correct!',
@@ -186,6 +188,8 @@ export const AsmaUlHusnaMultipleChoiceScreen: React.FC = () => {
   const [isFinished, setIsFinished] = useState(false);
   const [feedbackMessage, setFeedbackMessage] = useState('');
   const [quizKey, setQuizKey] = useState(0);
+  const [playingAudioId, setPlayingAudioId] = useState<number | null>(null);
+  const soundRef = useRef<Audio.Sound | null>(null);
   const [displayPercent, setDisplayPercent] = useState(0);
 
   const resultsFade = useRef(new Animated.Value(0)).current;
@@ -249,6 +253,55 @@ export const AsmaUlHusnaMultipleChoiceScreen: React.FC = () => {
     return () => percentCounter.removeListener(listener);
   }, [isFinished, score]);
 
+  useEffect(() => {
+    return () => {
+      if (soundRef.current) {
+        soundRef.current.unloadAsync();
+        soundRef.current = null;
+      }
+    };
+  }, []);
+
+  const handlePlayAudio = useCallback(async (name: AsmaUlHusnaName) => {
+    try {
+      if (playingAudioId === name.number && soundRef.current) {
+        await soundRef.current.stopAsync();
+        await soundRef.current.unloadAsync();
+        soundRef.current = null;
+        setPlayingAudioId(null);
+        return;
+      }
+
+      if (soundRef.current) {
+        await soundRef.current.stopAsync();
+        await soundRef.current.unloadAsync();
+        soundRef.current = null;
+      }
+
+      if (!name.audio) return;
+
+      await Audio.setAudioModeAsync({ playsInSilentModeIOS: true });
+      const { sound } = await Audio.Sound.createAsync(
+        { uri: `${AUDIO_BASE_URL}${name.audio}` },
+        { shouldPlay: true }
+      );
+
+      soundRef.current = sound;
+      setPlayingAudioId(name.number);
+
+      sound.setOnPlaybackStatusUpdate((status) => {
+        if (status.isLoaded && status.didJustFinish) {
+          setPlayingAudioId(null);
+          sound.unloadAsync();
+          soundRef.current = null;
+        }
+      });
+    } catch (error) {
+      console.error('Error playing audio:', error);
+      setPlayingAudioId(null);
+    }
+  }, [playingAudioId]);
+
   const dataQuery = useQuery({
     queryKey: ['asmaUlHusna'],
     queryFn: () => asmaUlHusnaService.getData(),
@@ -281,7 +334,17 @@ export const AsmaUlHusnaMultipleChoiceScreen: React.FC = () => {
     }
   }, [selectedIndex, currentQuestion, isSubmitted]);
 
+  const stopAudio = useCallback(() => {
+    if (soundRef.current) {
+      soundRef.current.stopAsync();
+      soundRef.current.unloadAsync();
+      soundRef.current = null;
+      setPlayingAudioId(null);
+    }
+  }, []);
+
   const handleNext = useCallback(() => {
+    stopAudio();
     if (questionIndex < TOTAL_QUESTIONS - 1) {
       setQuestionIndex((i) => i + 1);
       setSelectedIndex(null);
@@ -290,18 +353,20 @@ export const AsmaUlHusnaMultipleChoiceScreen: React.FC = () => {
     } else {
       setIsFinished(true);
     }
-  }, [questionIndex]);
+  }, [questionIndex, stopAudio]);
 
   const handleRestart = useCallback(() => {
+    stopAudio();
     setQuestionIndex(0);
     setSelectedIndex(null);
     setIsSubmitted(false);
     setScore(0);
     setIsFinished(false);
     setFeedbackMessage('');
-  }, []);
+  }, [stopAudio]);
 
   const handleNewQuiz = useCallback(() => {
+    stopAudio();
     setQuestionIndex(0);
     setSelectedIndex(null);
     setIsSubmitted(false);
@@ -309,7 +374,7 @@ export const AsmaUlHusnaMultipleChoiceScreen: React.FC = () => {
     setIsFinished(false);
     setFeedbackMessage('');
     setQuizKey((k) => k + 1);
-  }, []);
+  }, [stopAudio]);
 
   const wasCorrect = isSubmitted && selectedIndex !== null && currentQuestion
     && currentQuestion.options[selectedIndex].number === currentQuestion.correct.number;
@@ -448,7 +513,7 @@ export const AsmaUlHusnaMultipleChoiceScreen: React.FC = () => {
               activeOpacity={0.8}
             >
               <Ionicons name="refresh" size={18} color={colors.primary} />
-              <Text style={styles.reviewButtonText}>Review Same Questions</Text>
+              <Text style={styles.reviewButtonText}>Replay</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()} activeOpacity={0.8}>
               <Text style={styles.backButtonText}>Back to Games</Text>
@@ -506,6 +571,20 @@ export const AsmaUlHusnaMultipleChoiceScreen: React.FC = () => {
           {currentQuestion.mode === 'arabic-to-english' && (
             <Text style={styles.questionTransliteration}>{currentQuestion.correct.transliteration}</Text>
           )}
+          {currentQuestion.mode === 'arabic-to-english' && currentQuestion.correct.audio && (
+            <TouchableOpacity
+              style={styles.audioButton}
+              onPress={() => handlePlayAudio(currentQuestion.correct)}
+              activeOpacity={0.7}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons
+                name={playingAudioId === currentQuestion.correct.number ? 'stop-circle' : 'volume-high'}
+                size={22}
+                color={playingAudioId === currentQuestion.correct.number ? colors.accent : colors.primary}
+              />
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Options */}
@@ -516,6 +595,7 @@ export const AsmaUlHusnaMultipleChoiceScreen: React.FC = () => {
 
           const isCorrectOption = option.number === currentQuestion.correct.number;
           const isSelectedWrong = isSubmitted && index === selectedIndex && !isCorrectOption;
+          const showOptionAudio = currentQuestion.mode === 'english-to-arabic' && option.audio;
 
           return (
             <View key={option.number} style={styles.optionRow}>
@@ -536,9 +616,22 @@ export const AsmaUlHusnaMultipleChoiceScreen: React.FC = () => {
                 {isSelectedWrong && (
                   <Ionicons name="close-circle" size={22} color={colors.error} />
                 )}
+                {showOptionAudio && (
+                  <TouchableOpacity
+                    style={styles.optionAudioButton}
+                    onPress={(e) => { e.stopPropagation(); handlePlayAudio(option); }}
+                    activeOpacity={0.7}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Ionicons
+                      name={playingAudioId === option.number ? 'stop-circle' : 'volume-high'}
+                      size={18}
+                      color={playingAudioId === option.number ? colors.accent : colors.primary}
+                    />
+                  </TouchableOpacity>
+                )}
               </TouchableOpacity>
 
-              {/* "Correct answer" label shown when user got it wrong */}
               {isSubmitted && !wasCorrect && isCorrectOption && (
                 <View style={styles.correctAnswerRow}>
                   <Ionicons name="return-up-back" size={16} color={colors.success} />
@@ -665,6 +758,15 @@ const styles = StyleSheet.create({
     color: colors.text.secondary,
     marginTop: spacing.sm,
   },
+  audioButton: {
+    marginTop: spacing.md,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.primary + '12',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   optionRow: {
     marginBottom: spacing.sm,
   },
@@ -675,6 +777,15 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.md,
     padding: spacing.md,
     borderWidth: 1.5,
+  },
+  optionAudioButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: colors.primary + '12',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: spacing.sm,
   },
   optionDefault: {
     backgroundColor: colors.surface,
