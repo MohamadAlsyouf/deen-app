@@ -57,6 +57,11 @@ const parseHashRoute = (): { tab: string; subScreen: string | null; subScreenDat
     };
   }
 
+  // Handle Names sub-routes: #/names/browse, #/names/games, #/names/flashcards, etc.
+  if (tab === 'names' && parts[1]) {
+    return { tab: 'names', subScreen: parts[1], subScreenData: null };
+  }
+
   return { tab, subScreen: null, subScreenData: null };
 };
 
@@ -64,6 +69,9 @@ const buildHashRoute = (tab: string, subScreen: string | null, subScreenData: an
   if (tab === 'quran' && subScreen === 'chapter' && subScreenData) {
     const { chapterId, chapterName, chapterArabicName } = subScreenData;
     return `#/quran/chapter/${chapterId}/${encodeURIComponent(chapterName || '')}/${encodeURIComponent(chapterArabicName || '')}`;
+  }
+  if (tab === 'names' && subScreen) {
+    return `#/names/${subScreen}`;
   }
   return `#/${tab}`;
 };
@@ -272,7 +280,13 @@ export const WebAppShell: React.FC<WebAppShellProps> = ({ initialScreen = 'home'
       case 'pillars':
         return <WebPillarsContent />;
       case 'names':
-        return <WebNamesContent />;
+        return (
+          <WebNamesContent
+            subScreen={subScreen}
+            onSubNavigate={handleSubNavigate}
+            onBack={handleBack}
+          />
+        );
       case 'dua':
         return <WebDuaContent />;
       case 'about':
