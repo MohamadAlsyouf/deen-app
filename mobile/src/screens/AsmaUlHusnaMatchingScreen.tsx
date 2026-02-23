@@ -190,6 +190,7 @@ export const AsmaUlHusnaMatchingScreen: React.FC = () => {
 
   const names = dataQuery.data?.names ?? [];
 
+  const [hasStarted, setHasStarted] = useState(false);
   const [arabicTiles, setArabicTiles] = useState<Tile[]>([]);
   const [englishTiles, setEnglishTiles] = useState<Tile[]>([]);
   const [selectedTile, setSelectedTile] = useState<string | null>(null);
@@ -200,6 +201,54 @@ export const AsmaUlHusnaMatchingScreen: React.FC = () => {
   const [isFinished, setIsFinished] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [displayEfficiency, setDisplayEfficiency] = useState(0);
+
+  const introFade = useRef(new Animated.Value(0)).current;
+  const introIconScale = useRef(new Animated.Value(0.3)).current;
+  const introIconSlide = useRef(new Animated.Value(-30)).current;
+  const introTitleFade = useRef(new Animated.Value(0)).current;
+  const introDescFade = useRef(new Animated.Value(0)).current;
+  const introDiagramFade = useRef(new Animated.Value(0)).current;
+  const introDiagramSlide = useRef(new Animated.Value(20)).current;
+  const introButtonsFade = useRef(new Animated.Value(0)).current;
+  const introExitSlide = useRef(new Animated.Value(0)).current;
+  const gameFade = useRef(new Animated.Value(0)).current;
+  const gameSlide = useRef(new Animated.Value(40)).current;
+
+  useEffect(() => {
+    if (hasStarted) return;
+    Animated.timing(introFade, { toValue: 1, duration: 400, useNativeDriver: true }).start();
+    Animated.sequence([
+      Animated.delay(150),
+      Animated.parallel([
+        Animated.spring(introIconScale, { toValue: 1, tension: 60, friction: 8, useNativeDriver: true }),
+        Animated.spring(introIconSlide, { toValue: 0, tension: 60, friction: 8, useNativeDriver: true }),
+      ]),
+    ]).start();
+    Animated.timing(introTitleFade, { toValue: 1, duration: 400, delay: 300, useNativeDriver: true }).start();
+    Animated.timing(introDescFade, { toValue: 1, duration: 400, delay: 500, useNativeDriver: true }).start();
+    Animated.parallel([
+      Animated.timing(introDiagramFade, { toValue: 1, duration: 400, delay: 650, useNativeDriver: true }),
+      Animated.timing(introDiagramSlide, { toValue: 0, duration: 400, delay: 650, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+    ]).start();
+    Animated.timing(introButtonsFade, { toValue: 1, duration: 400, delay: 850, useNativeDriver: true }).start();
+  }, [hasStarted]);
+
+  useEffect(() => {
+    if (!hasStarted) return;
+    gameFade.setValue(0);
+    gameSlide.setValue(40);
+    Animated.parallel([
+      Animated.timing(gameFade, { toValue: 1, duration: 400, delay: 100, useNativeDriver: true }),
+      Animated.timing(gameSlide, { toValue: 0, duration: 400, delay: 100, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+    ]).start();
+  }, [hasStarted]);
+
+  const handleStart = useCallback(() => {
+    Animated.parallel([
+      Animated.timing(introFade, { toValue: 0, duration: 250, useNativeDriver: true }),
+      Animated.timing(introExitSlide, { toValue: -50, duration: 250, easing: Easing.in(Easing.cubic), useNativeDriver: true }),
+    ]).start(() => setHasStarted(true));
+  }, []);
 
   const resultsFade = useRef(new Animated.Value(0)).current;
   const scoreSlide = useRef(new Animated.Value(-60)).current;
@@ -367,6 +416,75 @@ export const AsmaUlHusnaMatchingScreen: React.FC = () => {
     return tile.type === 'arabic' ? styles.tileTextArabic : styles.tileTextEnglish;
   };
 
+  if (!hasStarted) {
+    return (
+      <View style={styles.container}>
+        <LinearGradient
+          colors={[colors.islamic.midnight, colors.primary, colors.primaryLight]}
+          style={StyleSheet.absoluteFill}
+        />
+        <View style={[styles.headerContainer, { paddingTop: insets.top, backgroundColor: 'transparent' }]}>
+          <Header
+            title="Matching"
+            leftAction={{ iconName: 'arrow-back', onPress: () => navigation.goBack() }}
+            dark
+          />
+        </View>
+
+        <Animated.View style={[styles.introContent, { opacity: introFade, transform: [{ translateY: introExitSlide }] }]}>
+          <Animated.View style={{ transform: [{ translateY: introIconSlide }, { scale: introIconScale }], alignItems: 'center' }}>
+            <View style={styles.introIconCircle}>
+              <Ionicons name="git-compare" size={44} color={colors.islamic.gold} />
+            </View>
+          </Animated.View>
+
+          <Animated.Text style={[styles.introTitle, { opacity: introTitleFade }]}>
+            Matching
+          </Animated.Text>
+          <Animated.Text style={[styles.introDesc, { opacity: introDescFade }]}>
+            Match {PAIRS_PER_ROUND} Arabic names to their English meanings as fast as you can.{'\n'}
+            Fewer moves and less time means a higher efficiency score!
+          </Animated.Text>
+
+          <Animated.View style={[styles.introDiagram, { opacity: introDiagramFade, transform: [{ translateY: introDiagramSlide }] }]}>
+            <View style={styles.introMatchMini}>
+              <View style={styles.introMatchCol}>
+                <View style={styles.introMatchTile}><Text style={styles.introMatchAr}>ٱلْمَلِكُ</Text></View>
+                <View style={styles.introMatchTile}><Text style={styles.introMatchAr}>ٱلسَّلَامُ</Text></View>
+              </View>
+              <View style={styles.introMatchLines}>
+                <View style={styles.introMatchLine} />
+                <View style={[styles.introMatchLine, styles.introMatchLineCross]} />
+              </View>
+              <View style={styles.introMatchCol}>
+                <View style={[styles.introMatchTile, styles.introMatchTileEn]}><Text style={styles.introMatchEn}>Peace</Text></View>
+                <View style={[styles.introMatchTile, styles.introMatchTileEn]}><Text style={styles.introMatchEn}>The King</Text></View>
+              </View>
+            </View>
+          </Animated.View>
+
+          <Animated.View style={[styles.introButtons, { opacity: introButtonsFade }]}>
+            <TouchableOpacity onPress={handleStart} activeOpacity={0.8} style={styles.introStartButton}>
+              <LinearGradient
+                colors={[colors.islamic.gold, colors.accentDark]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.introStartGradient}
+              >
+                <Ionicons name="play" size={20} color={colors.islamic.midnight} />
+                <Text style={styles.introStartText}>Start</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => navigation.goBack()} activeOpacity={0.8} style={styles.introBackButton}>
+              <Ionicons name="arrow-back" size={18} color="rgba(255,255,255,0.8)" />
+              <Text style={styles.introBackText}>Back to Games</Text>
+            </TouchableOpacity>
+          </Animated.View>
+        </Animated.View>
+      </View>
+    );
+  }
+
   // --- Loading ---
   if (dataQuery.isLoading || names.length < PAIRS_PER_ROUND) {
     return (
@@ -508,6 +626,7 @@ export const AsmaUlHusnaMatchingScreen: React.FC = () => {
         />
       </View>
 
+      <Animated.View style={{ flex: 1, opacity: gameFade, transform: [{ translateY: gameSlide }] }}>
       <View style={styles.statsBar}>
         <View style={styles.statPill}>
           <Ionicons name="swap-horizontal" size={14} color={colors.primary} />
@@ -585,6 +704,7 @@ export const AsmaUlHusnaMatchingScreen: React.FC = () => {
           );
         })}
       </ScrollView>
+      </Animated.View>
     </View>
   );
 };
@@ -860,5 +980,125 @@ const styles = StyleSheet.create({
   backButtonText: {
     ...typography.button,
     color: colors.primary,
+  },
+
+  introContent: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: spacing.xl,
+    paddingBottom: spacing.xxl,
+  },
+  introIconCircle: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.lg,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
+  },
+  introTitle: {
+    fontSize: 30,
+    fontWeight: '700',
+    color: colors.text.white,
+    textAlign: 'center',
+    marginBottom: spacing.sm,
+  },
+  introDesc: {
+    ...typography.body,
+    color: 'rgba(255,255,255,0.75)',
+    textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: spacing.xl,
+    paddingHorizontal: spacing.md,
+  },
+  introDiagram: {
+    alignItems: 'center',
+    marginBottom: spacing.xl,
+  },
+  introMatchMini: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  introMatchCol: {
+    gap: spacing.sm,
+  },
+  introMatchTile: {
+    width: 80,
+    height: 40,
+    borderRadius: borderRadius.sm,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  introMatchTileEn: {
+    backgroundColor: 'rgba(212,163,115,0.12)',
+    borderColor: 'rgba(212,163,115,0.25)',
+  },
+  introMatchAr: {
+    fontSize: 14,
+    color: colors.text.white,
+    fontWeight: '600',
+  },
+  introMatchEn: {
+    fontSize: 11,
+    color: colors.islamic.gold,
+    fontWeight: '600',
+  },
+  introMatchLines: {
+    width: 24,
+    height: 80,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  introMatchLine: {
+    position: 'absolute',
+    width: 24,
+    height: 1,
+    backgroundColor: 'rgba(255,255,255,0.25)',
+    top: 20,
+  },
+  introMatchLineCross: {
+    top: 60,
+    transform: [{ rotate: '0deg' }],
+  },
+  introButtons: {
+    width: '100%',
+    alignItems: 'center',
+  },
+  introStartButton: {
+    width: '100%',
+    borderRadius: borderRadius.md,
+    overflow: 'hidden',
+    marginBottom: spacing.md,
+  },
+  introStartGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    gap: spacing.sm,
+  },
+  introStartText: {
+    ...typography.button,
+    color: colors.islamic.midnight,
+    fontWeight: '700',
+  },
+  introBackButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.md,
+    gap: spacing.sm,
+  },
+  introBackText: {
+    ...typography.button,
+    color: 'rgba(255,255,255,0.7)',
   },
 });

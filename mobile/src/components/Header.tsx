@@ -8,6 +8,7 @@ type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 interface HeaderProps {
   title: string;
   titleNumberOfLines?: number;
+  dark?: boolean;
   leftAction?: {
     iconName?: IoniconName;
     label?: string;
@@ -20,9 +21,13 @@ interface HeaderProps {
   };
 }
 
-export const Header: React.FC<HeaderProps> = ({ title, titleNumberOfLines = 1, leftAction, rightAction }) => {
+export const Header: React.FC<HeaderProps> = ({ title, titleNumberOfLines = 1, dark, leftAction, rightAction }) => {
+  const iconColor = dark ? colors.text.white : colors.primary;
+  const textColor = dark ? colors.text.white : colors.text.primary;
+  const labelColor = dark ? colors.text.white : colors.primary;
+
   return (
-    <View style={styles.header}>
+    <View style={[styles.header, dark && styles.headerDark]}>
       <View style={styles.sideLeft}>
         {leftAction ? (
           <TouchableOpacity
@@ -31,9 +36,9 @@ export const Header: React.FC<HeaderProps> = ({ title, titleNumberOfLines = 1, l
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
             {leftAction.iconName ? (
-              <Ionicons name={leftAction.iconName} size={22} color={colors.primary} />
+              <Ionicons name={leftAction.iconName} size={22} color={iconColor} />
             ) : (
-              <Text style={styles.actionText}>{leftAction.label}</Text>
+              <Text style={[styles.actionText, { color: labelColor }]}>{leftAction.label}</Text>
             )}
           </TouchableOpacity>
         ) : null}
@@ -41,7 +46,7 @@ export const Header: React.FC<HeaderProps> = ({ title, titleNumberOfLines = 1, l
 
       <View style={styles.titleWrap}>
         <Text 
-          style={styles.title} 
+          style={[styles.title, { color: textColor }]} 
           numberOfLines={titleNumberOfLines || undefined}
           ellipsizeMode={titleNumberOfLines ? "tail" : undefined}
         >
@@ -57,9 +62,9 @@ export const Header: React.FC<HeaderProps> = ({ title, titleNumberOfLines = 1, l
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
             {rightAction.iconName ? (
-              <Ionicons name={rightAction.iconName} size={22} color={colors.primary} />
+              <Ionicons name={rightAction.iconName} size={22} color={iconColor} />
             ) : (
-              <Text style={styles.actionText}>{rightAction.label}</Text>
+              <Text style={[styles.actionText, { color: labelColor }]}>{rightAction.label}</Text>
             )}
           </TouchableOpacity>
         ) : null}
@@ -77,6 +82,10 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
+  },
+  headerDark: {
+    backgroundColor: 'transparent',
+    borderBottomColor: 'rgba(255,255,255,0.1)',
   },
   sideLeft: {
     width: 44,
