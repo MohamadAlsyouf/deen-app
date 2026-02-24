@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useDeferredValue } from 'react';
 import {
   View,
   Text,
@@ -6,20 +6,14 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
-  Alert,
   useWindowDimensions,
-  Image,
+  TouchableOpacity,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { Button, Input } from '@/components';
 import { colors, spacing, typography } from '@/theme';
 import { useAuth } from '@/hooks/useAuth';
-
-interface PasswordRequirement {
-  label: string;
-  met: boolean;
-}
 
 interface FeatureCardProps {
   icon: keyof typeof Ionicons.glyphMap;
@@ -37,48 +31,97 @@ const FeatureCard: React.FC<FeatureCardProps> = ({ icon, title, description }) =
   </View>
 );
 
-export const LandingScreen: React.FC = () => {
-  const { width } = useWindowDimensions();
-  const isWeb = Platform.OS === 'web';
-  const isLargeScreen = width >= 768;
-  const isDesktop = width >= 1024;
+interface AuthFormContentProps {
+  signIn: (email: string, password: string) => Promise<void>;
+  signUp: (email: string, password: string, displayName?: string) => Promise<void>;
+  isDesktop: boolean;
+}
 
+const PASSWORD_REQUIREMENTS_CONFIG: { label: string; test: (pwd: string) => boolean }[] = [
+  { label: 'At least 6 characters', test: (pwd) => pwd.length >= 6 },
+  { label: 'One uppercase letter', test: (pwd) => /[A-Z]/.test(pwd) },
+  { label: 'One lowercase letter', test: (pwd) => /[a-z]/.test(pwd) },
+  { label: 'One number (0-9)', test: (pwd) => /[0-9]/.test(pwd) },
+];
+
+const PasswordRequirementsDisplay: React.FC<{ password: string }> = React.memo(({ password }) => (
+  <View style={styles.passwordRequirements}>
+    <Text style={styles.passwordRequirementsTitle}>Password Requirements:</Text>
+    {PASSWORD_REQUIREMENTS_CONFIG.map(({ label, test }, index) => (
+      <View key={index} style={styles.requirementItem}>
+        <Ionicons
+          name={test(password) ? 'checkmark-circle' : 'ellipse-outline'}
+          size={16}
+          color={test(password) ? colors.success : colors.text.secondary}
+        />
+        <Text
+          style={[
+            styles.requirementText,
+            test(password) && styles.requirementTextMet,
+          ]}
+        >
+          {label}
+        </Text>
+      </View>
+    ))}
+  </View>
+));
+
+const AuthFormContent: React.FC<AuthFormContentProps> = React.memo(({ signIn, signUp, isDesktop }) => {
   const [isSignUp, setIsSignUp] = useState(false);
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
-  const { signIn, signUp } = useAuth();
 
-  const checkPasswordRequirements = (pwd: string): PasswordRequirement[] => {
-    return [
-      { label: 'At least 6 characters', met: pwd.length >= 6 },
-      { label: 'One uppercase letter', met: /[A-Z]/.test(pwd) },
-      { label: 'One lowercase letter', met: /[a-z]/.test(pwd) },
-      { label: 'One number (0-9)', met: /[0-9]/.test(pwd) },
-    ];
-  };
+  const deferredPassword = useDeferredValue(password);
 
-  const passwordRequirements = isSignUp ? checkPasswordRequirements(password) : [];
+  const handleFirstNameChange = useCallback((text: string) => {
+    setFirstName(text);
+    setErrorMessage((p) => (p ? '' : p));
+  }, []);
+  const handleLastNameChange = useCallback((text: string) => {
+    setLastName(text);
+    setErrorMessage((p) => (p ? '' : p));
+  }, []);
+  const handleEmailChange = useCallback((text: string) => {
+    setEmail(text);
+    setErrorMessage((p) => (p ? '' : p));
+  }, []);
+  const handlePasswordChange = useCallback((text: string) => {
+    setPassword(text);
+    setErrorMessage((p) => (p ? '' : p));
+  }, []);
+  const handleConfirmPasswordChange = useCallback((text: string) => {
+    setConfirmPassword(text);
+    setErrorMessage((p) => (p ? '' : p));
+  }, []);
+
+  const checkPasswordRequirements = (pwd: string) =>
+    PASSWORD_REQUIREMENTS_CONFIG.every(({ test }) => test(pwd));
 
   const handleSubmit = async () => {
+    if (isSignUp && (!firstName.trim() || !lastName.trim())) {
+      setErrorMessage('Please enter your first and last name.');
+      return;
+    }
+
     if (!email || !password) {
-      Alert.alert('Error', 'Please fill in all fields');
+      setErrorMessage('Please fill in all fields.');
       return;
     }
 
     if (isSignUp) {
-      const requirements = checkPasswordRequirements(password);
-      const unmetRequirements = requirements.filter((req) => !req.met);
-
-      if (unmetRequirements.length > 0) {
+      if (!checkPasswordRequirements(password)) {
         setErrorMessage('Password does not meet all requirements.');
         return;
       }
 
       if (!confirmPassword) {
-        Alert.alert('Error', 'Please confirm your password.');
+        setErrorMessage('Please confirm your password.');
         return;
       }
 
@@ -92,7 +135,8 @@ export const LandingScreen: React.FC = () => {
     setLoading(true);
     try {
       if (isSignUp) {
-        await signUp(email, password);
+        const displayName = `${firstName.trim()} ${lastName.trim()}`;
+        await signUp(email, password, displayName);
       } else {
         await signIn(email, password);
       }
@@ -105,6 +149,8 @@ export const LandingScreen: React.FC = () => {
         errorCode === 'auth/invalid-email'
       ) {
         setErrorMessage('Invalid email or password. Please try again.');
+      } else if (errorCode === 'auth/email-already-in-use') {
+        setErrorMessage('This email is already registered. Please sign in or use a different email.');
       } else {
         setErrorMessage(error.message || 'Authentication failed. Please try again.');
       }
@@ -115,39 +161,145 @@ export const LandingScreen: React.FC = () => {
 
   const toggleMode = () => {
     setIsSignUp(!isSignUp);
+    setFirstName('');
+    setLastName('');
     setEmail('');
     setPassword('');
     setConfirmPassword('');
     setErrorMessage('');
   };
 
-  const handleInputChange = (setter: (value: string) => void) => (text: string) => {
-    setter(text);
-    if (errorMessage) setErrorMessage('');
-  };
+  return (
+    <View style={[styles.authCard, isDesktop && styles.authCardDesktop]}>
+      <Text style={styles.authTitle}>
+        {isSignUp ? 'Create Account' : 'Welcome Back'}
+      </Text>
+      <Text style={styles.authSubtitle}>
+        {isSignUp
+          ? 'Start your learning journey today'
+          : 'Sign in to continue learning'}
+      </Text>
 
-  const features = [
-    {
-      icon: 'book-outline' as const,
-      title: 'Quran Recitation',
-      description: 'Listen to beautiful recitations from renowned Qaris with verse-by-verse highlighting',
-    },
-    {
-      icon: 'school-outline' as const,
-      title: 'Learn the Pillars',
-      description: 'Understand the 5 Pillars of Islam and 6 Pillars of Iman with detailed explanations',
-    },
-    {
-      icon: 'heart-outline' as const,
-      title: '99 Names of Allah',
-      description: 'Explore and memorize the beautiful names of Allah with meanings and audio',
-    },
-    {
-      icon: 'globe-outline' as const,
-      title: 'Accessible Anywhere',
-      description: 'Access your learning on iOS, Android, and web - your progress syncs everywhere',
-    },
-  ];
+      {isSignUp && (
+        <View style={styles.nameRow}>
+          <View style={styles.nameField}>
+            <Input
+              label="First Name"
+              value={firstName}
+              onChangeText={handleFirstNameChange}
+              placeholder="First name"
+              autoCapitalize="words"
+              autoComplete="given-name"
+            />
+          </View>
+          <View style={styles.nameField}>
+            <Input
+              label="Last Name"
+              value={lastName}
+              onChangeText={handleLastNameChange}
+              placeholder="Last name"
+              autoCapitalize="words"
+              autoComplete="family-name"
+            />
+          </View>
+        </View>
+      )}
+
+      <Input
+        label="Email"
+        value={email}
+        onChangeText={handleEmailChange}
+        placeholder="Enter your email"
+        keyboardType="email-address"
+        autoCapitalize="none"
+        autoComplete="email"
+      />
+
+      <Input
+        label="Password"
+        value={password}
+        onChangeText={handlePasswordChange}
+        placeholder="Enter your password"
+        secureTextEntry
+        autoCapitalize="none"
+        autoComplete="password"
+      />
+
+      {isSignUp && (
+        <>
+          <Input
+            label="Confirm Password"
+            value={confirmPassword}
+            onChangeText={handleConfirmPasswordChange}
+            placeholder="Confirm your password"
+            secureTextEntry
+            autoCapitalize="none"
+            autoComplete="password"
+          />
+
+          {deferredPassword.length > 0 && (
+            <PasswordRequirementsDisplay password={deferredPassword} />
+          )}
+        </>
+      )}
+
+      {errorMessage ? (
+        <View style={styles.errorContainer}>
+          <Ionicons name="alert-circle" size={16} color={colors.error} />
+          <Text style={styles.errorMessage}>{errorMessage}</Text>
+        </View>
+      ) : null}
+
+      <Button
+        title={isSignUp ? 'Create Account' : 'Sign In'}
+        onPress={handleSubmit}
+        loading={loading}
+        style={styles.submitButton}
+      />
+
+      <View style={styles.toggleRow}>
+        <Text style={styles.toggleText}>
+          {isSignUp ? 'Already have an account? ' : "Don't have an account? "}
+        </Text>
+        <TouchableOpacity onPress={toggleMode} disabled={loading}>
+          <Text style={styles.toggleLink}>
+            {isSignUp ? 'Sign in' : 'Sign up'}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+});
+
+const FEATURES = [
+  {
+    icon: 'book-outline' as const,
+    title: 'Quran Recitation',
+    description: 'Listen to beautiful recitations from renowned Qaris with verse-by-verse highlighting',
+  },
+  {
+    icon: 'school-outline' as const,
+    title: 'Learn the Pillars',
+    description: 'Understand the 5 Pillars of Islam and 6 Pillars of Iman with detailed explanations',
+  },
+  {
+    icon: 'heart-outline' as const,
+    title: '99 Names of Allah',
+    description: 'Explore and memorize the beautiful names of Allah with meanings and audio',
+  },
+  {
+    icon: 'globe-outline' as const,
+    title: 'Accessible Anywhere',
+    description: 'Access your learning on iOS, Android, and web - your progress syncs everywhere',
+  },
+];
+
+export const LandingScreen: React.FC = () => {
+  const { width } = useWindowDimensions();
+  const isWeb = Platform.OS === 'web';
+  const isLargeScreen = width >= 768;
+  const isDesktop = width >= 1024;
+  const { signIn, signUp } = useAuth();
 
   return (
     <View style={styles.container}>
@@ -158,6 +310,7 @@ export const LandingScreen: React.FC = () => {
           isLargeScreen && styles.scrollContentLarge,
         ]}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
         {/* Hero Section */}
         <LinearGradient
@@ -213,100 +366,7 @@ export const LandingScreen: React.FC = () => {
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                 style={styles.authContainer}
               >
-                <View style={[styles.authCard, isDesktop && styles.authCardDesktop]}>
-                  <Text style={styles.authTitle}>
-                    {isSignUp ? 'Create Account' : 'Welcome Back'}
-                  </Text>
-                  <Text style={styles.authSubtitle}>
-                    {isSignUp
-                      ? 'Start your learning journey today'
-                      : 'Sign in to continue learning'}
-                  </Text>
-
-                  <Input
-                    label="Email"
-                    value={email}
-                    onChangeText={handleInputChange(setEmail)}
-                    placeholder="Enter your email"
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                    autoComplete="email"
-                  />
-
-                  <Input
-                    label="Password"
-                    value={password}
-                    onChangeText={handleInputChange(setPassword)}
-                    placeholder="Enter your password"
-                    secureTextEntry
-                    autoCapitalize="none"
-                    autoComplete="password"
-                  />
-
-                  {isSignUp && (
-                    <>
-                      <Input
-                        label="Confirm Password"
-                        value={confirmPassword}
-                        onChangeText={handleInputChange(setConfirmPassword)}
-                        placeholder="Confirm your password"
-                        secureTextEntry
-                        autoCapitalize="none"
-                        autoComplete="password"
-                      />
-
-                      {password.length > 0 && (
-                        <View style={styles.passwordRequirements}>
-                          <Text style={styles.passwordRequirementsTitle}>
-                            Password Requirements:
-                          </Text>
-                          {passwordRequirements.map((req, index) => (
-                            <View key={index} style={styles.requirementItem}>
-                              <Ionicons
-                                name={req.met ? 'checkmark-circle' : 'ellipse-outline'}
-                                size={16}
-                                color={req.met ? colors.success : colors.text.secondary}
-                              />
-                              <Text
-                                style={[
-                                  styles.requirementText,
-                                  req.met && styles.requirementTextMet,
-                                ]}
-                              >
-                                {req.label}
-                              </Text>
-                            </View>
-                          ))}
-                        </View>
-                      )}
-                    </>
-                  )}
-
-                  {errorMessage ? (
-                    <View style={styles.errorContainer}>
-                      <Ionicons name="alert-circle" size={16} color={colors.error} />
-                      <Text style={styles.errorMessage}>{errorMessage}</Text>
-                    </View>
-                  ) : null}
-
-                  <Button
-                    title={isSignUp ? 'Create Account' : 'Sign In'}
-                    onPress={handleSubmit}
-                    loading={loading}
-                    style={styles.submitButton}
-                  />
-
-                  <Button
-                    title={
-                      isSignUp
-                        ? 'Already have an account? Sign In'
-                        : "Don't have an account? Sign Up"
-                    }
-                    onPress={toggleMode}
-                    variant="outline"
-                    disabled={loading}
-                  />
-                </View>
+                <AuthFormContent signIn={signIn} signUp={signUp} isDesktop={isDesktop} />
               </KeyboardAvoidingView>
             </View>
           </View>
@@ -322,7 +382,7 @@ export const LandingScreen: React.FC = () => {
           </Text>
 
           <View style={[styles.featuresGrid, isDesktop && styles.featuresGridDesktop]}>
-            {features.map((feature, index) => (
+            {FEATURES.map((feature, index) => (
               <FeatureCard
                 key={index}
                 icon={feature.icon}
@@ -530,6 +590,29 @@ const styles = StyleSheet.create({
   submitButton: {
     marginTop: spacing.sm,
     marginBottom: spacing.md,
+  },
+  nameRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  nameField: {
+    flex: 1,
+  },
+  toggleRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: spacing.xs,
+  },
+  toggleText: {
+    fontSize: 14,
+    color: colors.text.secondary,
+  },
+  toggleLink: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.primary,
+    textDecorationLine: 'underline',
   },
 
   // Password Requirements

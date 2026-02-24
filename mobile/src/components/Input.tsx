@@ -17,7 +17,7 @@ interface InputProps extends TextInputProps {
   numberOfLines?: number;
 }
 
-export const Input: React.FC<InputProps> = ({
+export const Input: React.FC<InputProps> = React.memo(({
   label,
   error,
   containerStyle,
@@ -42,7 +42,7 @@ export const Input: React.FC<InputProps> = ({
       {error && <Text style={styles.errorText}>{error}</Text>}
     </View>
   );
-};
+});
 
 const styles = StyleSheet.create({
   container: {

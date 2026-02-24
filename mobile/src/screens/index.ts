@@ -14,4 +14,6 @@ export { AsmaUlHusnaMatchingScreen } from './AsmaUlHusnaMatchingScreen';
 export { PillarsScreen } from './PillarsScreen';
 export { PrayerGuideScreen } from './PrayerGuideScreen';
 export { DuaScreen } from './DuaScreen';
+export { SunnahScreen } from './SunnahScreen';
+export { ProfileScreen } from './ProfileScreen';
 

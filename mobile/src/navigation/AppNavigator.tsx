@@ -15,6 +15,8 @@ import {
   PillarsScreen,
   PrayerGuideScreen,
   DuaScreen,
+  SunnahScreen,
+  ProfileScreen,
 } from '@/screens';
 import { TabNavigator } from './TabNavigator';
 import { useAuth } from '@/hooks/useAuth';
@@ -38,6 +40,8 @@ export type RootStackParamList = {
   Pillars: undefined;
   PrayerGuide: undefined;
   Dua: undefined;
+  Sunnah: undefined;
+  Profile: undefined;
 };
 
 const Stack = createStackNavigator<RootStackParamList>();
@@ -75,6 +79,8 @@ export const AppNavigator: React.FC = () => {
             <Stack.Screen name="Pillars" component={PillarsScreen} />
             <Stack.Screen name="PrayerGuide" component={PrayerGuideScreen} />
             <Stack.Screen name="Dua" component={DuaScreen} />
+            <Stack.Screen name="Sunnah" component={SunnahScreen} />
+            <Stack.Screen name="Profile" component={ProfileScreen} />
           </>
         ) : (
           <Stack.Screen name="Landing" component={LandingScreen} />
