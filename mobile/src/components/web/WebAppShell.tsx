@@ -13,6 +13,7 @@ import {
   ScrollView,
   useWindowDimensions,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -29,6 +30,8 @@ import { WebNamesContent } from './content/WebNamesContent';
 import { WebDuaContent } from './content/WebDuaContent';
 import { WebAboutContent } from './content/WebAboutContent';
 import { WebContactContent } from './content/WebContactContent';
+import { WebProfileContent } from './content/WebProfileContent';
+import { WebSunnahContent } from './content/WebSunnahContent';
 
 // URL Routing helpers
 const parseHashRoute = (): { tab: string; subScreen: string | null; subScreenData: any } => {
@@ -90,6 +93,8 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'pillars', label: 'Pillars', icon: 'compass-outline', activeIcon: 'compass' },
   { id: 'names', label: '99 Names', icon: 'heart-outline', activeIcon: 'heart' },
   { id: 'dua', label: 'Dua & Dhikr', icon: 'hand-left-outline', activeIcon: 'hand-left' },
+  { id: 'sunnah', label: 'Sunnah', icon: 'sunny-outline', activeIcon: 'sunny' },
+  { id: 'profile', label: 'My Profile', icon: 'person-outline', activeIcon: 'person' },
   { id: 'about', label: 'About', icon: 'information-circle-outline', activeIcon: 'information-circle' },
   { id: 'contact', label: 'Contact', icon: 'mail-outline', activeIcon: 'mail' },
 ];
@@ -289,6 +294,10 @@ export const WebAppShell: React.FC<WebAppShellProps> = ({ initialScreen = 'home'
         );
       case 'dua':
         return <WebDuaContent />;
+      case 'sunnah':
+        return <WebSunnahContent />;
+      case 'profile':
+        return <WebProfileContent />;
       case 'about':
         return <WebAboutContent />;
       case 'contact':
@@ -345,7 +354,7 @@ export const WebAppShell: React.FC<WebAppShellProps> = ({ initialScreen = 'home'
           <Text style={[styles.navSectionTitle, isCollapsed && styles.hidden]}>
             EXPLORE
           </Text>
-          {NAV_ITEMS.slice(0, 6).map((item, index) => (
+          {NAV_ITEMS.slice(0, 7).map((item, index) => (
             <View
               key={item.id}
               style={mounted ? {
@@ -368,7 +377,7 @@ export const WebAppShell: React.FC<WebAppShellProps> = ({ initialScreen = 'home'
           <Text style={[styles.navSectionTitle, isCollapsed && styles.hidden]}>
             MORE
           </Text>
-          {NAV_ITEMS.slice(6).map((item, index) => (
+          {NAV_ITEMS.slice(7).map((item, index) => (
             <View
               key={item.id}
               style={mounted ? {
@@ -388,21 +397,29 @@ export const WebAppShell: React.FC<WebAppShellProps> = ({ initialScreen = 'home'
         </ScrollView>
 
         {/* User Section */}
-        <View style={[styles.userSection, isCollapsed && styles.userSectionCollapsed]}>
+        <TouchableOpacity
+          onPress={() => handleNavigate('profile')}
+          activeOpacity={0.8}
+          style={[styles.userSection, isCollapsed && styles.userSectionCollapsed]}
+        >
           <View style={styles.userAvatar}>
-            <Ionicons name="person" size={18} color={colors.primary} />
+            {user?.photoURL ? (
+              <Image source={{ uri: user.photoURL }} style={styles.userAvatarImage} />
+            ) : (
+              <Ionicons name="person" size={18} color={colors.primary} />
+            )}
           </View>
           {!isCollapsed && (
             <View style={styles.userInfo}>
               <Text style={styles.userName} numberOfLines={1}>
-                {user?.email?.split('@')[0] || 'Welcome'}
+                {user?.displayName || user?.email?.split('@')[0] || 'Welcome'}
               </Text>
-              <TouchableOpacity onPress={handleSignOut} activeOpacity={0.7}>
+              <TouchableOpacity onPress={(e) => { e.stopPropagation(); handleSignOut(); }} activeOpacity={0.7}>
                 <Text style={styles.signOutText}>Sign Out</Text>
               </TouchableOpacity>
             </View>
           )}
-        </View>
+        </TouchableOpacity>
 
         {/* Collapse Toggle */}
         <TouchableOpacity
@@ -594,6 +611,12 @@ const styles = StyleSheet.create({
     backgroundColor: colors.accent,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  userAvatarImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
   },
   userInfo: {
     flex: 1,
