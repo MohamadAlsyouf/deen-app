@@ -14,7 +14,10 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.deenlearning.app"
+      "bundleIdentifier": "com.deenlearning.app",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -34,6 +37,11 @@
       "description": "Your comprehensive platform to learn and deepen your understanding of Deen",
       "themeColor": "#1B4332",
       "backgroundColor": "#ffffff"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "51fb1106-2707-4448-8aa8-c6ce452f9bb2"
+      }
     }
   }
 }
