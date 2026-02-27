@@ -7,7 +7,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius } from '@/theme';
 import { useAuth } from '@/hooks/useAuth';
-import { ProfileDrawer } from '@/components/ProfileDrawer';
+import { ProfileDrawer } from '@/components/common/ProfileDrawer';
 import type { TabParamList } from '@/navigation/TabNavigator';
 import { WebHomeScreen } from './WebHomeScreen';
 

@@ -1,0 +1,14 @@
+{
+  "name": "arkan",
+  "private": true,
+  "workspaces": [
+    "mobile",
+    "functions"
+  ],
+  "scripts": {
+    "mobile": "npm --prefix mobile",
+    "functions": "npm --prefix functions",
+    "start": "npm --prefix mobile start",
+    "deploy:functions": "npm --prefix functions run deploy"
+  }
+}

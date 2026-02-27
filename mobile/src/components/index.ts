@@ -1,7 +1,8 @@
-export { Button } from './Button';
-export { Input } from './Input';
-export { Card } from './Card';
-export { Header } from './Header';
+export { Button } from './common/Button';
+export { Input } from './common/Input';
+export { Card } from './common/Card';
+export { Header } from './common/Header';
+export { ProfileDrawer } from './common/ProfileDrawer';
 export { QuranFeatureCard } from './featureCards/QuranFeatureCard';
 export { PillarsFeatureCard } from './featureCards/PillarsFeatureCard';
 export { AsmaUlHusnaFeatureCard } from './featureCards/AsmaUlHusnaFeatureCard';

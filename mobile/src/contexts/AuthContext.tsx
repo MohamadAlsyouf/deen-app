@@ -3,7 +3,7 @@ import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 import { auth } from '@/config/firebase';
 import { authService } from '@/services/authService';
 import { User, AuthContextType } from '@/types/user';
-import { AuthContext } from './useAuth';
+import { AuthContext } from '@/hooks/useAuth';
 
 interface AuthProviderProps {
   children: ReactNode;

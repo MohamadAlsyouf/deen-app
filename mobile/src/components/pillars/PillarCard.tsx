@@ -9,7 +9,7 @@ import {
   UIManager,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { Card } from "@/components/Card";
+import { Card } from "@/components/common/Card";
 import { colors, spacing, typography, borderRadius } from "@/theme";
 import type { Pillar } from "@/types/pillars";
 
