@@ -9,7 +9,17 @@ import {
   UserCredential,
 } from 'firebase/auth';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { auth, storage } from '@/config/firebase';
+import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
+import { auth, storage, db } from '@/config/firebase';
+import { UserProfile, UserType, FeatureKey } from '@/types/user';
+
+export interface CreateUserDocumentData {
+  email: string;
+  displayName: string;
+  userType: UserType;
+  focusFeatures: FeatureKey[];
+  notificationsEnabled: boolean;
+}
 
 export const authService = {
   signUp: async (email: string, password: string, displayName?: string): Promise<UserCredential> => {
@@ -56,5 +66,28 @@ export const authService = {
     await reauthenticateWithCredential(user, credential);
     await deleteUser(user);
   },
-};
 
+  createUserDocument: async (uid: string, data: CreateUserDocumentData): Promise<void> => {
+    const userRef = doc(db, 'users', uid);
+    const userDoc: Omit<UserProfile, 'createdAt'> & { createdAt: any } = {
+      uid,
+      email: data.email,
+      displayName: data.displayName,
+      userType: data.userType,
+      focusFeatures: data.focusFeatures,
+      notificationsEnabled: data.notificationsEnabled,
+      onboardingCompleted: true,
+      createdAt: serverTimestamp(),
+    };
+    await setDoc(userRef, userDoc);
+  },
+
+  getUserDocument: async (uid: string): Promise<UserProfile | null> => {
+    const userRef = doc(db, 'users', uid);
+    const userSnap = await getDoc(userRef);
+    if (userSnap.exists()) {
+      return userSnap.data() as UserProfile;
+    }
+    return null;
+  },
+};

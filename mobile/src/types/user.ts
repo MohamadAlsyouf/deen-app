@@ -6,6 +6,27 @@ export interface User {
   createdAt: string | null;
 }
 
+export type UserType = 'muslim' | 'revert' | 'learner';
+
+export type FeatureKey = 'quran' | 'prayer' | 'pillars' | 'names' | 'dua' | 'sunnah';
+
+export interface UserProfile {
+  uid: string;
+  email: string;
+  displayName: string;
+  userType: UserType;
+  focusFeatures: FeatureKey[];
+  notificationsEnabled: boolean;
+  onboardingCompleted: boolean;
+  createdAt: any; // Firestore Timestamp
+}
+
+export interface OnboardingData {
+  userType: UserType | null;
+  focusFeatures: FeatureKey[];
+  notificationsEnabled: boolean;
+}
+
 export interface AuthContextType {
   user: User | null;
   loading: boolean;
@@ -15,4 +36,3 @@ export interface AuthContextType {
   updateProfile: (data: { displayName?: string; photoURL?: string }) => Promise<void>;
   deleteAccount: (password: string) => Promise<void>;
 }
-

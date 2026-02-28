@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Alert, Platform, TouchableOpacity, Dimensions, Image } from 'react-native';
+import React, { useState, useMemo } from 'react';
+import { View, Text, StyleSheet, ScrollView, Alert, Platform, TouchableOpacity, Dimensions, Image, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
@@ -7,9 +7,11 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius } from '@/theme';
 import { useAuth } from '@/hooks/useAuth';
+import { useUserProfile } from '@/hooks/useUserProfile';
 import { ProfileDrawer } from '@/components/common/ProfileDrawer';
 import type { TabParamList } from '@/navigation/TabNavigator';
 import { WebHomeScreen } from './WebHomeScreen';
+import { FeatureKey } from '@/types/user';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -19,14 +21,15 @@ const GRID_PADDING = spacing.lg;
 const CARD_SIZE = (SCREEN_WIDTH - GRID_PADDING * 2 - GRID_GAP) / 2;
 
 type GridCard = {
+  key: FeatureKey;
   title: string;
   subtitle: string;
   icon: IoniconName;
   gradientColors: [string, string];
-  onPress: () => void;
+  screen: string;
 };
 
-const GridCardItem: React.FC<{ card: GridCard; size: number }> = ({ card, size }) => (
+const GridCardItem: React.FC<{ card: GridCard & { onPress: () => void }; size: number }> = ({ card, size }) => (
   <TouchableOpacity onPress={card.onPress} activeOpacity={0.85} style={{ width: size }}>
     <LinearGradient
       colors={card.gradientColors}
@@ -43,6 +46,58 @@ const GridCardItem: React.FC<{ card: GridCard; size: number }> = ({ card, size }
   </TouchableOpacity>
 );
 
+// All available feature cards with their keys
+const ALL_CARDS: GridCard[] = [
+  {
+    key: 'quran',
+    title: 'Quran',
+    subtitle: 'Browse chapters & read verses',
+    icon: 'book-outline',
+    gradientColors: [colors.primary, colors.secondaryDark],
+    screen: 'QuranChapters',
+  },
+  {
+    key: 'prayer',
+    title: 'Prayer Guide',
+    subtitle: 'Step-by-step daily prayers',
+    icon: 'hand-left-outline',
+    gradientColors: ['#2D6A4F', '#52B788'],
+    screen: 'PrayerGuide',
+  },
+  {
+    key: 'pillars',
+    title: 'Pillars of Islam',
+    subtitle: '5 Pillars of Islam & 6 of Iman',
+    icon: 'compass-outline',
+    gradientColors: ['#40916C', '#74C69D'],
+    screen: 'Pillars',
+  },
+  {
+    key: 'names',
+    title: '99 Names',
+    subtitle: 'Learn the names of Allah',
+    icon: 'star-outline',
+    gradientColors: [colors.accentDark, colors.islamic.gold],
+    screen: 'AsmaUlHusnaMenu',
+  },
+  {
+    key: 'dua',
+    title: 'Dua & Dhikr',
+    subtitle: 'Daily supplications',
+    icon: 'heart-outline',
+    gradientColors: ['#667eea', '#764ba2'],
+    screen: 'Dua',
+  },
+  {
+    key: 'sunnah',
+    title: 'Sunnah',
+    subtitle: 'Prophetic practices for daily life',
+    icon: 'sunny-outline',
+    gradientColors: ['#5D4037', '#8D6E63'],
+    screen: 'Sunnah',
+  },
+];
+
 export const HomeScreen: React.FC = () => {
   if (Platform.OS === 'web') {
     return <WebHomeScreen />;
@@ -50,6 +105,7 @@ export const HomeScreen: React.FC = () => {
 
   const navigation = useNavigation<BottomTabNavigationProp<TabParamList, 'Home'>>();
   const { user, signOut } = useAuth();
+  const { userProfile, loading: profileLoading } = useUserProfile();
   const insets = useSafeAreaInsets();
   const [drawerVisible, setDrawerVisible] = useState(false);
 
@@ -66,57 +122,19 @@ export const HomeScreen: React.FC = () => {
     if (parentNavigation) parentNavigation.navigate(screen as never);
   };
 
-  const mainCards: GridCard[] = [
-    {
-      title: 'Quran',
-      subtitle: 'Browse chapters & read verses',
-      icon: 'book-outline',
-      gradientColors: [colors.primary, colors.secondaryDark],
-      onPress: () => nav('QuranChapters'),
-    },
-    {
-      title: 'Prayer Guide',
-      subtitle: 'Step-by-step daily prayers',
-      icon: 'hand-left-outline',
-      gradientColors: ['#2D6A4F', '#52B788'],
-      onPress: () => nav('PrayerGuide'),
-    },
-    {
-      title: 'Pillars of Islam',
-      subtitle: '5 Pillars of Islam & 6 of Iman',
-      icon: 'compass-outline',
-      gradientColors: ['#40916C', '#74C69D'],
-      onPress: () => nav('Pillars'),
-    },
-    {
-      title: '99 Names',
-      subtitle: 'Learn the names of Allah',
-      icon: 'star-outline',
-      gradientColors: [colors.accentDark, colors.islamic.gold],
-      onPress: () => nav('AsmaUlHusnaMenu'),
-    },
-    {
-      title: 'Dua & Dhikr',
-      subtitle: 'Daily supplications',
-      icon: 'heart-outline',
-      gradientColors: ['#667eea', '#764ba2'],
-      onPress: () => nav('Dua'),
-    },
-    {
-      title: 'Sunnah',
-      subtitle: 'Prophetic practices for daily life',
-      icon: 'sunny-outline',
-      gradientColors: ['#5D4037', '#8D6E63'],
-      onPress: () => nav('Sunnah'),
-    },
-  ];
+  // Filter cards based on user's focusFeatures preferences
+  // If no preferences set (legacy users or no profile), show all cards
+  const displayCards = useMemo(() => {
+    if (!userProfile?.focusFeatures || userProfile.focusFeatures.length === 0) {
+      // No preferences set - show all cards
+      return ALL_CARDS;
+    }
+
+    // Filter to only show selected features, maintaining the original order
+    return ALL_CARDS.filter(card => userProfile.focusFeatures.includes(card.key));
+  }, [userProfile?.focusFeatures]);
 
   const displayName = user?.displayName || 'Muslim User';
-  const initials = displayName
-    .split(' ')
-    .slice(0, 2)
-    .map(w => w[0]?.toUpperCase())
-    .join('');
 
   return (
     <View style={styles.container}>
@@ -147,19 +165,44 @@ export const HomeScreen: React.FC = () => {
         locations={[0, 0.5, 1]}
         style={styles.bgGradient}
       >
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-        >
-          <Text style={styles.greeting}>Assalamu Alaikum{user?.displayName ? `, ${user.displayName.split(' ')[0]}` : ''}</Text>
-          <Text style={styles.greetingSub}>Choose a section to begin learning</Text>
-
-          <View style={styles.grid}>
-            {mainCards.map((card, i) => (
-              <GridCardItem key={i} card={card} size={CARD_SIZE} />
-            ))}
+        {profileLoading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={colors.primary} />
           </View>
-        </ScrollView>
+        ) : (
+          <ScrollView
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+          >
+            <Text style={styles.greeting}>Assalamu Alaikum{user?.displayName ? `, ${user.displayName.split(' ')[0]}` : ''}</Text>
+            <Text style={styles.greetingSub}>
+              {displayCards.length < ALL_CARDS.length
+                ? 'Your personalized learning journey'
+                : 'Choose a section to begin learning'}
+            </Text>
+
+            <View style={styles.grid}>
+              {displayCards.map((card) => (
+                <GridCardItem
+                  key={card.key}
+                  card={{ ...card, onPress: () => nav(card.screen) }}
+                  size={CARD_SIZE}
+                />
+              ))}
+            </View>
+
+            {displayCards.length < ALL_CARDS.length && (
+              <TouchableOpacity
+                style={styles.showAllButton}
+                onPress={() => nav('Profile')}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="apps-outline" size={18} color={colors.primary} />
+                <Text style={styles.showAllText}>Manage your features in Profile</Text>
+              </TouchableOpacity>
+            )}
+          </ScrollView>
+        )}
       </LinearGradient>
 
       <ProfileDrawer
@@ -222,6 +265,11 @@ const styles = StyleSheet.create({
   bgGradient: {
     flex: 1,
   },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   scrollContent: {
     padding: GRID_PADDING,
     paddingBottom: spacing.xxl,
@@ -272,5 +320,20 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: 'rgba(255,255,255,0.75)',
     lineHeight: 16,
+  },
+  showAllButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
+    gap: spacing.sm,
+  },
+  showAllText: {
+    fontSize: 14,
+    color: colors.primary,
+    fontWeight: '500',
   },
 });

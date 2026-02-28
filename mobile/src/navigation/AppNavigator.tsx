@@ -1,7 +1,7 @@
 import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
-import { createStackNavigator } from '@react-navigation/stack';
-import { View, ActivityIndicator, StyleSheet } from 'react-native';
+import { createStackNavigator, TransitionPresets } from '@react-navigation/stack';
+import { View, ActivityIndicator, StyleSheet, Platform } from 'react-native';
 import {
   LandingScreen,
   QuranChaptersScreen,
@@ -17,13 +17,37 @@ import {
   DuaScreen,
   SunnahScreen,
   ProfileScreen,
+  OnboardingSplashScreen,
+  OnboardingUserTypeScreen,
+  OnboardingFeaturesScreen,
+  OnboardingSignUpScreen,
+  WelcomeScreen,
+  SignInScreen,
 } from '@/screens';
 import { TabNavigator } from './TabNavigator';
 import { useAuth } from '@/hooks/useAuth';
 import { colors } from '@/theme';
+import { UserType, FeatureKey } from '@/types/user';
 
 export type RootStackParamList = {
+  // Unauthenticated - Web
   Landing: undefined;
+  // Unauthenticated - Native onboarding
+  OnboardingSplash: undefined;
+  OnboardingUserType: undefined;
+  OnboardingFeatures: {
+    userType: UserType;
+  };
+  OnboardingSignUp: {
+    userType: UserType;
+    focusFeatures: FeatureKey[];
+  };
+  SignIn: undefined;
+  Welcome: {
+    displayName: string;
+    isNewUser: boolean;
+  };
+  // Authenticated
   Main: undefined;
   QuranChapters: undefined;
   QuranChapter: {
@@ -46,6 +70,8 @@ export type RootStackParamList = {
 
 const Stack = createStackNavigator<RootStackParamList>();
 
+const isNative = Platform.OS !== 'web';
+
 export const AppNavigator: React.FC = () => {
   const { user, loading } = useAuth();
 
@@ -63,11 +89,21 @@ export const AppNavigator: React.FC = () => {
         screenOptions={{
           headerShown: false,
           cardStyle: { flex: 1 },
+          ...TransitionPresets.SlideFromRightIOS,
         }}
       >
         {user ? (
+          // Authenticated screens
           <>
             <Stack.Screen name="Main" component={TabNavigator} />
+            <Stack.Screen
+              name="Welcome"
+              component={WelcomeScreen}
+              options={{
+                ...TransitionPresets.FadeFromBottomAndroid,
+                gestureEnabled: false,
+              }}
+            />
             <Stack.Screen name="QuranChapters" component={QuranChaptersScreen} />
             <Stack.Screen name="QuranChapter" component={QuranChapterScreen} />
             <Stack.Screen name="AsmaUlHusnaMenu" component={AsmaUlHusnaMenuScreen} />
@@ -83,7 +119,60 @@ export const AppNavigator: React.FC = () => {
             <Stack.Screen name="Profile" component={ProfileScreen} />
           </>
         ) : (
-          <Stack.Screen name="Landing" component={LandingScreen} />
+          // Unauthenticated screens - Platform specific
+          <>
+            {isNative ? (
+              // Native: Show onboarding flow
+              <>
+                <Stack.Screen
+                  name="OnboardingSplash"
+                  component={OnboardingSplashScreen}
+                  options={{
+                    ...TransitionPresets.FadeFromBottomAndroid,
+                  }}
+                />
+                <Stack.Screen
+                  name="OnboardingUserType"
+                  component={OnboardingUserTypeScreen}
+                  options={{
+                    ...TransitionPresets.SlideFromRightIOS,
+                  }}
+                />
+                <Stack.Screen
+                  name="OnboardingFeatures"
+                  component={OnboardingFeaturesScreen}
+                  options={{
+                    ...TransitionPresets.SlideFromRightIOS,
+                  }}
+                />
+                <Stack.Screen
+                  name="OnboardingSignUp"
+                  component={OnboardingSignUpScreen}
+                  options={{
+                    ...TransitionPresets.SlideFromRightIOS,
+                  }}
+                />
+                <Stack.Screen
+                  name="SignIn"
+                  component={SignInScreen}
+                  options={{
+                    ...TransitionPresets.SlideFromRightIOS,
+                  }}
+                />
+                <Stack.Screen
+                  name="Welcome"
+                  component={WelcomeScreen}
+                  options={{
+                    ...TransitionPresets.FadeFromBottomAndroid,
+                    gestureEnabled: false,
+                  }}
+                />
+              </>
+            ) : (
+              // Web: Show original landing screen
+              <Stack.Screen name="Landing" component={LandingScreen} />
+            )}
+          </>
         )}
       </Stack.Navigator>
     </NavigationContainer>
@@ -98,4 +187,3 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
 });
-
