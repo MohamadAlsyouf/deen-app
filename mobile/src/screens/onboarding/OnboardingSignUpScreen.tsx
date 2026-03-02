@@ -10,6 +10,7 @@ import {
   Switch,
   ActivityIndicator,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
@@ -19,6 +20,8 @@ import { colors, spacing, borderRadius, shadows } from '@/theme';
 import { RootStackParamList } from '@/navigation/AppNavigator';
 import { useAuth } from '@/hooks/useAuth';
 import { authService } from '@/services/authService';
+import { auth as firebaseAuth } from '@/config/firebase';
+import { setPendingWelcome } from '@/utils/pendingWelcome';
 
 type NavigationProp = StackNavigationProp<RootStackParamList, 'OnboardingSignUp'>;
 type ScreenRouteProp = RouteProp<RootStackParamList, 'OnboardingSignUp'>;
@@ -60,7 +63,8 @@ export const OnboardingSignUpScreen: React.FC = () => {
   const { signUp } = useAuth();
   const { userType, focusFeatures } = route.params;
 
-  const [fullName, setFullName] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -70,8 +74,13 @@ export const OnboardingSignUpScreen: React.FC = () => {
 
   const deferredPassword = useDeferredValue(password);
 
-  const handleFullNameChange = useCallback((text: string) => {
-    setFullName(text);
+  const handleFirstNameChange = useCallback((text: string) => {
+    setFirstName(text);
+    setErrorMessage((p) => (p ? '' : p));
+  }, []);
+
+  const handleLastNameChange = useCallback((text: string) => {
+    setLastName(text);
     setErrorMessage((p) => (p ? '' : p));
   }, []);
 
@@ -99,9 +108,13 @@ export const OnboardingSignUpScreen: React.FC = () => {
   };
 
   const handleSubmit = async () => {
-    // Validate all fields
-    if (!fullName.trim()) {
-      setErrorMessage('Please enter your full name.');
+    if (!firstName.trim()) {
+      setErrorMessage('Please enter your first name.');
+      return;
+    }
+
+    if (!lastName.trim()) {
+      setErrorMessage('Please enter your last name.');
       return;
     }
 
@@ -139,29 +152,20 @@ export const OnboardingSignUpScreen: React.FC = () => {
     setLoading(true);
 
     try {
-      // Create the account
-      await signUp(email.trim(), password, fullName.trim());
+      const displayName = `${firstName.trim()} ${lastName.trim()}`;
+      await signUp(email.trim(), password, displayName);
 
-      // Get the current user and create Firestore document
-      const { auth } = await import('@/config/firebase');
-      const user = auth.currentUser;
-
+      const user = firebaseAuth.currentUser;
       if (user) {
+        setPendingWelcome({ displayName, isNewUser: true });
+
         await authService.createUserDocument(user.uid, {
           email: email.trim(),
-          displayName: fullName.trim(),
+          displayName,
           userType,
           focusFeatures,
           notificationsEnabled,
         });
-
-        // Small delay to allow auth state to propagate and navigator to switch stacks
-        setTimeout(() => {
-          navigation.navigate('Welcome', {
-            displayName: fullName.trim(),
-            isNewUser: true,
-          });
-        }, 100);
       }
     } catch (error: any) {
       const errorCode = error?.code || '';
@@ -180,97 +184,121 @@ export const OnboardingSignUpScreen: React.FC = () => {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={[
-          styles.scrollContent,
-          {
-            paddingTop: insets.top + spacing.xl,
-            paddingBottom: insets.bottom + spacing.xl,
-          },
-        ]}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
+    <View style={styles.container}>
+      <LinearGradient
+        colors={[colors.gradient.start, colors.gradient.middle]}
+        style={[styles.gradientHeader, { paddingTop: insets.top + spacing.md }]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
       >
-        <View style={styles.header}>
-          <Text style={styles.title}>Create your account</Text>
-          <Text style={styles.subtitle}>Just a few details to get started</Text>
-        </View>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="arrow-back" size={24} color={colors.text.white} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Create your account</Text>
+        <Text style={styles.headerSubtitle}>Just a few details to get started</Text>
+      </LinearGradient>
 
-        <View style={styles.form}>
-          {/* Full Name Input */}
-          <View style={styles.inputContainer}>
-            <View style={styles.inputIcon}>
-              <Ionicons name="person-outline" size={20} color={colors.text.secondary} />
+      <KeyboardAvoidingView
+        style={styles.keyboardView}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={[
+            styles.scrollContent,
+            {
+              paddingBottom: insets.bottom + spacing.xl,
+            },
+          ]}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.form}>
+            {/* Name Row - side by side */}
+            <View style={styles.nameRow}>
+              <View style={styles.nameField}>
+                <View style={styles.labelRow}>
+                  <Text style={styles.fieldLabel}>First Name</Text>
+                  <Ionicons name="person-outline" size={15} color={colors.text.tertiary} />
+                </View>
+                <Input
+                  value={firstName}
+                  onChangeText={handleFirstNameChange}
+                  placeholder="First name"
+                  autoCapitalize="words"
+                  autoComplete="name-given"
+                  containerStyle={styles.inputNoMargin}
+                />
+              </View>
+              <View style={styles.nameField}>
+                <View style={styles.labelRow}>
+                  <Text style={styles.fieldLabel}>Last Name</Text>
+                  <Ionicons name="people-outline" size={15} color={colors.text.tertiary} />
+                </View>
+                <Input
+                  value={lastName}
+                  onChangeText={handleLastNameChange}
+                  placeholder="Last name"
+                  autoCapitalize="words"
+                  autoComplete="name-family"
+                  containerStyle={styles.inputNoMargin}
+                />
+              </View>
             </View>
-            <View style={styles.inputWrapper}>
-              <Input
-                label="Full Name"
-                value={fullName}
-                onChangeText={handleFullNameChange}
-                placeholder="Enter your full name"
-                autoCapitalize="words"
-                autoComplete="name"
-              />
-            </View>
-          </View>
 
           {/* Email Input */}
-          <View style={styles.inputContainer}>
-            <View style={styles.inputIcon}>
-              <Ionicons name="mail-outline" size={20} color={colors.text.secondary} />
+          <View>
+            <View style={styles.labelRow}>
+              <Text style={styles.fieldLabel}>Email</Text>
+              <Ionicons name="mail-outline" size={15} color={colors.text.tertiary} />
             </View>
-            <View style={styles.inputWrapper}>
-              <Input
-                label="Email"
-                value={email}
-                onChangeText={handleEmailChange}
-                placeholder="Enter your email"
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoComplete="email"
-              />
-            </View>
+            <Input
+              value={email}
+              onChangeText={handleEmailChange}
+              placeholder="Enter your email"
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoComplete="email"
+              containerStyle={styles.inputNoMargin}
+            />
           </View>
 
           {/* Password Input */}
-          <View style={styles.inputContainer}>
-            <View style={styles.inputIcon}>
-              <Ionicons name="lock-closed-outline" size={20} color={colors.text.secondary} />
+          <View>
+            <View style={styles.labelRow}>
+              <Text style={styles.fieldLabel}>Password</Text>
+              <Ionicons name="lock-closed-outline" size={15} color={colors.text.tertiary} />
             </View>
-            <View style={styles.inputWrapper}>
-              <Input
-                label="Password"
-                value={password}
-                onChangeText={handlePasswordChange}
-                placeholder="Create a password"
-                secureTextEntry
-                autoCapitalize="none"
-                autoComplete="password-new"
-              />
-            </View>
+            <Input
+              value={password}
+              onChangeText={handlePasswordChange}
+              placeholder="Create a password"
+              secureTextEntry
+              autoCapitalize="none"
+              autoComplete="password-new"
+              containerStyle={styles.inputNoMargin}
+            />
           </View>
 
           {/* Confirm Password Input */}
-          <View style={styles.inputContainer}>
-            <View style={styles.inputIcon}>
-              <Ionicons name="lock-closed-outline" size={20} color={colors.text.secondary} />
+          <View>
+            <View style={styles.labelRow}>
+              <Text style={styles.fieldLabel}>Confirm Password</Text>
+              <Ionicons name="lock-closed-outline" size={15} color={colors.text.tertiary} />
             </View>
-            <View style={styles.inputWrapper}>
-              <Input
-                label="Confirm Password"
-                value={confirmPassword}
-                onChangeText={handleConfirmPasswordChange}
-                placeholder="Confirm your password"
-                secureTextEntry
-                autoCapitalize="none"
-                autoComplete="password-new"
-              />
-            </View>
+            <Input
+              value={confirmPassword}
+              onChangeText={handleConfirmPasswordChange}
+              placeholder="Confirm your password"
+              secureTextEntry
+              autoCapitalize="none"
+              autoComplete="password-new"
+              containerStyle={styles.inputNoMargin}
+            />
           </View>
 
           {/* Password Requirements */}
@@ -317,9 +345,10 @@ export const OnboardingSignUpScreen: React.FC = () => {
               <Text style={styles.submitButtonText}>Continue</Text>
             )}
           </TouchableOpacity>
-        </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </View>
   );
 };
 
@@ -328,40 +357,65 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
+  gradientHeader: {
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.xl,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.lg,
+  },
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: colors.text.white,
+    marginBottom: spacing.xs,
+  },
+  headerSubtitle: {
+    fontSize: 16,
+    color: 'rgba(255, 255, 255, 0.8)',
+  },
+  keyboardView: {
+    flex: 1,
+  },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
     paddingHorizontal: spacing.lg,
-  },
-  header: {
-    marginBottom: spacing.xl,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: colors.text.primary,
-    marginBottom: spacing.xs,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: colors.text.secondary,
-    lineHeight: 24,
+    paddingTop: spacing.xl,
   },
   form: {
-    gap: spacing.xs,
+    gap: spacing.md,
   },
-  inputContainer: {
+  nameRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    gap: spacing.sm,
   },
-  inputIcon: {
-    width: 40,
-    paddingTop: 36,
-    alignItems: 'center',
-  },
-  inputWrapper: {
+  nameField: {
     flex: 1,
+  },
+  labelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginBottom: spacing.xs,
+  },
+  fieldLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text.primary,
+    lineHeight: 20,
+  },
+  inputNoMargin: {
+    marginBottom: 0,
   },
   passwordRequirements: {
     backgroundColor: colors.surface,
@@ -369,7 +423,6 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     marginTop: spacing.xs,
     marginBottom: spacing.sm,
-    marginLeft: 40,
   },
   passwordRequirementsTitle: {
     fontSize: 13,
@@ -397,8 +450,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderRadius: borderRadius.md,
     padding: spacing.md,
-    marginTop: spacing.md,
-    marginLeft: 40,
   },
   notificationLeft: {
     flexDirection: 'row',
@@ -421,7 +472,6 @@ const styles = StyleSheet.create({
     padding: spacing.sm,
     borderRadius: borderRadius.md,
     marginTop: spacing.md,
-    marginLeft: 40,
     gap: spacing.xs,
   },
   errorMessage: {
@@ -432,12 +482,11 @@ const styles = StyleSheet.create({
   submitButton: {
     backgroundColor: colors.primary,
     borderRadius: borderRadius.lg - 2,
-    paddingVertical: spacing.md + 2,
+    paddingVertical: spacing.md + 4,
     alignItems: 'center',
     justifyContent: 'center',
-    height: 52,
+    minHeight: 56,
     marginTop: spacing.lg,
-    marginLeft: 40,
     ...shadows.small,
   },
   submitButtonDisabled: {
@@ -447,5 +496,6 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '600',
     color: colors.text.white,
+    lineHeight: 22,
   },
 });

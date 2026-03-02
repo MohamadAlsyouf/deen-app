@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator, TransitionPresets } from '@react-navigation/stack';
 import { View, ActivityIndicator, StyleSheet, Platform } from 'react-native';
@@ -17,6 +17,7 @@ import {
   DuaScreen,
   SunnahScreen,
   ProfileScreen,
+  BookmarksScreen,
   OnboardingSplashScreen,
   OnboardingUserTypeScreen,
   OnboardingFeaturesScreen,
@@ -28,6 +29,7 @@ import { TabNavigator } from './TabNavigator';
 import { useAuth } from '@/hooks/useAuth';
 import { colors } from '@/theme';
 import { UserType, FeatureKey } from '@/types/user';
+import { hasPendingWelcome } from '@/utils/pendingWelcome';
 
 export type RootStackParamList = {
   // Unauthenticated - Web
@@ -46,7 +48,7 @@ export type RootStackParamList = {
   Welcome: {
     displayName: string;
     isNewUser: boolean;
-  };
+  } | undefined;
   // Authenticated
   Main: undefined;
   QuranChapters: undefined;
@@ -54,6 +56,7 @@ export type RootStackParamList = {
     chapterId: number;
     chapterName: string;
     chapterArabicName?: string;
+    scrollToVerse?: number;
   };
   AsmaUlHusnaMenu: undefined;
   AsmaUlHusnaList: undefined;
@@ -66,14 +69,35 @@ export type RootStackParamList = {
   Dua: undefined;
   Sunnah: undefined;
   Profile: undefined;
+  Bookmarks: undefined;
 };
 
 const Stack = createStackNavigator<RootStackParamList>();
 
 const isNative = Platform.OS !== 'web';
 
+const WelcomeScreenDef = (
+  <Stack.Screen
+    name="Welcome"
+    component={WelcomeScreen}
+    options={{
+      ...TransitionPresets.FadeFromBottomAndroid,
+      gestureEnabled: false,
+    }}
+  />
+);
+
 export const AppNavigator: React.FC = () => {
   const { user, loading } = useAuth();
+  const welcomeFirstRef = useRef<boolean | null>(null);
+
+  if (user && welcomeFirstRef.current === null) {
+    welcomeFirstRef.current = hasPendingWelcome();
+  }
+  if (!user) {
+    welcomeFirstRef.current = null;
+  }
+  const showWelcomeFirst = welcomeFirstRef.current === true;
 
   if (loading) {
     return (
@@ -95,15 +119,9 @@ export const AppNavigator: React.FC = () => {
         {user ? (
           // Authenticated screens
           <>
+            {showWelcomeFirst && WelcomeScreenDef}
             <Stack.Screen name="Main" component={TabNavigator} />
-            <Stack.Screen
-              name="Welcome"
-              component={WelcomeScreen}
-              options={{
-                ...TransitionPresets.FadeFromBottomAndroid,
-                gestureEnabled: false,
-              }}
-            />
+            {!showWelcomeFirst && WelcomeScreenDef}
             <Stack.Screen name="QuranChapters" component={QuranChaptersScreen} />
             <Stack.Screen name="QuranChapter" component={QuranChapterScreen} />
             <Stack.Screen name="AsmaUlHusnaMenu" component={AsmaUlHusnaMenuScreen} />
@@ -117,6 +135,7 @@ export const AppNavigator: React.FC = () => {
             <Stack.Screen name="Dua" component={DuaScreen} />
             <Stack.Screen name="Sunnah" component={SunnahScreen} />
             <Stack.Screen name="Profile" component={ProfileScreen} />
+            <Stack.Screen name="Bookmarks" component={BookmarksScreen} />
           </>
         ) : (
           // Unauthenticated screens - Platform specific
@@ -159,14 +178,7 @@ export const AppNavigator: React.FC = () => {
                     ...TransitionPresets.SlideFromRightIOS,
                   }}
                 />
-                <Stack.Screen
-                  name="Welcome"
-                  component={WelcomeScreen}
-                  options={{
-                    ...TransitionPresets.FadeFromBottomAndroid,
-                    gestureEnabled: false,
-                  }}
-                />
+                {WelcomeScreenDef}
               </>
             ) : (
               // Web: Show original landing screen

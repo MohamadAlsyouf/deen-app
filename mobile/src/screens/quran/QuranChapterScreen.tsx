@@ -7,8 +7,10 @@ import {
   ActivityIndicator,
   Platform,
   LayoutChangeEvent,
+  TouchableOpacity,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
 import {
   useNavigation,
   useRoute,
@@ -18,7 +20,7 @@ import type { RouteProp } from "@react-navigation/native";
 import type { StackNavigationProp } from "@react-navigation/stack";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { Button, Header } from "@/components";
-import { colors, spacing, typography } from "@/theme";
+import { colors, spacing, typography, borderRadius } from "@/theme";
 import { quranService } from "@/services/quranService";
 import type { QuranVerse } from "@/types/quran";
 import { QuranVerseCard } from "@/components/quran/QuranVerseCard";
@@ -27,6 +29,7 @@ import { ReciterSelectModal } from "@/components/quran/ReciterSelectModal";
 import { VerseRangeSidebar } from "@/components/quran/VerseRangeSidebar";
 import { ViewModeToggle, type ViewMode } from "@/components/quran/ViewModeToggle";
 import { useAudioPlayer } from "@/contexts/AudioPlayerContext";
+import { useBookmarks } from "@/contexts/BookmarkContext";
 import type { RootStackParamList } from "@/navigation/AppNavigator";
 
 type QuranChapterRouteProp = RouteProp<RootStackParamList, "QuranChapter">;
@@ -40,7 +43,7 @@ const PER_PAGE = 20;
 export const QuranChapterScreen: React.FC = () => {
   const navigation = useNavigation<QuranChapterNavigationProp>();
   const route = useRoute<QuranChapterRouteProp>();
-  const { chapterId, chapterName, chapterArabicName } = route.params;
+  const { chapterId, chapterName, chapterArabicName, scrollToVerse: initialScrollVerse } = route.params;
 
   const [isReciterModalVisible, setIsReciterModalVisible] = useState(false);
   const [isVerseRangeSidebarVisible, setIsVerseRangeSidebarVisible] = useState(false);
@@ -54,6 +57,8 @@ export const QuranChapterScreen: React.FC = () => {
 
   const { loadChapter, reset, resetPlaybackSettings, highlightState, playbackState, selectedReciter } =
     useAudioPlayer();
+  const { isVerseBookmarked, isChapterBookmarked, toggleVerseBookmark, toggleChapterBookmark } =
+    useBookmarks();
 
   // Fetch verses
   const versesQuery = useInfiniteQuery({
@@ -146,8 +151,10 @@ export const QuranChapterScreen: React.FC = () => {
     versesQuery.fetchNextPage();
   };
 
-  // Target verse to scroll to (set when user applies a range)
-  const [targetScrollVerse, setTargetScrollVerse] = useState<number | null>(null);
+  // Target verse to scroll to (set when user applies a range, or from route param)
+  const [targetScrollVerse, setTargetScrollVerse] = useState<number | null>(
+    initialScrollVerse ?? null,
+  );
 
   // Load verses until target verse is available, then scroll to it
   useEffect(() => {
@@ -184,6 +191,34 @@ export const QuranChapterScreen: React.FC = () => {
     if (verseNumber <= 0) return;
     setTargetScrollVerse(verseNumber);
   }, []);
+
+  const handleToggleChapterBookmark = useCallback(() => {
+    toggleChapterBookmark({
+      chapterId,
+      chapterName: chapterName || 'Chapter',
+      chapterArabicName: chapterArabicName || '',
+      versesCount: totalVerses,
+    });
+  }, [chapterId, chapterName, chapterArabicName, totalVerses, toggleChapterBookmark]);
+
+  const handleToggleVerseBookmark = useCallback(
+    (verse: QuranVerse) => {
+      const translationRaw = verse.translations?.[0]?.text || '';
+      const preview = translationRaw.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 120);
+      toggleVerseBookmark({
+        verseKey: verse.verse_key,
+        chapterId,
+        chapterName: chapterName || 'Chapter',
+        chapterArabicName: chapterArabicName || '',
+        verseNumber: verse.verse_number,
+        arabicText: verse.text_uthmani,
+        translationPreview: preview,
+      });
+    },
+    [chapterId, chapterName, toggleVerseBookmark],
+  );
+
+  const chapterIsBookmarked = isChapterBookmarked(chapterId);
 
   const handleOpenReciterModal = () => {
     setIsReciterModalVisible(true);
@@ -298,9 +333,23 @@ export const QuranChapterScreen: React.FC = () => {
           scrollEventThrottle={16}
         >
           <View style={styles.headerInfo}>
-            {chapterArabicName && viewMode !== 'english' ? (
-              <Text style={styles.arabicName}>{chapterArabicName}</Text>
-            ) : null}
+            <View style={styles.headerInfoRow}>
+              {chapterArabicName && viewMode !== 'english' ? (
+                <Text style={styles.arabicName}>{chapterArabicName}</Text>
+              ) : null}
+              <TouchableOpacity
+                onPress={handleToggleChapterBookmark}
+                style={styles.chapterBookmarkBtn}
+                activeOpacity={0.7}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Ionicons
+                  name={chapterIsBookmarked ? 'bookmark' : 'bookmark-outline'}
+                  size={22}
+                  color={chapterIsBookmarked ? colors.accent : colors.text.tertiary}
+                />
+              </TouchableOpacity>
+            </View>
             <Text style={styles.subtitle}>{getSubtitleText()}</Text>
           </View>
 
@@ -316,6 +365,8 @@ export const QuranChapterScreen: React.FC = () => {
                 highlightedWordPosition={getVerseHighlightedWordPosition(
                   verse.verse_key
                 )}
+                isBookmarked={isVerseBookmarked(verse.verse_key)}
+                onBookmarkPress={() => handleToggleVerseBookmark(verse)}
               />
             </View>
           ))}
@@ -382,11 +433,26 @@ const styles = StyleSheet.create({
   headerInfo: {
     marginBottom: spacing.lg,
   },
+  headerInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.sm,
+  },
   arabicName: {
     fontSize: 28,
     color: colors.primary,
+    flex: 1,
     textAlign: "right",
-    marginBottom: spacing.sm,
+  },
+  chapterBookmarkBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: spacing.md,
   },
   subtitle: {
     ...typography.body,

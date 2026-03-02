@@ -10,7 +10,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { colors, spacing, borderRadius, shadows } from '@/theme';
 import { RootStackParamList } from '@/navigation/AppNavigator';
@@ -112,7 +112,15 @@ export const OnboardingUserTypeScreen: React.FC = () => {
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
     >
-      <View style={[styles.content, { paddingTop: insets.top + spacing.xxl }]}>
+      <View style={[styles.content, { paddingTop: insets.top + spacing.md }]}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="arrow-back" size={24} color={colors.text.white} />
+        </TouchableOpacity>
+
         <View style={styles.header}>
           <Text style={styles.title}>Tell us about yourself</Text>
           <Text style={styles.subtitle}>
@@ -141,6 +149,15 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     paddingHorizontal: spacing.lg,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.lg,
   },
   header: {
     marginBottom: spacing.xl,

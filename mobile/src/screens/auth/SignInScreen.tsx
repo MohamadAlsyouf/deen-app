@@ -18,6 +18,8 @@ import { Input } from '@/components';
 import { colors, spacing, borderRadius, shadows } from '@/theme';
 import { RootStackParamList } from '@/navigation/AppNavigator';
 import { useAuth } from '@/hooks/useAuth';
+import { auth as firebaseAuth } from '@/config/firebase';
+import { setPendingWelcome } from '@/utils/pendingWelcome';
 
 type NavigationProp = StackNavigationProp<RootStackParamList, 'SignIn'>;
 
@@ -57,18 +59,11 @@ export const SignInScreen: React.FC = () => {
 
     try {
       await signIn(email.trim(), password);
-      // On successful sign in, navigate to welcome screen
-      // Get the user's display name from the auth state
-      const { auth } = await import('@/config/firebase');
-      const user = auth.currentUser;
-
-      // Small delay to allow auth state to propagate and navigator to switch stacks
-      setTimeout(() => {
-        navigation.navigate('Welcome', {
-          displayName: user?.displayName || 'User',
-          isNewUser: false,
-        });
-      }, 100);
+      const user = firebaseAuth.currentUser;
+      setPendingWelcome({
+        displayName: user?.displayName || 'User',
+        isNewUser: false,
+      });
     } catch (error: any) {
       const errorCode = error?.code || '';
       if (
@@ -126,39 +121,37 @@ export const SignInScreen: React.FC = () => {
         >
           <View style={styles.form}>
             {/* Email Input */}
-            <View style={styles.inputContainer}>
-              <View style={styles.inputIcon}>
-                <Ionicons name="mail-outline" size={20} color={colors.text.secondary} />
+            <View>
+              <View style={styles.labelRow}>
+                <Text style={styles.fieldLabel}>Email</Text>
+                <Ionicons name="mail-outline" size={15} color={colors.text.tertiary} />
               </View>
-              <View style={styles.inputWrapper}>
-                <Input
-                  label="Email"
-                  value={email}
-                  onChangeText={handleEmailChange}
-                  placeholder="Enter your email"
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  autoComplete="email"
-                />
-              </View>
+              <Input
+                value={email}
+                onChangeText={handleEmailChange}
+                placeholder="Enter your email"
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoComplete="email"
+                containerStyle={styles.inputNoMargin}
+              />
             </View>
 
             {/* Password Input */}
-            <View style={styles.inputContainer}>
-              <View style={styles.inputIcon}>
-                <Ionicons name="lock-closed-outline" size={20} color={colors.text.secondary} />
+            <View>
+              <View style={styles.labelRow}>
+                <Text style={styles.fieldLabel}>Password</Text>
+                <Ionicons name="lock-closed-outline" size={15} color={colors.text.tertiary} />
               </View>
-              <View style={styles.inputWrapper}>
-                <Input
-                  label="Password"
-                  value={password}
-                  onChangeText={handlePasswordChange}
-                  placeholder="Enter your password"
-                  secureTextEntry
-                  autoCapitalize="none"
-                  autoComplete="password"
-                />
-              </View>
+              <Input
+                value={password}
+                onChangeText={handlePasswordChange}
+                placeholder="Enter your password"
+                secureTextEntry
+                autoCapitalize="none"
+                autoComplete="password"
+                containerStyle={styles.inputNoMargin}
+              />
             </View>
 
             {/* Error Message */}
@@ -241,19 +234,22 @@ const styles = StyleSheet.create({
     paddingTop: spacing.xl,
   },
   form: {
-    gap: spacing.xs,
+    gap: spacing.md,
   },
-  inputContainer: {
+  labelRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-  },
-  inputIcon: {
-    width: 40,
-    paddingTop: 36,
     alignItems: 'center',
+    gap: spacing.xs,
+    marginBottom: spacing.xs,
   },
-  inputWrapper: {
-    flex: 1,
+  fieldLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text.primary,
+    lineHeight: 20,
+  },
+  inputNoMargin: {
+    marginBottom: 0,
   },
   errorContainer: {
     flexDirection: 'row',
@@ -261,8 +257,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.errorLight,
     padding: spacing.sm,
     borderRadius: borderRadius.md,
-    marginTop: spacing.md,
-    marginLeft: 40,
     gap: spacing.xs,
   },
   errorMessage: {
@@ -273,12 +267,11 @@ const styles = StyleSheet.create({
   submitButton: {
     backgroundColor: colors.primary,
     borderRadius: borderRadius.lg - 2,
-    paddingVertical: spacing.md + 2,
+    paddingVertical: spacing.md + 4,
     alignItems: 'center',
     justifyContent: 'center',
-    height: 52,
+    minHeight: 56,
     marginTop: spacing.lg,
-    marginLeft: 40,
     ...shadows.small,
   },
   submitButtonDisabled: {
@@ -288,13 +281,13 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '600',
     color: colors.text.white,
+    lineHeight: 22,
   },
   signUpRow: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: spacing.lg,
-    marginLeft: 40,
   },
   signUpText: {
     fontSize: 14,

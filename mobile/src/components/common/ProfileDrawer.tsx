@@ -112,7 +112,7 @@ export const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
       icon: 'bookmark-outline',
       label: 'Bookmarks',
       subtitle: 'Saved verses & duas',
-      onPress: () => {},
+      onPress: () => onNavigate('Bookmarks'),
     },
     {
       icon: 'notifications-outline',

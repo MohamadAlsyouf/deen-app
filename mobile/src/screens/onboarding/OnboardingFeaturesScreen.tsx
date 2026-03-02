@@ -173,10 +173,17 @@ export const OnboardingFeaturesScreen: React.FC = () => {
       {/* Header with gradient */}
       <LinearGradient
         colors={[colors.gradient.start, colors.gradient.middle]}
-        style={[styles.header, { paddingTop: insets.top + spacing.lg }]}
+        style={[styles.header, { paddingTop: insets.top + spacing.md }]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
       >
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="arrow-back" size={24} color={colors.text.white} />
+        </TouchableOpacity>
         <Text style={styles.title}>What interests you most?</Text>
         <Text style={styles.subtitle}>Select the features you'd like to focus on</Text>
         <Text style={styles.note}>You can always access everything from the menu</Text>
@@ -185,10 +192,7 @@ export const OnboardingFeaturesScreen: React.FC = () => {
       {/* Features Grid */}
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={[
-          styles.scrollContent,
-          { paddingBottom: insets.bottom + 100 },
-        ]}
+        contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.grid}>
@@ -203,19 +207,20 @@ export const OnboardingFeaturesScreen: React.FC = () => {
         </View>
       </ScrollView>
 
-      {/* Continue Button */}
-      <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.lg }]}>
-        <Animated.View style={{ opacity: buttonOpacity }}>
-          <TouchableOpacity
-            style={[styles.continueButton, isDisabled && styles.continueButtonDisabled]}
-            onPress={handleContinue}
-            disabled={isDisabled}
-            activeOpacity={0.9}
-          >
-            <Text style={styles.continueButtonText}>Continue</Text>
-          </TouchableOpacity>
-        </Animated.View>
-      </View>
+      {/* Continue Button - only shown when features are selected */}
+      {selectedFeatures.length > 0 && (
+        <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.lg }]}>
+          <Animated.View style={{ opacity: buttonOpacity }}>
+            <TouchableOpacity
+              style={styles.continueButton}
+              onPress={handleContinue}
+              activeOpacity={0.9}
+            >
+              <Text style={styles.continueButtonText}>Continue</Text>
+            </TouchableOpacity>
+          </Animated.View>
+        </View>
+      )}
     </View>
   );
 };
@@ -230,6 +235,15 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xl,
     borderBottomLeftRadius: 24,
     borderBottomRightRadius: 24,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.md,
   },
   title: {
     fontSize: 24,
@@ -309,21 +323,19 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   footer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
     backgroundColor: colors.backgroundAlt,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.borderLight,
   },
   continueButton: {
     backgroundColor: colors.primary,
     borderRadius: borderRadius.lg - 2,
-    paddingVertical: spacing.md + 2,
+    paddingVertical: spacing.md + 4,
     alignItems: 'center',
     justifyContent: 'center',
-    height: 50,
+    minHeight: 56,
   },
   continueButtonDisabled: {
     backgroundColor: colors.text.disabled,
@@ -332,5 +344,6 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '600',
     color: colors.text.white,
+    lineHeight: 22,
   },
 });

@@ -5,6 +5,8 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { AudioPlayerProvider } from '@/contexts/AudioPlayerContext';
+import { BookmarkProvider } from '@/contexts/BookmarkContext';
+import { ToastProvider } from '@/components/common/Toast';
 import { AppNavigator } from '@/navigation/AppNavigator';
 import { keyframes } from '@/theme/web';
 
@@ -43,8 +45,12 @@ const App: React.FC = () => {
         <QueryClientProvider client={queryClient}>
           <AuthProvider>
             <AudioPlayerProvider>
-              <StatusBar style="auto" />
-              <AppNavigator />
+              <ToastProvider>
+                <BookmarkProvider>
+                  <StatusBar style="auto" />
+                  <AppNavigator />
+                </BookmarkProvider>
+              </ToastProvider>
             </AudioPlayerProvider>
           </AuthProvider>
         </QueryClientProvider>

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -15,7 +15,79 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import { colors, spacing, borderRadius } from '@/theme';
 import { RootStackParamList } from '@/navigation/AppNavigator';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
+
+interface StarConfig {
+  x: number;
+  y: number;
+  size: number;
+  opacity: number;
+  type: 'star' | 'moon';
+}
+
+function generateStars(): StarConfig[] {
+  const stars: StarConfig[] = [];
+  const cols = 5;
+  const rows = 8;
+  const cellW = width / cols;
+  const cellH = height / rows;
+
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      if (Math.random() > 0.15) {
+        stars.push({
+          x: c * cellW + Math.random() * cellW,
+          y: r * cellH + Math.random() * cellH,
+          size: 8 + Math.random() * 14,
+          opacity: 0.1 + Math.random() * 0.15,
+          type: Math.random() > 0.7 ? 'moon' : 'star',
+        });
+      }
+    }
+  }
+  return stars;
+}
+
+const BackgroundDecor: React.FC = React.memo(() => {
+  const stars = useMemo(() => generateStars(), []);
+  const twinkle = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(twinkle, { toValue: 1, duration: 3000, useNativeDriver: true }),
+        Animated.timing(twinkle, { toValue: 0, duration: 3000, useNativeDriver: true }),
+      ]),
+    ).start();
+  }, [twinkle]);
+
+  const extraOpacity = twinkle.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 0.06],
+  });
+
+  return (
+    <Animated.View style={[StyleSheet.absoluteFill, { opacity: Animated.add(1, extraOpacity) }]} pointerEvents="none">
+      {stars.map((s, i) => (
+        <View
+          key={i}
+          style={{
+            position: 'absolute',
+            left: s.x,
+            top: s.y,
+            opacity: s.opacity,
+          }}
+        >
+          <Ionicons
+            name={s.type === 'moon' ? 'moon' : 'star'}
+            size={s.size}
+            color={s.type === 'moon' ? colors.accent : 'rgba(255,255,255,0.9)'}
+          />
+        </View>
+      ))}
+    </Animated.View>
+  );
+});
 
 type NavigationProp = StackNavigationProp<RootStackParamList>;
 
@@ -99,6 +171,8 @@ export const OnboardingSplashScreen: React.FC = () => {
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
     >
+      <BackgroundDecor />
+
       {/* Logo and Text Content - stays visible */}
       <View style={styles.logoSection}>
         <Animated.View
@@ -252,16 +326,16 @@ const styles = StyleSheet.create({
   },
   signInButton: {
     marginTop: spacing.md,
-    paddingVertical: spacing.md,
+    paddingVertical: spacing.md + 4,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: borderRadius.lg,
     borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 0.4)',
+    borderColor: 'rgba(255, 255, 255, 0.5)',
   },
   signInText: {
-    fontSize: 16,
-    fontWeight: '500',
+    fontSize: 18,
+    fontWeight: '600',
     color: colors.text.white,
   },
 });

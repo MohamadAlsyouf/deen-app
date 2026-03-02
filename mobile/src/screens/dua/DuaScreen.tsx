@@ -182,7 +182,7 @@ export const DuaScreen: React.FC = () => {
         <Header
           title="Dua & Dhikr"
           leftAction={{
-            icon: 'arrow-back',
+            iconName: 'arrow-back',
             onPress: () => navigation.goBack(),
           }}
         />

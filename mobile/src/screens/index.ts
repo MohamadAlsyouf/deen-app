@@ -16,6 +16,7 @@ export { PrayerGuideScreen } from './prayer/PrayerGuideScreen';
 export { DuaScreen } from './dua/DuaScreen';
 export { SunnahScreen } from './prayer/SunnahScreen';
 export { ProfileScreen } from './profile/ProfileScreen';
+export { BookmarksScreen } from './bookmarks/BookmarksScreen';
 
 // Onboarding screens
 export {

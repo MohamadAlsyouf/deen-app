@@ -11,6 +11,7 @@ import { useRoute, RouteProp, useNavigation, CommonActions } from '@react-naviga
 import { StackNavigationProp } from '@react-navigation/stack';
 import { colors, spacing } from '@/theme';
 import { RootStackParamList } from '@/navigation/AppNavigator';
+import { consumePendingWelcome } from '@/utils/pendingWelcome';
 
 type ScreenRouteProp = RouteProp<RootStackParamList, 'Welcome'>;
 type NavigationProp = StackNavigationProp<RootStackParamList, 'Welcome'>;
@@ -18,9 +19,10 @@ type NavigationProp = StackNavigationProp<RootStackParamList, 'Welcome'>;
 export const WelcomeScreen: React.FC = () => {
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute<ScreenRouteProp>();
-  const { displayName, isNewUser } = route.params;
+  const routeParams = route.params;
+  const storeParams = consumePendingWelcome();
+  const { displayName, isNewUser } = routeParams || storeParams || { displayName: 'User', isNewUser: false };
 
-  // Extract first name
   const firstName = displayName?.split(' ')[0] || 'User';
 
   // Animation values

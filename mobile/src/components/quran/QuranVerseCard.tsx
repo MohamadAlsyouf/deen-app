@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { Card } from '@/components';
 import { colors, spacing, typography, borderRadius } from '@/theme';
 import type { QuranVerse, QuranWord } from '@/types/quran';
@@ -13,6 +14,8 @@ type QuranVerseCardProps = {
   viewMode?: ViewMode;
   highlightStatus?: HighlightStatus;
   highlightedWordPosition?: number | null;
+  isBookmarked?: boolean;
+  onBookmarkPress?: () => void;
 };
 
 type ArabicWord = {
@@ -78,6 +81,8 @@ export const QuranVerseCard: React.FC<QuranVerseCardProps> = ({
   viewMode = 'all',
   highlightStatus = 'none',
   highlightedWordPosition = null,
+  isBookmarked = false,
+  onBookmarkPress,
 }) => {
   const arabicWords = useMemo(() => getArabicWords(verse.words), [verse.words]);
   const transliterationWords = getWordTransliterations(verse.words);
@@ -188,6 +193,15 @@ export const QuranVerseCard: React.FC<QuranVerseCardProps> = ({
               {verse.verse_number}
             </Text>
           </View>
+          {onBookmarkPress && (
+            <TouchableOpacity onPress={onBookmarkPress} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Ionicons
+                name={isBookmarked ? 'bookmark' : 'bookmark-outline'}
+                size={20}
+                color={isBookmarked ? colors.accent : colors.text.tertiary}
+              />
+            </TouchableOpacity>
+          )}
         </View>
 
         {translationText.length > 0 && (
@@ -225,11 +239,22 @@ export const QuranVerseCard: React.FC<QuranVerseCardProps> = ({
             {verse.verse_number}
           </Text>
         </View>
-        {viewMode === 'all' && (
-          <Text style={[styles.verseKey, isCurrentVerse && styles.currentVerseKey]}>
-            {verse.verse_key}
-          </Text>
-        )}
+        <View style={styles.topRowRight}>
+          {viewMode === 'all' && (
+            <Text style={[styles.verseKey, isCurrentVerse && styles.currentVerseKey]}>
+              {verse.verse_key}
+            </Text>
+          )}
+          {onBookmarkPress && (
+            <TouchableOpacity onPress={onBookmarkPress} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Ionicons
+                name={isBookmarked ? 'bookmark' : 'bookmark-outline'}
+                size={20}
+                color={isBookmarked ? colors.accent : colors.text.tertiary}
+              />
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
       {showArabic && renderArabicText()}
@@ -271,6 +296,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: spacing.md,
+  },
+  topRowRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
   },
   badge: {
     minWidth: 34,
@@ -350,6 +380,7 @@ const styles = StyleSheet.create({
   englishOnlyHeader: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: spacing.md,
   },
   englishOnlyText: {
