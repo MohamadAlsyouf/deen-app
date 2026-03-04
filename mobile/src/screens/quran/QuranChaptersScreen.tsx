@@ -6,13 +6,15 @@ import {
   ScrollView,
   ActivityIndicator,
   Platform,
+  TouchableOpacity,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import type { StackNavigationProp } from "@react-navigation/stack";
 import { useQuery } from "@tanstack/react-query";
-import { Header } from "@/components";
-import { colors, spacing, typography } from "@/theme";
+import { LinearGradient } from "expo-linear-gradient";
+import { Ionicons } from "@expo/vector-icons";
+import { colors, spacing, typography, borderRadius } from "@/theme";
 import { quranService } from "@/services/quranService";
 import type { QuranChapter } from "@/types/quran";
 import { QuranChapterCard } from "@/components/quran/QuranChapterCard";
@@ -44,15 +46,21 @@ export const QuranChaptersScreen: React.FC = () => {
     });
   };
 
+  const totalChapters = chaptersQuery.data?.length ?? 0;
+
   if (chaptersQuery.isLoading) {
     return (
       <View style={styles.container}>
-        <View style={[styles.headerContainer, { paddingTop: insets.top }]}>
-          <Header
-            title="Quran"
-            leftAction={{ iconName: "arrow-back", onPress: handleGoBack }}
-          />
-        </View>
+        <LinearGradient
+          colors={[colors.gradient.start, colors.gradient.middle, colors.gradient.end]}
+          style={[styles.header, { paddingTop: insets.top + spacing.md }]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+        >
+          <TouchableOpacity style={styles.backButton} onPress={handleGoBack} activeOpacity={0.7}>
+            <Ionicons name="arrow-back" size={22} color={colors.text.white} />
+          </TouchableOpacity>
+        </LinearGradient>
         <View style={styles.center}>
           <ActivityIndicator size="large" color={colors.primary} />
           <Text style={styles.loadingText}>Loading chapters…</Text>
@@ -67,12 +75,16 @@ export const QuranChaptersScreen: React.FC = () => {
       "Failed to load chapters. Please try again.";
     return (
       <View style={styles.container}>
-        <View style={[styles.headerContainer, { paddingTop: insets.top }]}>
-          <Header
-            title="Quran"
-            leftAction={{ iconName: "arrow-back", onPress: handleGoBack }}
-          />
-        </View>
+        <LinearGradient
+          colors={[colors.gradient.start, colors.gradient.middle, colors.gradient.end]}
+          style={[styles.header, { paddingTop: insets.top + spacing.md }]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+        >
+          <TouchableOpacity style={styles.backButton} onPress={handleGoBack} activeOpacity={0.7}>
+            <Ionicons name="arrow-back" size={22} color={colors.text.white} />
+          </TouchableOpacity>
+        </LinearGradient>
         <View style={styles.center}>
           <Text style={styles.errorTitle}>Something went wrong</Text>
           <Text style={styles.errorText}>{message}</Text>
@@ -83,12 +95,27 @@ export const QuranChaptersScreen: React.FC = () => {
 
   return (
     <View style={styles.container}>
-      <View style={[styles.headerContainer, { paddingTop: insets.top }]}>
-        <Header
-          title="Chapters"
-          leftAction={{ iconName: "arrow-back", onPress: handleGoBack }}
-        />
-      </View>
+      {/* Gradient Header */}
+      <LinearGradient
+        colors={[colors.gradient.start, colors.gradient.middle, colors.gradient.end]}
+        style={[styles.header, { paddingTop: insets.top + spacing.md }]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+      >
+        <TouchableOpacity style={styles.backButton} onPress={handleGoBack} activeOpacity={0.7}>
+          <Ionicons name="arrow-back" size={22} color={colors.text.white} />
+        </TouchableOpacity>
+
+        <View style={styles.headerTextWrap}>
+          <Text style={styles.headerArabic}>القرآن الكريم</Text>
+          <Text style={styles.headerTitle}>The Noble Quran</Text>
+          <Text style={styles.headerChapterCount}>{totalChapters} surahs</Text>
+        </View>
+
+        <Text style={styles.headerHint}>Select a chapter to begin reading</Text>
+      </LinearGradient>
+
+      {/* Chapter List */}
       <ScrollView
         style={[
           styles.scrollView,
@@ -98,13 +125,6 @@ export const QuranChaptersScreen: React.FC = () => {
         showsVerticalScrollIndicator={false}
         scrollEventThrottle={16}
       >
-        <View style={styles.headerCard}>
-          <Text style={styles.headerTitle}>Select a chapter</Text>
-          <Text style={styles.headerSubtitle}>
-            Tap a surah to view Arabic verses and English transliteration.
-          </Text>
-        </View>
-
         {chaptersQuery?.data?.map((chapter) => (
           <QuranChapterCard
             key={String(chapter.id)}
@@ -120,38 +140,63 @@ export const QuranChaptersScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: colors.backgroundAlt,
   },
-  headerContainer: {
-    backgroundColor: colors.background,
-    paddingTop: 0,
+  header: {
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.md,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+  },
+  backButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: "rgba(255, 255, 255, 0.15)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: spacing.xs,
+  },
+  headerTextWrap: {
+    alignItems: "center",
+    marginBottom: spacing.lg,
+  },
+  headerArabic: {
+    fontSize: 24,
+    color: "rgba(255, 255, 255, 0.9)",
+    marginBottom: 2,
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: colors.text.white,
+    marginBottom: 2,
+  },
+  headerChapterCount: {
+    fontSize: 13,
+    color: "rgba(255, 255, 255, 0.65)",
+  },
+  headerHint: {
+    fontSize: 13,
+    color: "rgba(255, 255, 255, 0.55)",
+    textAlign: "center",
+    fontStyle: "italic",
   },
   scrollView: {
     flex: 1,
   },
   webScrollView: {
-    // @ts-ignore - web-specific CSS properties
+    // @ts-ignore
     overflowY: "auto",
-    // @ts-ignore - web-specific CSS properties
+    // @ts-ignore
     WebkitOverflowScrolling: "touch",
-    // @ts-ignore - web-specific CSS properties
+    // @ts-ignore
     touchAction: "pan-y",
   },
   listContent: {
     padding: spacing.lg,
+    paddingTop: spacing.lg,
     paddingBottom: spacing.xxl,
-  },
-  headerCard: {
-    marginBottom: spacing.lg,
-  },
-  headerTitle: {
-    ...typography.h3,
-    color: colors.text.primary,
-    marginBottom: spacing.xs,
-  },
-  headerSubtitle: {
-    ...typography.body,
-    color: colors.text.secondary,
   },
   center: {
     flex: 1,

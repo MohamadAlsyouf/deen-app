@@ -48,44 +48,62 @@ function generateStars(): StarConfig[] {
   return stars;
 }
 
-const BackgroundDecor: React.FC = React.memo(() => {
-  const stars = useMemo(() => generateStars(), []);
-  const twinkle = useRef(new Animated.Value(0)).current;
+const TwinklingStar: React.FC<{ config: StarConfig }> = React.memo(({ config }) => {
+  const anim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(twinkle, { toValue: 1, duration: 3000, useNativeDriver: true }),
-        Animated.timing(twinkle, { toValue: 0, duration: 3000, useNativeDriver: true }),
-      ]),
-    ).start();
-  }, [twinkle]);
+    const duration = 800 + Math.random() * 1200;
+    const delay = Math.random() * 1500;
 
-  const extraOpacity = twinkle.interpolate({
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.delay(delay),
+        Animated.timing(anim, { toValue: 1, duration, useNativeDriver: true }),
+        Animated.timing(anim, { toValue: 0, duration, useNativeDriver: true }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [anim]);
+
+  const opacity = anim.interpolate({
     inputRange: [0, 1],
-    outputRange: [0, 0.06],
+    outputRange: [config.opacity, Math.min(config.opacity + 0.35, 0.55)],
+  });
+
+  const scale = anim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 1.12],
   });
 
   return (
-    <Animated.View style={[StyleSheet.absoluteFill, { opacity: Animated.add(1, extraOpacity) }]} pointerEvents="none">
-      {stars.map((s, i) => (
-        <View
-          key={i}
-          style={{
-            position: 'absolute',
-            left: s.x,
-            top: s.y,
-            opacity: s.opacity,
-          }}
-        >
-          <Ionicons
-            name={s.type === 'moon' ? 'moon' : 'star'}
-            size={s.size}
-            color={s.type === 'moon' ? colors.accent : 'rgba(255,255,255,0.9)'}
-          />
-        </View>
-      ))}
+    <Animated.View
+      style={{
+        position: 'absolute',
+        left: config.x,
+        top: config.y,
+        opacity,
+        transform: [{ scale }],
+      }}
+    >
+      <Ionicons
+        name={config.type === 'moon' ? 'moon' : 'star'}
+        size={config.size}
+        color={config.type === 'moon' ? colors.accent : 'rgba(255,255,255,0.9)'}
+      />
     </Animated.View>
+  );
+});
+
+const BackgroundDecor: React.FC = React.memo(() => {
+  const stars = useMemo(() => generateStars(), []);
+
+  return (
+    <View style={StyleSheet.absoluteFill} pointerEvents="none">
+      {stars.map((s, i) => (
+        <TwinklingStar key={i} config={s} />
+      ))}
+    </View>
   );
 });
 

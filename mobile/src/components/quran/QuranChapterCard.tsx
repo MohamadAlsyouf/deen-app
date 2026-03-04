@@ -1,7 +1,6 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { useRef } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Card } from '@/components';
 import { colors, spacing, typography, borderRadius } from '@/theme';
 import type { QuranChapter } from '@/types/quran';
 
@@ -11,83 +10,123 @@ type QuranChapterCardProps = {
 };
 
 export const QuranChapterCard: React.FC<QuranChapterCardProps> = ({ chapter, onPress }) => {
-  const handlePress = () => {
-    onPress(chapter);
+  const scale = useRef(new Animated.Value(1)).current;
+
+  const handlePressIn = () => {
+    Animated.spring(scale, { toValue: 0.98, useNativeDriver: true, tension: 100, friction: 8 }).start();
+  };
+  const handlePressOut = () => {
+    Animated.spring(scale, { toValue: 1, useNativeDriver: true, tension: 100, friction: 8 }).start();
   };
 
   return (
-    <TouchableOpacity onPress={handlePress} activeOpacity={0.85}>
-      <Card style={styles.card}>
-        <View style={styles.row}>
+    <Animated.View style={{ transform: [{ scale }] }}>
+      <TouchableOpacity
+        onPress={() => onPress(chapter)}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        activeOpacity={1}
+        style={styles.card}
+      >
+        <View style={styles.accent} />
+
+        <View style={styles.body}>
           <View style={styles.badge}>
             <Text style={styles.badgeText}>{chapter.id}</Text>
           </View>
 
-          <View style={styles.textWrap}>
+          <View style={styles.info}>
             <Text style={styles.name} numberOfLines={1}>
               {chapter.name_simple}
             </Text>
-            <Text style={styles.meta} numberOfLines={1}>
-              {chapter.translated_name?.name || 'Chapter'} • {chapter.verses_count} verses
-            </Text>
+            <View style={styles.metaRow}>
+              <Text style={styles.meta}>
+                {chapter.translated_name?.name || 'Chapter'}
+              </Text>
+              <View style={styles.dot} />
+              <Text style={styles.meta}>{chapter.verses_count} ayahs</Text>
+            </View>
           </View>
 
           <View style={styles.right}>
             <Text style={styles.arabic} numberOfLines={1}>
               {chapter.name_arabic}
             </Text>
-            <Ionicons name="chevron-forward" size={18} color={colors.text.secondary} />
           </View>
         </View>
-      </Card>
-    </TouchableOpacity>
+      </TouchableOpacity>
+    </Animated.View>
   );
 };
 
 const styles = StyleSheet.create({
   card: {
-    padding: spacing.md,
-    marginBottom: spacing.md,
+    backgroundColor: colors.background,
+    borderRadius: borderRadius.lg,
+    marginBottom: spacing.sm + 2,
+    overflow: 'hidden',
+    flexDirection: 'row',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  row: {
+  accent: {
+    width: 4,
+    backgroundColor: colors.primaryLight,
+  },
+  body: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
   },
   badge: {
-    width: 36,
-    height: 36,
-    borderRadius: borderRadius.round,
-    backgroundColor: colors.surface,
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: `${colors.primary}12`,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: spacing.md,
   },
   badgeText: {
-    ...typography.caption,
-    color: colors.primary,
+    fontSize: 14,
     fontWeight: '700',
+    color: colors.primary,
   },
-  textWrap: {
+  info: {
     flex: 1,
   },
   name: {
-    ...typography.h4,
+    fontSize: 16,
+    fontWeight: '600',
     color: colors.text.primary,
+    marginBottom: 3,
+  },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   meta: {
-    ...typography.caption,
-    color: colors.text.secondary,
-    marginTop: 2,
+    fontSize: 12,
+    color: colors.text.tertiary,
+  },
+  dot: {
+    width: 3,
+    height: 3,
+    borderRadius: 1.5,
+    backgroundColor: colors.text.disabled,
+    marginHorizontal: 6,
   },
   right: {
+    marginLeft: spacing.sm,
     alignItems: 'flex-end',
-    marginLeft: spacing.md,
   },
   arabic: {
-    fontSize: 18,
+    fontSize: 20,
     color: colors.primary,
-    marginBottom: 2,
   },
 });
-
-
