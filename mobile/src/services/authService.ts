@@ -77,6 +77,9 @@ export const authService = {
       focusFeatures: data.focusFeatures,
       notificationsEnabled: data.notificationsEnabled,
       onboardingCompleted: true,
+      loginStreakCount: 0,
+      lastLoginDayKey: null,
+      lastLoginAt: null,
       createdAt: serverTimestamp(),
     };
     await setDoc(userRef, userDoc);

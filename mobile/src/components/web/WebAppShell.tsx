@@ -4,7 +4,7 @@
  * Uses URL hash-based routing for persistence on reload
  */
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -20,6 +20,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors } from '@/theme';
 import { useWebHover } from '@/hooks/useWebHover';
 import { useAuth } from '@/hooks/useAuth';
+import { useUserProfile } from '@/hooks/useUserProfile';
+import { streakService, getLocalDayKey } from '@/services/streakService';
 
 // Content components
 import { WebDashboardContent } from './content/WebDashboardContent';
@@ -183,6 +185,7 @@ type WebAppShellProps = {
 export const WebAppShell: React.FC<WebAppShellProps> = ({ initialScreen = 'home' }) => {
   const { width } = useWindowDimensions();
   const { signOut, user } = useAuth();
+  const { userProfile, loading: profileLoading } = useUserProfile();
   
   // Initialize state from URL hash
   const initialRoute = useMemo(() => parseHashRoute(), []);
@@ -191,6 +194,10 @@ export const WebAppShell: React.FC<WebAppShellProps> = ({ initialScreen = 'home'
   const [mounted, setMounted] = useState(false);
   const [subScreen, setSubScreen] = useState<string | null>(initialRoute.subScreen);
   const [subScreenData, setSubScreenData] = useState<any>(initialRoute.subScreenData);
+  const [streakCount, setStreakCount] = useState(0);
+  const [showStreakBanner, setShowStreakBanner] = useState(false);
+  const [streakCelebrationKey, setStreakCelebrationKey] = useState(0);
+  const streakCheckKeyRef = useRef<string | null>(null);
 
   // Inject web styles and set up hash change listener
   useEffect(() => {
@@ -224,6 +231,56 @@ export const WebAppShell: React.FC<WebAppShellProps> = ({ initialScreen = 'home'
   useEffect(() => {
     setIsCollapsed(width < 1200);
   }, [width]);
+
+  useEffect(() => {
+    const profileStreakCount = userProfile?.loginStreakCount ?? 0;
+    setStreakCount(profileStreakCount);
+  }, [userProfile?.loginStreakCount]);
+
+  useEffect(() => {
+    if (!user?.uid) {
+      streakCheckKeyRef.current = null;
+      setStreakCount(0);
+      setShowStreakBanner(false);
+      return;
+    }
+  }, [user?.uid]);
+
+  useEffect(() => {
+    if (!user?.uid || profileLoading) {
+      return;
+    }
+
+    const checkKey = `${user.uid}:${getLocalDayKey()}`;
+    if (streakCheckKeyRef.current === checkKey) {
+      return;
+    }
+    streakCheckKeyRef.current = checkKey;
+
+    let isActive = true;
+
+    streakService
+      .syncDailyLoginStreak(user.uid)
+      .then((result) => {
+        if (!isActive) {
+          return;
+        }
+
+        setStreakCount(result.streakCount);
+
+        if (result.awardedToday) {
+          setShowStreakBanner(true);
+          setStreakCelebrationKey((current) => current + 1);
+        }
+      })
+      .catch((error) => {
+        console.error('Failed to sync web login streak:', error);
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [user?.uid, profileLoading]);
 
   // Update URL when navigation changes
   const updateUrl = useCallback((tab: string, sub: string | null, data: any) => {
@@ -269,6 +326,10 @@ export const WebAppShell: React.FC<WebAppShellProps> = ({ initialScreen = 'home'
           <WebDashboardContent
             onNavigate={handleNavigate}
             userName={user?.email?.split('@')[0]}
+            streakCount={streakCount}
+            showStreakBanner={showStreakBanner}
+            onHideStreakBanner={() => setShowStreakBanner(false)}
+            streakCelebrationKey={streakCelebrationKey}
           />
         );
       case 'quran':
@@ -307,6 +368,10 @@ export const WebAppShell: React.FC<WebAppShellProps> = ({ initialScreen = 'home'
           <WebDashboardContent
             onNavigate={handleNavigate}
             userName={user?.email?.split('@')[0]}
+            streakCount={streakCount}
+            showStreakBanner={showStreakBanner}
+            onHideStreakBanner={() => setShowStreakBanner(false)}
+            streakCelebrationKey={streakCelebrationKey}
           />
         );
     }

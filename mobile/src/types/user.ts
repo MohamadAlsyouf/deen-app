@@ -18,6 +18,9 @@ export interface UserProfile {
   focusFeatures: FeatureKey[];
   notificationsEnabled: boolean;
   onboardingCompleted: boolean;
+  loginStreakCount?: number;
+  lastLoginDayKey?: string | null;
+  lastLoginAt?: any;
   createdAt: any; // Firestore Timestamp
 }
 

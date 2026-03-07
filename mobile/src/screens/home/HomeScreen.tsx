@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, Alert, Platform, TouchableOpacity, Dimensions, Image, ActivityIndicator } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, Alert, Platform, TouchableOpacity, Dimensions, Image, ActivityIndicator, Animated } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
@@ -9,9 +9,11 @@ import { colors, spacing, typography, borderRadius } from '@/theme';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { ProfileDrawer } from '@/components/common/ProfileDrawer';
+import { HomeStreakBanner } from '@/components/home/HomeStreakBanner';
 import type { TabParamList } from '@/navigation/TabNavigator';
 import { WebHomeScreen } from './WebHomeScreen';
 import { FeatureKey } from '@/types/user';
+import { streakService, getLocalDayKey } from '@/services/streakService';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -108,6 +110,12 @@ export const HomeScreen: React.FC = () => {
   const { userProfile, loading: profileLoading } = useUserProfile();
   const insets = useSafeAreaInsets();
   const [drawerVisible, setDrawerVisible] = useState(false);
+  const [currentStreakCount, setCurrentStreakCount] = useState(0);
+  const [showStreakBanner, setShowStreakBanner] = useState(false);
+  const streakCheckKeyRef = useRef<string | null>(null);
+  const iconScale = useRef(new Animated.Value(1)).current;
+  const iconRotate = useRef(new Animated.Value(0)).current;
+  const countScale = useRef(new Animated.Value(1)).current;
 
   const handleSignOut = async () => {
     try {
@@ -122,6 +130,105 @@ export const HomeScreen: React.FC = () => {
     if (parentNavigation) parentNavigation.navigate(screen as never);
   };
 
+  const triggerStreakCelebration = useCallback(() => {
+    iconScale.setValue(0.9);
+    iconRotate.setValue(0);
+    countScale.setValue(0.85);
+
+    Animated.parallel([
+      Animated.sequence([
+        Animated.timing(iconRotate, {
+          toValue: 1,
+          duration: 520,
+          useNativeDriver: true,
+        }),
+        Animated.spring(iconScale, {
+          toValue: 1,
+          tension: 100,
+          friction: 7,
+          useNativeDriver: true,
+        }),
+      ]),
+      Animated.sequence([
+        Animated.timing(iconScale, {
+          toValue: 1.18,
+          duration: 220,
+          useNativeDriver: true,
+        }),
+        Animated.spring(iconScale, {
+          toValue: 1,
+          tension: 100,
+          friction: 8,
+          useNativeDriver: true,
+        }),
+      ]),
+      Animated.sequence([
+        Animated.delay(120),
+        Animated.timing(countScale, {
+          toValue: 1.22,
+          duration: 220,
+          useNativeDriver: true,
+        }),
+        Animated.spring(countScale, {
+          toValue: 1,
+          tension: 100,
+          friction: 8,
+          useNativeDriver: true,
+        }),
+      ]),
+    ]).start();
+  }, [countScale, iconRotate, iconScale]);
+
+  useEffect(() => {
+    const profileStreakCount = userProfile?.loginStreakCount ?? 0;
+    setCurrentStreakCount(profileStreakCount);
+  }, [userProfile?.loginStreakCount]);
+
+  useEffect(() => {
+    if (!user?.uid) {
+      streakCheckKeyRef.current = null;
+      setCurrentStreakCount(0);
+      setShowStreakBanner(false);
+      return;
+    }
+  }, [user?.uid]);
+
+  useEffect(() => {
+    if (!user?.uid || profileLoading) {
+      return;
+    }
+
+    const checkKey = `${user.uid}:${getLocalDayKey()}`;
+    if (streakCheckKeyRef.current === checkKey) {
+      return;
+    }
+    streakCheckKeyRef.current = checkKey;
+
+    let isActive = true;
+
+    streakService
+      .syncDailyLoginStreak(user.uid)
+      .then((result) => {
+        if (!isActive) {
+          return;
+        }
+
+        setCurrentStreakCount(result.streakCount);
+
+        if (result.awardedToday) {
+          setShowStreakBanner(true);
+          triggerStreakCelebration();
+        }
+      })
+      .catch((error) => {
+        console.error('Failed to sync login streak:', error);
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [user?.uid, profileLoading, triggerStreakCelebration]);
+
   // Filter cards based on user's focusFeatures preferences
   // If no preferences set (legacy users or no profile), show all cards
   const displayCards = useMemo(() => {
@@ -135,28 +242,59 @@ export const HomeScreen: React.FC = () => {
   }, [userProfile?.focusFeatures]);
 
   const displayName = user?.displayName || 'Muslim User';
+  const streakCount = currentStreakCount || userProfile?.loginStreakCount || 0;
+  const iconSpin = iconRotate.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg'],
+  });
 
   return (
     <View style={styles.container}>
+      <HomeStreakBanner
+        visible={showStreakBanner}
+        streakCount={streakCount}
+        topInset={insets.top}
+        onHide={() => setShowStreakBanner(false)}
+      />
       <View style={[styles.headerContainer, { paddingTop: insets.top }]}>
         <View style={styles.headerBar}>
-          <TouchableOpacity
-            onPress={() => setDrawerVisible(true)}
-            activeOpacity={0.7}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <View style={styles.headerAvatarRing}>
-              {user?.photoURL ? (
-                <Image source={{ uri: user.photoURL }} style={styles.headerAvatar} />
-              ) : (
-                <View style={styles.headerAvatarPlaceholder}>
-                  <Ionicons name="person" size={18} color={colors.text.tertiary} />
-                </View>
-              )}
-            </View>
-          </TouchableOpacity>
+          <View style={styles.headerSide}>
+            <TouchableOpacity
+              onPress={() => setDrawerVisible(true)}
+              activeOpacity={0.7}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <View style={styles.headerAvatarRing}>
+                {user?.photoURL ? (
+                  <Image source={{ uri: user.photoURL }} style={styles.headerAvatar} />
+                ) : (
+                  <View style={styles.headerAvatarPlaceholder}>
+                    <Ionicons name="person" size={18} color={colors.text.tertiary} />
+                  </View>
+                )}
+              </View>
+            </TouchableOpacity>
+          </View>
           <Text style={styles.headerTitle}>Home</Text>
-          <View style={styles.headerRight} />
+          <View style={[styles.headerSide, styles.headerRight]}>
+            <Animated.View
+              style={[
+                styles.streakPill,
+                {
+                  transform: [{ scale: countScale }],
+                },
+              ]}
+            >
+              <Animated.View
+                style={{
+                  transform: [{ scale: iconScale }, { rotate: iconSpin }],
+                }}
+              >
+                <Ionicons name="trophy" size={16} color={colors.accentDark} />
+              </Animated.View>
+              <Text style={styles.streakText}>{streakCount}</Text>
+            </Animated.View>
+          </View>
         </View>
       </View>
 
@@ -231,6 +369,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
   },
+  headerSide: {
+    width: 78,
+    justifyContent: 'center',
+  },
   headerAvatarRing: {
     width: 42,
     height: 42,
@@ -260,7 +402,25 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   headerRight: {
-    width: 42,
+    alignItems: 'flex-end',
+  },
+  streakPill: {
+    minWidth: 58,
+    height: 34,
+    paddingHorizontal: spacing.sm,
+    borderRadius: borderRadius.round,
+    backgroundColor: 'rgba(212, 163, 115, 0.16)',
+    borderWidth: 1,
+    borderColor: 'rgba(212, 163, 115, 0.35)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  streakText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.accentDark,
   },
   bgGradient: {
     flex: 1,

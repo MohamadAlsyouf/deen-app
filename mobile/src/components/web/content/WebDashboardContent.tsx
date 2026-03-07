@@ -2,7 +2,7 @@
  * WebDashboardContent - Dashboard home content
  */
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -10,11 +10,13 @@ import {
   ScrollView,
   TouchableOpacity,
   useWindowDimensions,
+  Animated,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
-import { colors } from "@/theme";
+import { colors, borderRadius } from "@/theme";
 import { useWebHover } from "@/hooks/useWebHover";
+import { HomeStreakBanner } from "@/components/home/HomeStreakBanner";
 
 type FeatureCardData = {
   id: string;
@@ -242,14 +244,25 @@ const QuickLinkCard: React.FC<{
 type WebDashboardContentProps = {
   onNavigate: (id: string) => void;
   userName?: string;
+  streakCount: number;
+  showStreakBanner: boolean;
+  onHideStreakBanner: () => void;
+  streakCelebrationKey: number;
 };
 
 export const WebDashboardContent: React.FC<WebDashboardContentProps> = ({
   onNavigate,
   userName,
+  streakCount,
+  showStreakBanner,
+  onHideStreakBanner,
+  streakCelebrationKey,
 }) => {
   const { width } = useWindowDimensions();
   const isWide = width >= 1400;
+  const iconScale = useRef(new Animated.Value(1)).current;
+  const iconRotate = useRef(new Animated.Value(0)).current;
+  const countScale = useRef(new Animated.Value(1)).current;
 
   const currentDate = new Date().toLocaleDateString("en-US", {
     weekday: "long",
@@ -258,100 +271,191 @@ export const WebDashboardContent: React.FC<WebDashboardContentProps> = ({
     day: "numeric",
   });
 
-  return (
-    <ScrollView
-      style={styles.scrollView}
-      contentContainerStyle={styles.scrollContent}
-      showsVerticalScrollIndicator={false}
-    >
-      {/* Welcome Section */}
-      <View style={styles.welcomeSection}>
-        <View style={styles.welcomeHeader}>
-          <Text style={styles.welcomeDate}>{currentDate}</Text>
-          <Text style={styles.welcomeTitle}>
-            Assalamu Alaikum{userName ? `, ${userName}` : ""}
-          </Text>
-          <Text style={styles.welcomeSubtitle}>
-            Continue your journey of Islamic knowledge and spiritual growth.
-          </Text>
-        </View>
+  useEffect(() => {
+    if (streakCelebrationKey === 0) {
+      return;
+    }
 
-        {/* Bismillah Card */}
-        <View style={styles.bismillahCard}>
-          <LinearGradient
-            colors={["#0D2818", "#1B4332"]}
-            style={StyleSheet.absoluteFill}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-          />
-          <View style={styles.bismillahPattern} />
-          <View style={styles.bismillahContent}>
-            <Text style={styles.bismillahArabic}>
-              بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ
-            </Text>
-            <Text style={styles.bismillahTranslation}>
-              In the name of Allah, the Most Gracious, the Most Merciful
-            </Text>
+    iconScale.setValue(0.9);
+    iconRotate.setValue(0);
+    countScale.setValue(0.85);
+
+    Animated.parallel([
+      Animated.sequence([
+        Animated.timing(iconRotate, {
+          toValue: 1,
+          duration: 520,
+          useNativeDriver: true,
+        }),
+        Animated.spring(iconScale, {
+          toValue: 1,
+          tension: 100,
+          friction: 7,
+          useNativeDriver: true,
+        }),
+      ]),
+      Animated.sequence([
+        Animated.timing(iconScale, {
+          toValue: 1.18,
+          duration: 220,
+          useNativeDriver: true,
+        }),
+        Animated.spring(iconScale, {
+          toValue: 1,
+          tension: 100,
+          friction: 8,
+          useNativeDriver: true,
+        }),
+      ]),
+      Animated.sequence([
+        Animated.delay(120),
+        Animated.timing(countScale, {
+          toValue: 1.22,
+          duration: 220,
+          useNativeDriver: true,
+        }),
+        Animated.spring(countScale, {
+          toValue: 1,
+          tension: 100,
+          friction: 8,
+          useNativeDriver: true,
+        }),
+      ]),
+    ]).start();
+  }, [countScale, iconRotate, iconScale, streakCelebrationKey]);
+
+  const iconSpin = iconRotate.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["0deg", "360deg"],
+  });
+
+  return (
+    <View style={styles.container}>
+      <HomeStreakBanner
+        visible={showStreakBanner}
+        streakCount={streakCount}
+        topInset={16}
+        onHide={onHideStreakBanner}
+      />
+
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Welcome Section */}
+        <View style={styles.welcomeSection}>
+          <View style={styles.welcomeHeaderRow}>
+            <View style={styles.welcomeHeader}>
+              <Text style={styles.welcomeDate}>{currentDate}</Text>
+              <Text style={styles.welcomeTitle}>
+                Assalamu Alaikum{userName ? `, ${userName}` : ""}
+              </Text>
+              <Text style={styles.welcomeSubtitle}>
+                Continue your journey of Islamic knowledge and spiritual growth.
+              </Text>
+            </View>
+
+            <Animated.View
+              style={[
+                styles.streakPill,
+                {
+                  transform: [{ scale: countScale }],
+                },
+              ]}
+            >
+              <Animated.View
+                style={{
+                  transform: [{ scale: iconScale }, { rotate: iconSpin }],
+                }}
+              >
+                <Ionicons name="trophy" size={18} color={colors.accentDark} />
+              </Animated.View>
+              <Text style={styles.streakText}>{streakCount}</Text>
+            </Animated.View>
+          </View>
+
+          {/* Bismillah Card */}
+          <View style={styles.bismillahCard}>
+            <LinearGradient
+              colors={["#0D2818", "#1B4332"]}
+              style={StyleSheet.absoluteFill}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            />
+            <View style={styles.bismillahPattern} />
+            <View style={styles.bismillahContent}>
+              <Text style={styles.bismillahArabic}>
+                بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ
+              </Text>
+              <Text style={styles.bismillahTranslation}>
+                In the name of Allah, the Most Gracious, the Most Merciful
+              </Text>
+            </View>
           </View>
         </View>
-      </View>
 
-      {/* Feature Cards */}
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Explore Your Faith</Text>
-        <Text style={styles.sectionSubtitle}>
-          Dive into the core aspects of Islamic learning
-        </Text>
-      </View>
+        {/* Feature Cards */}
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Explore Your Faith</Text>
+          <Text style={styles.sectionSubtitle}>
+            Dive into the core aspects of Islamic learning
+          </Text>
+        </View>
 
-      <View
-        style={[styles.featureCardsGrid, isWide && styles.featureCardsGridWide]}
-      >
-        {FEATURE_CARDS.map((card, index) => (
-          <FeatureCard
-            key={card.id}
-            data={card}
-            onPress={() => onNavigate(card.id)}
-            index={index}
+        <View
+          style={[styles.featureCardsGrid, isWide && styles.featureCardsGridWide]}
+        >
+          {FEATURE_CARDS.map((card, index) => (
+            <FeatureCard
+              key={card.id}
+              data={card}
+              onPress={() => onNavigate(card.id)}
+              index={index}
+            />
+          ))}
+        </View>
+
+        {/* Quick Links */}
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Quick Access</Text>
+        </View>
+
+        <View style={styles.quickLinksGrid}>
+          <QuickLinkCard
+            title="My Profile"
+            icon="person-outline"
+            onPress={() => onNavigate("profile")}
+            index={0}
           />
-        ))}
-      </View>
+          <QuickLinkCard
+            title="About Us"
+            icon="information-circle-outline"
+            onPress={() => onNavigate("about")}
+            index={1}
+          />
+          <QuickLinkCard
+            title="Contact"
+            icon="mail-outline"
+            onPress={() => onNavigate("contact")}
+            index={2}
+          />
+        </View>
 
-      {/* Quick Links */}
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Quick Access</Text>
-      </View>
-
-      <View style={styles.quickLinksGrid}>
-        <QuickLinkCard
-          title="My Profile"
-          icon="person-outline"
-          onPress={() => onNavigate("profile")}
-          index={0}
-        />
-        <QuickLinkCard
-          title="About Us"
-          icon="information-circle-outline"
-          onPress={() => onNavigate("about")}
-          index={1}
-        />
-        <QuickLinkCard
-          title="Contact"
-          icon="mail-outline"
-          onPress={() => onNavigate("contact")}
-          index={2}
-        />
-      </View>
-
-      {/* Footer */}
-      <View style={styles.footer}>
-        <Text style={styles.footerText}>Made with love for the Ummah</Text>
-      </View>
-    </ScrollView>
+        {/* Footer */}
+        <View style={styles.footer}>
+          <Text style={styles.footerText}>Made with love for the Ummah</Text>
+        </View>
+      </ScrollView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    position: "relative",
+  },
   scrollView: {
     flex: 1,
   },
@@ -362,8 +466,15 @@ const styles = StyleSheet.create({
   welcomeSection: {
     marginBottom: 48,
   },
-  welcomeHeader: {
+  welcomeHeaderRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: 16,
     marginBottom: 32,
+  },
+  welcomeHeader: {
+    flex: 1,
   },
   welcomeDate: {
     fontSize: 13,
@@ -389,6 +500,28 @@ const styles = StyleSheet.create({
     color: colors.text.secondary,
     lineHeight: 28,
     maxWidth: 600,
+    // @ts-ignore
+    fontFamily: "'DM Sans', sans-serif",
+  },
+  streakPill: {
+    minWidth: 72,
+    height: 40,
+    paddingHorizontal: 14,
+    borderRadius: borderRadius.round,
+    backgroundColor: "rgba(212, 163, 115, 0.16)",
+    borderWidth: 1,
+    borderColor: "rgba(212, 163, 115, 0.35)",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    // @ts-ignore
+    boxShadow: "0 8px 24px rgba(212, 163, 115, 0.14)",
+  },
+  streakText: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: colors.accentDark,
     // @ts-ignore
     fontFamily: "'DM Sans', sans-serif",
   },
