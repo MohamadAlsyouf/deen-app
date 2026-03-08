@@ -20,6 +20,7 @@ import {
   SunnahScreen,
   ProfileScreen,
   BookmarksScreen,
+  VerseOfDayScreen,
   OnboardingSplashScreen,
   OnboardingUserTypeScreen,
   OnboardingFeaturesScreen,
@@ -84,6 +85,7 @@ export type RootStackParamList = {
   Sunnah: undefined;
   Profile: undefined;
   Bookmarks: undefined;
+  VerseOfDay: undefined;
 };
 
 const Stack = createStackNavigator<RootStackParamList>();
@@ -152,6 +154,7 @@ export const AppNavigator: React.FC = () => {
             <Stack.Screen name="Sunnah" component={SunnahScreen} />
             <Stack.Screen name="Profile" component={ProfileScreen} />
             <Stack.Screen name="Bookmarks" component={BookmarksScreen} />
+            <Stack.Screen name="VerseOfDay" component={VerseOfDayScreen} />
           </>
         ) : (
           // Unauthenticated screens - Platform specific

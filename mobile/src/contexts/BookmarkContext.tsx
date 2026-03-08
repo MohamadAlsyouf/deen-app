@@ -110,16 +110,21 @@ export const BookmarkProvider: React.FC<{ children: ReactNode }> = ({ children }
     const unsubscribe = onSnapshot(
       userRef,
       async (snapshot) => {
-        const remoteBookmarks = normalizeBookmarks(snapshot.data()?.bookmarks);
+        const snapshotData = snapshot.data();
+        const hasRemoteBookmarksField = Array.isArray(snapshotData?.bookmarks);
+        const remoteBookmarks = normalizeBookmarks(snapshotData?.bookmarks);
         const userCachedBookmarks = await readLocalBookmarks(userStorageKey);
-        const legacyBookmarks = userCachedBookmarks.length === 0 && remoteBookmarks.length === 0
+        const legacyBookmarks = !hasRemoteBookmarksField
           ? await readLocalBookmarks(LEGACY_STORAGE_KEY)
           : [];
 
         if (!isActive) return;
 
-        const mergedBookmarks = mergeBookmarks(remoteBookmarks, userCachedBookmarks, legacyBookmarks);
-        const remoteChanged = JSON.stringify(mergedBookmarks) !== JSON.stringify(remoteBookmarks);
+        const mergedBookmarks = hasRemoteBookmarksField
+          ? remoteBookmarks
+          : mergeBookmarks(userCachedBookmarks, legacyBookmarks);
+        const remoteChanged = !hasRemoteBookmarksField &&
+          JSON.stringify(mergedBookmarks) !== JSON.stringify(remoteBookmarks);
 
         setBookmarks(mergedBookmarks);
         await persistLocalBookmarks(userStorageKey, mergedBookmarks);

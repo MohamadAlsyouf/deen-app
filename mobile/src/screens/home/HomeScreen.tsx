@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, Alert, Platform, TouchableOpacity, 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
+import { useQuery } from '@tanstack/react-query';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius } from '@/theme';
@@ -14,6 +15,7 @@ import type { TabParamList } from '@/navigation/TabNavigator';
 import { WebHomeScreen } from './WebHomeScreen';
 import { FeatureKey } from '@/types/user';
 import { streakService, getLocalDayKey } from '@/services/streakService';
+import { verseOfDayService } from '@/services/verseOfDayService';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -44,6 +46,43 @@ const GridCardItem: React.FC<{ card: GridCard & { onPress: () => void }; size: n
       </View>
       <Text style={styles.gridCardTitle}>{card.title}</Text>
       <Text style={styles.gridCardSubtitle} numberOfLines={2}>{card.subtitle}</Text>
+    </LinearGradient>
+  </TouchableOpacity>
+);
+
+const VerseOfDayPreviewCard: React.FC<{
+  arabicText: string;
+  verseKey: string;
+  chapterName: string;
+  onPress: () => void;
+}> = ({ arabicText, verseKey, chapterName, onPress }) => (
+  <TouchableOpacity onPress={onPress} activeOpacity={0.92} style={styles.verseOfDayWrap}>
+    <LinearGradient
+      colors={[colors.gradient.start, colors.gradient.end]}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={styles.verseOfDayCard}
+    >
+      <View style={styles.verseOfDayOverlay} />
+      <View style={styles.verseOfDayTop}>
+        <View style={styles.verseOfDayBadge}>
+          <Text style={styles.verseOfDayBadgeText}>Verse of the Day</Text>
+        </View>
+        <Ionicons name="sparkles" size={18} color="rgba(255,255,255,0.9)" />
+      </View>
+
+      <Text style={styles.verseOfDayArabic} numberOfLines={3}>
+        {arabicText}
+      </Text>
+
+      <View style={styles.verseOfDayFooter}>
+        <Text style={styles.verseOfDayMetaLeft}>{verseKey}</Text>
+        <Text style={styles.verseOfDayMetaCenter}>{chapterName}</Text>
+        <View style={styles.verseOfDayMetaRight}>
+          <Text style={styles.verseOfDayMetaAction}>Open</Text>
+          <Ionicons name="arrow-forward" size={14} color="rgba(255,255,255,0.84)" />
+        </View>
+      </View>
     </LinearGradient>
   </TouchableOpacity>
 );
@@ -116,6 +155,12 @@ export const HomeScreen: React.FC = () => {
   const iconScale = useRef(new Animated.Value(1)).current;
   const iconRotate = useRef(new Animated.Value(0)).current;
   const countScale = useRef(new Animated.Value(1)).current;
+  const dayKey = getLocalDayKey();
+
+  const verseOfDayQuery = useQuery({
+    queryKey: ['verseOfDay', dayKey],
+    queryFn: () => verseOfDayService.getVerseOfDay(dayKey),
+  });
 
   const handleSignOut = async () => {
     try {
@@ -128,6 +173,13 @@ export const HomeScreen: React.FC = () => {
   const nav = (screen: string) => {
     const parentNavigation = navigation.getParent();
     if (parentNavigation) parentNavigation.navigate(screen as never);
+  };
+
+  const openVerseOfDay = () => {
+    const parentNavigation = navigation.getParent();
+    if (parentNavigation) {
+      parentNavigation.navigate('VerseOfDay' as never);
+    }
   };
 
   const triggerStreakCelebration = useCallback(() => {
@@ -339,6 +391,20 @@ export const HomeScreen: React.FC = () => {
                 <Text style={styles.showAllText}>Manage your features in Profile</Text>
               </TouchableOpacity>
             )}
+
+            {verseOfDayQuery.data ? (
+              <VerseOfDayPreviewCard
+                arabicText={verseOfDayQuery.data.arabicText}
+                verseKey={verseOfDayQuery.data.verseKey}
+                chapterName={verseOfDayQuery.data.chapterName}
+                onPress={openVerseOfDay}
+              />
+            ) : verseOfDayQuery.isLoading ? (
+              <View style={styles.verseOfDayLoadingCard}>
+                <ActivityIndicator size="small" color={colors.primary} />
+                <Text style={styles.verseOfDayLoadingText}>Preparing today's verse...</Text>
+              </View>
+            ) : null}
           </ScrollView>
         )}
       </LinearGradient>
@@ -494,6 +560,90 @@ const styles = StyleSheet.create({
   showAllText: {
     fontSize: 14,
     color: colors.primary,
+    fontWeight: '500',
+  },
+  verseOfDayWrap: {
+    width: '100%',
+  },
+  verseOfDayCard: {
+    minHeight: 220,
+    borderRadius: borderRadius.xl,
+    padding: spacing.lg,
+    overflow: 'hidden',
+  },
+  verseOfDayOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    opacity: 0.12,
+    backgroundColor: '#FFFFFF',
+  },
+  verseOfDayTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.lg,
+  },
+  verseOfDayBadge: {
+    paddingHorizontal: spacing.sm + 2,
+    paddingVertical: 6,
+    borderRadius: borderRadius.round,
+    backgroundColor: 'rgba(255,255,255,0.14)',
+  },
+  verseOfDayBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.text.white,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+  },
+  verseOfDayArabic: {
+    flex: 1,
+    fontSize: 28,
+    lineHeight: 46,
+    color: colors.text.white,
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
+  verseOfDayFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: spacing.lg,
+  },
+  verseOfDayMetaLeft: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '700',
+    color: 'rgba(255,255,255,0.82)',
+  },
+  verseOfDayMetaCenter: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text.white,
+    textAlign: 'center',
+  },
+  verseOfDayMetaRight: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: 4,
+  },
+  verseOfDayMetaAction: {
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.84)',
+  },
+  verseOfDayLoadingCard: {
+    minHeight: 120,
+    borderRadius: borderRadius.xl,
+    backgroundColor: colors.background,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+  },
+  verseOfDayLoadingText: {
+    fontSize: 14,
+    color: colors.text.secondary,
     fontWeight: '500',
   },
 });

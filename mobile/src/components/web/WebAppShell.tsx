@@ -35,6 +35,7 @@ import { WebContactContent } from './content/WebContactContent';
 import { WebProfileContent } from './content/WebProfileContent';
 import { WebSunnahContent } from './content/WebSunnahContent';
 import { WebBookmarksContent } from './content/WebBookmarksContent';
+import { WebVerseOfDayContent } from './content/WebVerseOfDayContent';
 
 // URL Routing helpers
 const parseHashRoute = (): { tab: string; subScreen: string | null; subScreenData: any } => {
@@ -69,6 +70,10 @@ const parseHashRoute = (): { tab: string; subScreen: string | null; subScreenDat
     };
   }
 
+  if (tab === 'home' && parts[1]) {
+    return { tab: 'home', subScreen: parts[1], subScreenData: null };
+  }
+
   // Handle Names sub-routes: #/names/browse, #/names/games, #/names/flashcards, etc.
   if (tab === 'names' && parts[1]) {
     return { tab: 'names', subScreen: parts[1], subScreenData: null };
@@ -83,6 +88,9 @@ const buildHashRoute = (tab: string, subScreen: string | null, subScreenData: an
     const verseSegment =
       typeof scrollToVerse === 'number' && Number.isFinite(scrollToVerse) ? `/${scrollToVerse}` : '';
     return `#/quran/chapter/${chapterId}/${encodeURIComponent(chapterName || '')}/${encodeURIComponent(chapterArabicName || '')}${verseSegment}`;
+  }
+  if (tab === 'home' && subScreen) {
+    return `#/home/${subScreen}`;
   }
   if (tab === 'names' && subScreen) {
     return `#/names/${subScreen}`;
@@ -318,10 +326,12 @@ export const WebAppShell: React.FC<WebAppShellProps> = ({ initialScreen = 'home'
   const handleBack = useCallback(() => {
     const backTab = subScreenData?.backTab;
     if (typeof backTab === 'string' && backTab.length > 0) {
+      const nextSubScreen = subScreenData?.backSubScreen ?? null;
+      const nextSubScreenData = subScreenData?.backData ?? null;
       setActiveTab(backTab);
-      setSubScreen(null);
-      setSubScreenData(null);
-      updateUrl(backTab, null, null);
+      setSubScreen(nextSubScreen);
+      setSubScreenData(nextSubScreenData);
+      updateUrl(backTab, nextSubScreen, nextSubScreenData);
       return;
     }
     setSubScreen(null);
@@ -342,6 +352,31 @@ export const WebAppShell: React.FC<WebAppShellProps> = ({ initialScreen = 'home'
     updateUrl('quran', 'chapter', nextData);
   }, [updateUrl]);
 
+  const handleOpenVerseOfDay = useCallback(() => {
+    setActiveTab('home');
+    setSubScreen('verse-of-day');
+    setSubScreenData(null);
+    updateUrl('home', 'verse-of-day', null);
+  }, [updateUrl]);
+
+  const handleOpenVerseOfDayInQuran = useCallback((data: {
+    chapterId: number;
+    chapterName: string;
+    chapterArabicName: string;
+    scrollToVerse: number;
+  }) => {
+    const nextData = {
+      ...data,
+      backTab: 'home',
+      backSubScreen: 'verse-of-day',
+      backData: null,
+    };
+    setActiveTab('quran');
+    setSubScreen('chapter');
+    setSubScreenData(nextData);
+    updateUrl('quran', 'chapter', nextData);
+  }, [updateUrl]);
+
   const handleSignOut = async () => {
     try {
       await signOut();
@@ -353,9 +388,18 @@ export const WebAppShell: React.FC<WebAppShellProps> = ({ initialScreen = 'home'
   const renderContent = () => {
     switch (activeTab) {
       case 'home':
+        if (subScreen === 'verse-of-day') {
+          return (
+            <WebVerseOfDayContent
+              onBack={handleBack}
+              onViewInQuran={handleOpenVerseOfDayInQuran}
+            />
+          );
+        }
         return (
           <WebDashboardContent
             onNavigate={handleNavigate}
+            onOpenVerseOfDay={handleOpenVerseOfDay}
             userName={user?.email?.split('@')[0]}
             streakCount={streakCount}
             showStreakBanner={showStreakBanner}
@@ -400,6 +444,7 @@ export const WebAppShell: React.FC<WebAppShellProps> = ({ initialScreen = 'home'
         return (
           <WebDashboardContent
             onNavigate={handleNavigate}
+            onOpenVerseOfDay={handleOpenVerseOfDay}
             userName={user?.email?.split('@')[0]}
             streakCount={streakCount}
             showStreakBanner={showStreakBanner}

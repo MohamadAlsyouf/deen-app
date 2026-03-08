@@ -2,6 +2,7 @@ import type {
   QuranChaptersResponse,
   QuranChapter,
   QuranVersesResponse,
+  QuranVerseByKeyResponse,
   QuranRecitersResponse,
   NormalizedReciter,
   ChapterAudioResponse,
@@ -146,6 +147,19 @@ export const quranService = {
     });
 
     return await fetchJson<QuranVersesResponse>(url);
+  },
+
+  getVerseByKey: async (verseKey: string) => {
+    const url = buildUrl(`/verses/by_key/${verseKey}`, {
+      language: "en",
+      words: true,
+      word_fields: "text_uthmani,transliteration",
+      fields: "text_uthmani,verse_key,verse_number",
+      translations: DEFAULT_ENGLISH_TRANSLATION_ID,
+    });
+
+    const data = await fetchJson<QuranVerseByKeyResponse>(url);
+    return data.verse;
   },
 
   getReciters: async (): Promise<NormalizedReciter[]> => {

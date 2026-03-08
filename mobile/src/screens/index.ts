@@ -1,6 +1,7 @@
 export { LandingScreen } from './home/LandingScreen';
 export { HomeScreen } from './home/HomeScreen';
 export { WebHomeScreen } from './home/WebHomeScreen';
+export { VerseOfDayScreen } from './home/VerseOfDayScreen';
 export { AboutScreen } from './about/AboutScreen';
 export { ContactScreen } from './contact/ContactScreen';
 export { QuranChaptersScreen } from './quran/QuranChaptersScreen';

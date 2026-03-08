@@ -11,12 +11,16 @@ import {
   TouchableOpacity,
   useWindowDimensions,
   Animated,
+  ActivityIndicator,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { colors, borderRadius } from "@/theme";
 import { useWebHover } from "@/hooks/useWebHover";
 import { HomeStreakBanner } from "@/components/home/HomeStreakBanner";
+import { useQuery } from "@tanstack/react-query";
+import { getLocalDayKey } from "@/services/streakService";
+import { verseOfDayService } from "@/services/verseOfDayService";
 
 type FeatureCardData = {
   id: string;
@@ -241,8 +245,68 @@ const QuickLinkCard: React.FC<{
   );
 };
 
+const VerseOfDayCard: React.FC<{
+  arabicText: string;
+  verseKey: string;
+  chapterName: string;
+  onPress: () => void;
+}> = ({ arabicText, verseKey, chapterName, onPress }) => {
+  const hover = useWebHover({
+    hoverStyle: {
+      transform: "translateY(-6px)",
+      boxShadow: "0 30px 60px rgba(27, 67, 50, 0.18)",
+    },
+    transition: "all 0.35s cubic-bezier(0.4, 0, 0.2, 1)",
+  });
+
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      activeOpacity={0.95}
+      // @ts-ignore
+      onMouseEnter={hover.handlers.onMouseEnter}
+      onMouseLeave={hover.handlers.onMouseLeave}
+      style={[styles.verseOfDayCard, hover.style]}
+    >
+      <LinearGradient
+        colors={["#0D2818", "#1B4332", "#2D6A4F"]}
+        style={StyleSheet.absoluteFill}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+      />
+      <View style={styles.verseOfDayPattern} />
+
+      <View style={styles.verseOfDayColumn}>
+        <View style={styles.verseOfDayBadge}>
+          <Text style={styles.verseOfDayBadgeText}>Verse of the Day</Text>
+        </View>
+        <Text style={styles.verseOfDayCardTitle}>A daily ayah to reflect on</Text>
+        <Text style={styles.verseOfDayCardSubtitle}>
+          Tap to open today&apos;s verse in a focused reading view.
+        </Text>
+      </View>
+
+      <View style={styles.verseOfDayColumnWide}>
+        <Text style={styles.verseOfDayArabic} numberOfLines={4}>
+          {arabicText}
+        </Text>
+      </View>
+
+      <View style={styles.verseOfDayFooter}>
+        <Text style={styles.verseOfDayReference}>{verseKey}</Text>
+        <Text style={styles.verseOfDayChapter}>{chapterName}</Text>
+        <View style={styles.verseOfDayOpen}>
+          <Text style={styles.verseOfDayOpenText}>Open</Text>
+          <Ionicons name="arrow-forward" size={16} color="rgba(255,255,255,0.85)" />
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+};
+
 type WebDashboardContentProps = {
   onNavigate: (id: string) => void;
+  onOpenVerseOfDay: () => void;
   userName?: string;
   streakCount: number;
   showStreakBanner: boolean;
@@ -252,6 +316,7 @@ type WebDashboardContentProps = {
 
 export const WebDashboardContent: React.FC<WebDashboardContentProps> = ({
   onNavigate,
+  onOpenVerseOfDay,
   userName,
   streakCount,
   showStreakBanner,
@@ -260,6 +325,7 @@ export const WebDashboardContent: React.FC<WebDashboardContentProps> = ({
 }) => {
   const { width } = useWindowDimensions();
   const isWide = width >= 1400;
+  const dayKey = getLocalDayKey();
   const streakHover = useWebHover({
     hoverStyle: {
       transform: "translateY(-1px)",
@@ -276,6 +342,11 @@ export const WebDashboardContent: React.FC<WebDashboardContentProps> = ({
     year: "numeric",
     month: "long",
     day: "numeric",
+  });
+
+  const verseOfDayQuery = useQuery({
+    queryKey: ["verseOfDay", dayKey],
+    queryFn: () => verseOfDayService.getVerseOfDay(dayKey),
   });
 
   useEffect(() => {
@@ -411,6 +482,29 @@ export const WebDashboardContent: React.FC<WebDashboardContentProps> = ({
           </View>
         </View>
 
+        {verseOfDayQuery.data ? (
+          <VerseOfDayCard
+            arabicText={verseOfDayQuery.data.arabicText}
+            verseKey={verseOfDayQuery.data.verseKey}
+            chapterName={verseOfDayQuery.data.chapterName}
+            onPress={onOpenVerseOfDay}
+          />
+        ) : verseOfDayQuery.isLoading ? (
+          <View style={styles.verseOfDayLoading}>
+            <ActivityIndicator size="small" color={colors.accent} />
+            <Text style={styles.verseOfDayLoadingText}>Preparing today's verse...</Text>
+          </View>
+        ) : verseOfDayQuery.isError ? (
+          <TouchableOpacity
+            onPress={onOpenVerseOfDay}
+            activeOpacity={0.95}
+            style={[styles.verseOfDayLoading, styles.verseOfDayFallback]}
+          >
+            <Ionicons name="sparkles-outline" size={22} color={colors.primary} />
+            <Text style={styles.verseOfDayLoadingText}>Verse of the Day is ready to open</Text>
+          </TouchableOpacity>
+        ) : null}
+
         {/* Feature Cards */}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Explore Your Faith</Text>
@@ -439,22 +533,28 @@ export const WebDashboardContent: React.FC<WebDashboardContentProps> = ({
 
         <View style={styles.quickLinksGrid}>
           <QuickLinkCard
+            title="Bookmarks"
+            icon="bookmark-outline"
+            onPress={() => onNavigate("bookmarks")}
+            index={0}
+          />
+          <QuickLinkCard
             title="My Profile"
             icon="person-outline"
             onPress={() => onNavigate("profile")}
-            index={0}
+            index={1}
           />
           <QuickLinkCard
             title="About Us"
             icon="information-circle-outline"
             onPress={() => onNavigate("about")}
-            index={1}
+            index={2}
           />
           <QuickLinkCard
             title="Contact"
             icon="mail-outline"
             onPress={() => onNavigate("contact")}
-            index={2}
+            index={3}
           />
         </View>
 
@@ -591,6 +691,134 @@ const styles = StyleSheet.create({
     fontStyle: "italic",
     // @ts-ignore
     fontFamily: "'Cormorant Garamond', Georgia, serif",
+  },
+  verseOfDayCard: {
+    minHeight: 260,
+    borderRadius: 28,
+    overflow: "hidden",
+    padding: 28,
+    marginBottom: 42,
+    position: "relative",
+    // @ts-ignore
+    cursor: "pointer",
+  },
+  verseOfDayPattern: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    opacity: 0.09,
+    // @ts-ignore
+    backgroundImage: `url("data:image/svg+xml,%3Csvg width='84' height='84' viewBox='0 0 84 84' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M42 0L84 42L42 84L0 42z' fill='none' stroke='white' stroke-width='1'/%3E%3C/svg%3E")`,
+    backgroundSize: "84px 84px",
+  },
+  verseOfDayColumn: {
+    maxWidth: 360,
+    marginBottom: 24,
+  },
+  verseOfDayColumnWide: {
+    marginBottom: 28,
+  },
+  verseOfDayBadge: {
+    alignSelf: "flex-start",
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: borderRadius.round,
+    backgroundColor: "rgba(255,255,255,0.12)",
+    marginBottom: 18,
+  },
+  verseOfDayBadgeText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: colors.text.white,
+    textTransform: "uppercase",
+    letterSpacing: 0.9,
+    // @ts-ignore
+    fontFamily: "'DM Sans', sans-serif",
+  },
+  verseOfDayCardTitle: {
+    fontSize: 34,
+    fontWeight: "600",
+    color: colors.text.white,
+    marginBottom: 10,
+    // @ts-ignore
+    fontFamily: "'Cormorant Garamond', Georgia, serif",
+  },
+  verseOfDayCardSubtitle: {
+    fontSize: 16,
+    lineHeight: 26,
+    color: "rgba(255,255,255,0.78)",
+    // @ts-ignore
+    fontFamily: "'DM Sans', sans-serif",
+  },
+  verseOfDayArabic: {
+    fontSize: 34,
+    lineHeight: 58,
+    color: colors.text.white,
+    textAlign: "right",
+    // @ts-ignore
+    fontFamily: "'Amiri', serif",
+    direction: "rtl",
+  },
+  verseOfDayFooter: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 16,
+    marginTop: "auto",
+  },
+  verseOfDayReference: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: "700",
+    color: "rgba(255,255,255,0.78)",
+    // @ts-ignore
+    fontFamily: "'DM Sans', sans-serif",
+  },
+  verseOfDayChapter: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: "600",
+    color: colors.text.white,
+    textAlign: "center",
+    // @ts-ignore
+    fontFamily: "'Cormorant Garamond', Georgia, serif",
+  },
+  verseOfDayOpen: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    gap: 6,
+  },
+  verseOfDayOpenText: {
+    fontSize: 14,
+    color: "rgba(255,255,255,0.82)",
+    // @ts-ignore
+    fontFamily: "'DM Sans', sans-serif",
+  },
+  verseOfDayLoading: {
+    minHeight: 140,
+    borderRadius: 24,
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    marginBottom: 42,
+  },
+  verseOfDayFallback: {
+    // @ts-ignore
+    cursor: "pointer",
+  },
+  verseOfDayLoadingText: {
+    fontSize: 14,
+    color: colors.text.secondary,
+    fontWeight: "500",
+    // @ts-ignore
+    fontFamily: "'DM Sans', sans-serif",
   },
   sectionHeader: {
     marginBottom: 24,

@@ -64,6 +64,10 @@ export type QuranVersesResponse = {
   pagination: QuranPagination;
 };
 
+export type QuranVerseByKeyResponse = {
+  verse: QuranVerse;
+};
+
 // Audio Types
 export type QuranReciter = {
   id: number;
