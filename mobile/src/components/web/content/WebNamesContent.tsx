@@ -11,6 +11,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   useWindowDimensions,
+  Animated,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -585,9 +586,29 @@ export const WebNamesContent: React.FC<WebNamesContentProps> = ({
   onSubNavigate,
   onBack,
 }) => {
+  const screenOpacity = useRef(new Animated.Value(0)).current;
+  const screenTranslateY = useRef(new Animated.Value(20)).current;
+
   useEffect(() => {
     injectNamesStyles();
   }, []);
+
+  useEffect(() => {
+    screenOpacity.setValue(0);
+    screenTranslateY.setValue(20);
+    Animated.parallel([
+      Animated.timing(screenOpacity, {
+        toValue: 1,
+        duration: 280,
+        useNativeDriver: true,
+      }),
+      Animated.timing(screenTranslateY, {
+        toValue: 0,
+        duration: 280,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [subScreen, screenOpacity, screenTranslateY]);
 
   const handleNavigate = useCallback((screen: string) => {
     onSubNavigate(screen);
@@ -601,20 +622,40 @@ export const WebNamesContent: React.FC<WebNamesContentProps> = ({
     onSubNavigate('games');
   }, [onSubNavigate]);
 
+  let renderedContent: React.ReactNode;
+
   switch (subScreen) {
     case 'browse':
-      return <BrowseView onBack={handleBackToMenu} />;
+      renderedContent = <BrowseView onBack={handleBackToMenu} />;
+      break;
     case 'games':
-      return <GamesMenuView onNavigate={handleNavigate} onBack={handleBackToMenu} />;
+      renderedContent = <GamesMenuView onNavigate={handleNavigate} onBack={handleBackToMenu} />;
+      break;
     case 'flashcards':
-      return <WebNamesFlashcards onBack={handleBackToGames} />;
+      renderedContent = <WebNamesFlashcards onBack={handleBackToGames} />;
+      break;
     case 'multiple-choice':
-      return <WebNamesMultipleChoice onBack={handleBackToGames} />;
+      renderedContent = <WebNamesMultipleChoice onBack={handleBackToGames} />;
+      break;
     case 'matching':
-      return <WebNamesMatching onBack={handleBackToGames} />;
+      renderedContent = <WebNamesMatching onBack={handleBackToGames} />;
+      break;
     default:
-      return <MenuView onNavigate={handleNavigate} />;
+      renderedContent = <MenuView onNavigate={handleNavigate} />;
+      break;
   }
+
+  return (
+    <Animated.View
+      style={{
+        flex: 1,
+        opacity: screenOpacity,
+        transform: [{ translateY: screenTranslateY }],
+      }}
+    >
+      {renderedContent}
+    </Animated.View>
+  );
 };
 
 // ─── Menu Styles ────────────────────────────────────────────────────────────

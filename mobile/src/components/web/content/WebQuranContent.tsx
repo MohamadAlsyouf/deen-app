@@ -22,6 +22,7 @@ import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { colors } from '@/theme';
 import { useWebHover } from '@/hooks/useWebHover';
 import { useAudioPlayer } from '@/contexts/AudioPlayerContext';
+import { useBookmarks } from '@/contexts/BookmarkContext';
 import { quranService } from '@/services/quranService';
 import type { QuranChapter, QuranVerse, NormalizedReciter } from '@/types/quran';
 
@@ -179,11 +180,23 @@ const ViewModeToggle: React.FC<{
 
 const VerseCard: React.FC<{
   verse: TransformedVerse;
+  verseKey: string;
   index: number;
   highlightStatus?: 'none' | 'current' | 'completed';
   highlightedWordPosition?: number | null;
   viewMode?: ViewMode;
-}> = ({ verse, index, highlightStatus = 'none', highlightedWordPosition, viewMode = 'all' }) => {
+  isBookmarked?: boolean;
+  onBookmarkPress?: () => void;
+}> = ({
+  verse,
+  verseKey,
+  index,
+  highlightStatus = 'none',
+  highlightedWordPosition,
+  viewMode = 'all',
+  isBookmarked = false,
+  onBookmarkPress,
+}) => {
   const hover = useWebHover({
     hoverStyle: {
       backgroundColor: highlightStatus === 'current' ? '#D4EDDA' : '#FAFBFA',
@@ -269,6 +282,18 @@ const VerseCard: React.FC<{
           </Text>
         </View>
         <View style={styles.verseContent}>
+          <View style={styles.verseHeaderRow}>
+            <Text style={styles.verseKeyText}>{verseKey}</Text>
+            {onBookmarkPress ? (
+              <TouchableOpacity onPress={onBookmarkPress} activeOpacity={0.8} style={styles.verseBookmarkButton}>
+                <Ionicons
+                  name={isBookmarked ? 'bookmark' : 'bookmark-outline'}
+                  size={18}
+                  color={isBookmarked ? colors.accent : colors.text.tertiary}
+                />
+              </TouchableOpacity>
+            ) : null}
+          </View>
           {verse.translation && (
             <Text style={[styles.verseTranslationOnly, isHighlighted && styles.verseTranslationHighlighted]}>
               {verse.translation}
@@ -305,12 +330,26 @@ const VerseCard: React.FC<{
           <View style={[styles.playingDot, styles.playingDot3]} />
         </View>
       )}
-      <View style={[styles.verseNumber, isHighlighted && styles.verseNumberHighlighted]}>
-        <Text style={[styles.verseNumberText, isHighlighted && styles.verseNumberTextHighlighted]}>
-          {verse.verse_number}
-        </Text>
+      <View style={styles.verseLeftColumn}>
+        <View style={[styles.verseNumber, isHighlighted && styles.verseNumberHighlighted]}>
+          <Text style={[styles.verseNumberText, isHighlighted && styles.verseNumberTextHighlighted]}>
+            {verse.verse_number}
+          </Text>
+        </View>
+        {onBookmarkPress ? (
+          <TouchableOpacity onPress={onBookmarkPress} activeOpacity={0.8} style={styles.verseBookmarkButton}>
+            <Ionicons
+              name={isBookmarked ? 'bookmark' : 'bookmark-outline'}
+              size={18}
+              color={isBookmarked ? colors.accent : colors.text.tertiary}
+            />
+          </TouchableOpacity>
+        ) : null}
       </View>
       <View style={styles.verseContent}>
+        <View style={styles.verseHeaderRow}>
+          <Text style={styles.verseKeyText}>{verseKey}</Text>
+        </View>
         {showArabic && renderArabicWithHighlight()}
         {showTransliteration && verse.transliteration && (
           <Text style={[styles.verseTransliteration, isHighlighted && styles.verseTransliterationHighlighted]}>
@@ -835,6 +874,7 @@ export const WebQuranContent: React.FC<WebQuranContentProps> = ({
   const [showReciterModal, setShowReciterModal] = useState(false);
   const [showVerseRangeSidebar, setShowVerseRangeSidebar] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('all');
+  const [targetScrollVerse, setTargetScrollVerse] = useState<number | null>(subScreenData?.scrollToVerse ?? null);
 
   // Refs for auto-scrolling
   const scrollViewRef = useRef<ScrollView>(null);
@@ -853,6 +893,7 @@ export const WebQuranContent: React.FC<WebQuranContentProps> = ({
     reset,
     resetPlaybackSettings,
   } = useAudioPlayer();
+  const { isVerseBookmarked, isChapterBookmarked, toggleVerseBookmark, toggleChapterBookmark } = useBookmarks();
 
   const chaptersQuery = useQuery({
     queryKey: ['quranChapters'],
@@ -900,6 +941,14 @@ export const WebQuranContent: React.FC<WebQuranContentProps> = ({
     }
   }, [subScreen, reset, resetPlaybackSettings]);
 
+  useEffect(() => {
+    if (subScreen === 'chapter') {
+      setTargetScrollVerse(subScreenData?.scrollToVerse ?? null);
+    } else {
+      setTargetScrollVerse(null);
+    }
+  }, [subScreen, subScreenData?.chapterId, subScreenData?.scrollToVerse]);
+
   // Auto-scroll to highlighted verse
   useEffect(() => {
     const verseKey = highlightState.verseKey;
@@ -924,6 +973,38 @@ export const WebQuranContent: React.FC<WebQuranContentProps> = ({
       }
     }
   }, [highlightState.verseKey, playbackState]);
+
+  useEffect(() => {
+    if (subScreen !== 'chapter' || !subScreenData?.chapterId || targetScrollVerse === null) {
+      return;
+    }
+
+    const verseKey = `${subScreenData.chapterId}:${targetScrollVerse}`;
+    const isLoaded = verses.some((verse) => verse.verse_key === verseKey);
+
+    if (isLoaded) {
+      const timeout = setTimeout(() => {
+        const verseElement = verseRefs.current.get(verseKey);
+        if (verseElement) {
+          // @ts-ignore
+          const element = verseElement as unknown as HTMLElement;
+          if (element?.scrollIntoView) {
+            element.scrollIntoView({
+              behavior: 'smooth',
+              block: 'center',
+            });
+          }
+        }
+        setTargetScrollVerse(null);
+      }, 150);
+
+      return () => clearTimeout(timeout);
+    }
+
+    if (versesQuery.hasNextPage && !versesQuery.isFetchingNextPage) {
+      versesQuery.fetchNextPage();
+    }
+  }, [subScreen, subScreenData?.chapterId, targetScrollVerse, verses, versesQuery]);
 
   // Get highlight status for a verse
   const getVerseHighlightStatus = useCallback(
@@ -959,6 +1040,34 @@ export const WebQuranContent: React.FC<WebQuranContentProps> = ({
     resetPlaybackSettings();
     onBack();
   }, [reset, resetPlaybackSettings, onBack]);
+  const backButtonLabel = subScreenData?.backTab === 'bookmarks' ? 'Back to Bookmarks' : 'Back to Chapters';
+
+  const handleToggleChapterBookmark = useCallback(() => {
+    if (!subScreenData?.chapterId) {
+      return;
+    }
+    toggleChapterBookmark({
+      chapterId: subScreenData.chapterId,
+      chapterName: subScreenData.chapterName || 'Chapter',
+      chapterArabicName: subScreenData.chapterArabicName || '',
+      versesCount: totalVerses,
+    });
+  }, [subScreenData, toggleChapterBookmark, totalVerses]);
+
+  const handleToggleVerseBookmark = useCallback((verse: TransformedVerse) => {
+    if (!subScreenData?.chapterId) {
+      return;
+    }
+    toggleVerseBookmark({
+      verseKey: verse.verse_key,
+      chapterId: subScreenData.chapterId,
+      chapterName: subScreenData.chapterName || 'Chapter',
+      chapterArabicName: subScreenData.chapterArabicName || '',
+      verseNumber: verse.verse_number,
+      arabicText: verse.text_uthmani,
+      translationPreview: (verse.translation || '').slice(0, 120),
+    });
+  }, [subScreenData, toggleVerseBookmark]);
 
   // Render chapter verses
   if (subScreen === 'chapter' && subScreenData) {
@@ -974,7 +1083,7 @@ export const WebQuranContent: React.FC<WebQuranContentProps> = ({
           <View style={styles.chapterTopBar}>
             <TouchableOpacity onPress={handleBack} style={styles.backButton}>
               <Ionicons name="arrow-back" size={20} color={colors.primary} />
-              <Text style={styles.backButtonText}>Back to Chapters</Text>
+              <Text style={styles.backButtonText}>{backButtonLabel}</Text>
             </TouchableOpacity>
             
             <TouchableOpacity
@@ -994,9 +1103,20 @@ export const WebQuranContent: React.FC<WebQuranContentProps> = ({
             />
             <View style={styles.chapterHeaderPattern} />
             <View style={styles.chapterHeaderContent}>
-              {viewMode !== 'english' && (
-                <Text style={styles.chapterHeaderArabic}>{subScreenData.chapterArabicName}</Text>
-              )}
+              <View style={styles.chapterHeaderTopRow}>
+                {viewMode !== 'english' ? (
+                  <Text style={styles.chapterHeaderArabic}>{subScreenData.chapterArabicName}</Text>
+                ) : (
+                  <View />
+                )}
+                <TouchableOpacity onPress={handleToggleChapterBookmark} activeOpacity={0.85} style={styles.chapterBookmarkButton}>
+                  <Ionicons
+                    name={isChapterBookmarked(subScreenData.chapterId) ? 'bookmark' : 'bookmark-outline'}
+                    size={21}
+                    color={isChapterBookmarked(subScreenData.chapterId) ? colors.accent : 'rgba(255,255,255,0.9)'}
+                  />
+                </TouchableOpacity>
+              </View>
               <Text style={styles.chapterHeaderName}>{subScreenData.chapterName}</Text>
               {viewMode !== 'english' && (
                 <Text style={styles.chapterHeaderBismillah}>بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ</Text>
@@ -1035,10 +1155,13 @@ export const WebQuranContent: React.FC<WebQuranContentProps> = ({
                   >
                     <VerseCard
                       verse={verse}
+                      verseKey={verseKey}
                       index={index}
                       highlightStatus={getVerseHighlightStatus(verseKey)}
                       highlightedWordPosition={getVerseHighlightedWordPosition(verseKey)}
                       viewMode={viewMode}
+                      isBookmarked={isVerseBookmarked(verseKey)}
+                      onBookmarkPress={() => handleToggleVerseBookmark(verse)}
                     />
                   </View>
                 );
@@ -1300,6 +1423,13 @@ const styles = StyleSheet.create({
     padding: 15,
     alignItems: 'center',
   },
+  chapterHeaderTopRow: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
   chapterHeaderArabic: {
     fontSize: 48,
     fontWeight: '700',
@@ -1307,6 +1437,18 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     // @ts-ignore
     fontFamily: "'Amiri', serif",
+  },
+  chapterBookmarkButton: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.18)',
+    // @ts-ignore
+    cursor: 'pointer',
   },
   chapterHeaderName: {
     fontSize: 24,
@@ -1335,6 +1477,11 @@ const styles = StyleSheet.create({
     // @ts-ignore
     transition: 'all 0.2s ease-out',
   },
+  verseLeftColumn: {
+    alignItems: 'center',
+    marginRight: 20,
+    gap: 10,
+  },
   verseNumber: {
     width: 40,
     height: 40,
@@ -1342,7 +1489,6 @@ const styles = StyleSheet.create({
     backgroundColor: `${colors.primary}15`,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 20,
   },
   verseNumberText: {
     fontSize: 14,
@@ -1353,6 +1499,29 @@ const styles = StyleSheet.create({
   },
   verseContent: {
     flex: 1,
+  },
+  verseHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+    gap: 10,
+  },
+  verseKeyText: {
+    fontSize: 12,
+    color: colors.text.tertiary,
+    // @ts-ignore
+    fontFamily: "'DM Sans', sans-serif",
+  },
+  verseBookmarkButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: `${colors.primary}08`,
+    // @ts-ignore
+    cursor: 'pointer',
   },
   verseArabic: {
     fontSize: 28,

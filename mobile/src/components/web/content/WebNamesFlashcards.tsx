@@ -11,9 +11,10 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Audio } from 'expo-av';
 import { useQuery } from '@tanstack/react-query';
-import { colors } from '@/theme';
+import { colors, borderRadius } from '@/theme';
 import { useWebHover } from '@/hooks/useWebHover';
 import { asmaUlHusnaService } from '@/services/asmaUlHusnaService';
 import type { AsmaUlHusnaName } from '@/types/asmaUlHusna';
@@ -25,6 +26,7 @@ type WebNamesFlashcardsProps = {
 };
 
 export const WebNamesFlashcards: React.FC<WebNamesFlashcardsProps> = ({ onBack }) => {
+  const [hasStarted, setHasStarted] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
   const [isShuffled, setIsShuffled] = useState(false);
@@ -155,6 +157,55 @@ export const WebNamesFlashcards: React.FC<WebNamesFlashcardsProps> = ({ onBack }
         <View style={styles.center}>
           <ActivityIndicator size="large" color={colors.primary} />
           <Text style={styles.loadingText}>Loading flashcards...</Text>
+        </View>
+      </View>
+    );
+  }
+
+  if (!hasStarted) {
+    return (
+      <View style={styles.introScreen}>
+        <LinearGradient
+          colors={[colors.islamic.midnight, colors.primary, colors.primaryLight]}
+          style={StyleSheet.absoluteFill}
+        />
+        <View style={styles.introContent}>
+          <View style={styles.introIconCircle}>
+            <Ionicons name="albums-outline" size={44} color={colors.islamic.gold} />
+          </View>
+          <Text style={styles.introTitle}>Flashcards</Text>
+          <Text style={styles.introDesc}>
+            Flip through the 99 Names of Allah one by one, listen to pronunciation,
+            and review each meaning at your own pace.
+          </Text>
+
+          <View style={styles.introCardPreview}>
+            <View style={styles.introCardFront}>
+              <Text style={styles.introCardArabic}>ٱلرَّحْمَٰنُ</Text>
+              <Text style={styles.introCardTransliteration}>Ar-Rahman</Text>
+            </View>
+            <View style={styles.introFlipHint}>
+              <Ionicons name="sync-outline" size={16} color="rgba(255,255,255,0.7)" />
+              <Text style={styles.introFlipText}>Flip to reveal the meaning</Text>
+            </View>
+          </View>
+
+          <View style={styles.introButtons}>
+            <TouchableOpacity onPress={() => setHasStarted(true)} activeOpacity={0.85} style={styles.introStartButton}>
+              <LinearGradient
+                colors={[colors.islamic.gold, colors.accentDark]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.introStartGradient}
+              >
+                <Ionicons name="play" size={20} color={colors.islamic.midnight} />
+                <Text style={styles.introStartText}>Start Flashcards</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={onBack} activeOpacity={0.8} style={styles.textButton}>
+              <Text style={styles.introBackText}>Back to Games</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
     );
@@ -312,11 +363,135 @@ export const WebNamesFlashcards: React.FC<WebNamesFlashcardsProps> = ({ onBack }
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    // @ts-ignore
-    maxWidth: 800,
-    marginHorizontal: 'auto',
     width: '100%',
-    padding: 32,
+    height: '100%',
+    padding: 36,
+  },
+  introScreen: {
+    flex: 1,
+    width: '100%',
+    minHeight: 720,
+    borderRadius: 24,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  introContent: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 48,
+  },
+  introIconCircle: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
+  },
+  introTitle: {
+    fontSize: 30,
+    fontWeight: '700',
+    color: colors.text.white,
+    textAlign: 'center',
+    marginBottom: 12,
+    // @ts-ignore
+    fontFamily: "'DM Sans', sans-serif",
+  },
+  introDesc: {
+    fontSize: 16,
+    color: 'rgba(255,255,255,0.75)',
+    textAlign: 'center',
+    lineHeight: 24,
+    marginBottom: 28,
+    maxWidth: 560,
+    // @ts-ignore
+    fontFamily: "'DM Sans', sans-serif",
+  },
+  introCardPreview: {
+    alignItems: 'center',
+    marginBottom: 28,
+  },
+  introCardFront: {
+    width: 280,
+    minHeight: 180,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.16)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+    marginBottom: 12,
+  },
+  introCardArabic: {
+    fontSize: 40,
+    color: colors.text.white,
+    marginBottom: 10,
+    textAlign: 'center',
+    // @ts-ignore
+    fontFamily: "'Amiri', serif",
+  },
+  introCardTransliteration: {
+    fontSize: 18,
+    color: 'rgba(255,255,255,0.8)',
+    // @ts-ignore
+    fontFamily: "'DM Sans', sans-serif",
+  },
+  introFlipHint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  introFlipText: {
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.72)',
+    // @ts-ignore
+    fontFamily: "'DM Sans', sans-serif",
+  },
+  introButtons: {
+    width: '100%',
+    maxWidth: 360,
+    alignItems: 'center',
+  },
+  introStartButton: {
+    width: '100%',
+    borderRadius: borderRadius.md,
+    overflow: 'hidden',
+    marginBottom: 12,
+    // @ts-ignore
+    cursor: 'pointer',
+  },
+  introStartGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    gap: 8,
+  },
+  introStartText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.islamic.midnight,
+    // @ts-ignore
+    fontFamily: "'DM Sans', sans-serif",
+  },
+  introBackText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.75)',
+    // @ts-ignore
+    fontFamily: "'DM Sans', sans-serif",
+  },
+  textButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: borderRadius.md,
+    // @ts-ignore
+    cursor: 'pointer',
   },
   center: {
     flex: 1,
@@ -414,7 +589,7 @@ const styles = StyleSheet.create({
   },
   cardPerspective: {
     width: '100%',
-    maxWidth: 500,
+    maxWidth: 620,
     height: 380,
     // @ts-ignore
     perspective: '1200px',

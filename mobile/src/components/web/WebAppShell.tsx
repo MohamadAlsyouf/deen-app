@@ -34,6 +34,7 @@ import { WebAboutContent } from './content/WebAboutContent';
 import { WebContactContent } from './content/WebContactContent';
 import { WebProfileContent } from './content/WebProfileContent';
 import { WebSunnahContent } from './content/WebSunnahContent';
+import { WebBookmarksContent } from './content/WebBookmarksContent';
 
 // URL Routing helpers
 const parseHashRoute = (): { tab: string; subScreen: string | null; subScreenData: any } => {
@@ -50,15 +51,21 @@ const parseHashRoute = (): { tab: string; subScreen: string | null; subScreenDat
 
   const tab = parts[0] || 'home';
 
-  // Handle Quran chapter sub-routes: #/quran/chapter/1/Al-Fatihah/الفاتحة
+  // Handle Quran chapter sub-routes: #/quran/chapter/1/Al-Fatihah/الفاتحة/255
   if (tab === 'quran' && parts[1] === 'chapter' && parts[2]) {
     const chapterId = parseInt(parts[2], 10);
     const chapterName = parts[3] ? decodeURIComponent(parts[3]) : '';
     const chapterArabicName = parts[4] ? decodeURIComponent(parts[4]) : '';
+    const scrollToVerse = parts[5] ? parseInt(parts[5], 10) : undefined;
     return {
       tab: 'quran',
       subScreen: 'chapter',
-      subScreenData: { chapterId, chapterName, chapterArabicName },
+      subScreenData: {
+        chapterId,
+        chapterName,
+        chapterArabicName,
+        ...(Number.isFinite(scrollToVerse) ? { scrollToVerse } : {}),
+      },
     };
   }
 
@@ -72,8 +79,10 @@ const parseHashRoute = (): { tab: string; subScreen: string | null; subScreenDat
 
 const buildHashRoute = (tab: string, subScreen: string | null, subScreenData: any): string => {
   if (tab === 'quran' && subScreen === 'chapter' && subScreenData) {
-    const { chapterId, chapterName, chapterArabicName } = subScreenData;
-    return `#/quran/chapter/${chapterId}/${encodeURIComponent(chapterName || '')}/${encodeURIComponent(chapterArabicName || '')}`;
+    const { chapterId, chapterName, chapterArabicName, scrollToVerse } = subScreenData;
+    const verseSegment =
+      typeof scrollToVerse === 'number' && Number.isFinite(scrollToVerse) ? `/${scrollToVerse}` : '';
+    return `#/quran/chapter/${chapterId}/${encodeURIComponent(chapterName || '')}/${encodeURIComponent(chapterArabicName || '')}${verseSegment}`;
   }
   if (tab === 'names' && subScreen) {
     return `#/names/${subScreen}`;
@@ -91,6 +100,7 @@ type NavItem = {
 const NAV_ITEMS: NavItem[] = [
   { id: 'home', label: 'Dashboard', icon: 'grid-outline', activeIcon: 'grid' },
   { id: 'quran', label: 'Quran', icon: 'book-outline', activeIcon: 'book' },
+  { id: 'bookmarks', label: 'Bookmarks', icon: 'bookmark-outline', activeIcon: 'bookmark' },
   { id: 'prayer', label: 'Prayer Guide', icon: 'hand-left-outline', activeIcon: 'hand-left' },
   { id: 'pillars', label: 'Pillars', icon: 'compass-outline', activeIcon: 'compass' },
   { id: 'names', label: '99 Names', icon: 'heart-outline', activeIcon: 'heart' },
@@ -306,10 +316,31 @@ export const WebAppShell: React.FC<WebAppShellProps> = ({ initialScreen = 'home'
   }, [activeTab, updateUrl]);
 
   const handleBack = useCallback(() => {
+    const backTab = subScreenData?.backTab;
+    if (typeof backTab === 'string' && backTab.length > 0) {
+      setActiveTab(backTab);
+      setSubScreen(null);
+      setSubScreenData(null);
+      updateUrl(backTab, null, null);
+      return;
+    }
     setSubScreen(null);
     setSubScreenData(null);
     updateUrl(activeTab, null, null);
-  }, [activeTab, updateUrl]);
+  }, [activeTab, subScreenData, updateUrl]);
+
+  const handleOpenBookmarkedChapter = useCallback((data: {
+    chapterId: number;
+    chapterName: string;
+    chapterArabicName: string;
+    scrollToVerse?: number;
+  }) => {
+    const nextData = { ...data, backTab: 'bookmarks' };
+    setActiveTab('quran');
+    setSubScreen('chapter');
+    setSubScreenData(nextData);
+    updateUrl('quran', 'chapter', nextData);
+  }, [updateUrl]);
 
   const handleSignOut = async () => {
     try {
@@ -341,6 +372,8 @@ export const WebAppShell: React.FC<WebAppShellProps> = ({ initialScreen = 'home'
             onBack={handleBack}
           />
         );
+      case 'bookmarks':
+        return <WebBookmarksContent onOpenChapter={handleOpenBookmarkedChapter} />;
       case 'prayer':
         return <WebPrayerGuideContent />;
       case 'pillars':
@@ -419,7 +452,7 @@ export const WebAppShell: React.FC<WebAppShellProps> = ({ initialScreen = 'home'
           <Text style={[styles.navSectionTitle, isCollapsed && styles.hidden]}>
             EXPLORE
           </Text>
-          {NAV_ITEMS.slice(0, 7).map((item, index) => (
+          {NAV_ITEMS.slice(0, 8).map((item, index) => (
             <View
               key={item.id}
               style={mounted ? {
@@ -442,7 +475,7 @@ export const WebAppShell: React.FC<WebAppShellProps> = ({ initialScreen = 'home'
           <Text style={[styles.navSectionTitle, isCollapsed && styles.hidden]}>
             MORE
           </Text>
-          {NAV_ITEMS.slice(7).map((item, index) => (
+          {NAV_ITEMS.slice(8).map((item, index) => (
             <View
               key={item.id}
               style={mounted ? {

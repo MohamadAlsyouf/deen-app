@@ -56,6 +56,10 @@ function buildTiles(names: AsmaUlHusnaName[]): { arabic: Tile[]; english: Tile[]
   return { arabic: shuffleArray(arabic), english: shuffleArray(english) };
 }
 
+function getMoveLabel(count: number): string {
+  return count === 1 ? 'move' : 'moves';
+}
+
 // --- Results helpers ---
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -553,7 +557,7 @@ export const AsmaUlHusnaMatchingScreen: React.FC = () => {
           </Animated.View>
 
           <Animated.Text style={[styles.resultsSubtitleText, { opacity: subtitleFade }]}>
-            Completed in {moves} moves and {formatTime(elapsedSeconds)}
+            Completed in {moves} {getMoveLabel(moves)} and {formatTime(elapsedSeconds)}
           </Animated.Text>
 
           <Animated.View
@@ -565,7 +569,7 @@ export const AsmaUlHusnaMatchingScreen: React.FC = () => {
             <View style={[styles.resultsStatCard, { borderTopColor: colors.primary }]}>
               <Ionicons name="swap-horizontal" size={22} color={colors.primary} />
               <Text style={styles.resultsStatValue}>{moves}</Text>
-              <Text style={styles.resultsStatLabel}>Moves</Text>
+              <Text style={styles.resultsStatLabel}>{getMoveLabel(moves)}</Text>
             </View>
             <View style={[styles.resultsStatCard, { borderTopColor: colors.accent }]}>
               <Ionicons name="time-outline" size={22} color={colors.accent} />
@@ -630,7 +634,7 @@ export const AsmaUlHusnaMatchingScreen: React.FC = () => {
       <View style={styles.statsBar}>
         <View style={styles.statPill}>
           <Ionicons name="swap-horizontal" size={14} color={colors.primary} />
-          <Text style={styles.statPillText}>{moves} moves</Text>
+          <Text style={styles.statPillText}>{moves} {getMoveLabel(moves)}</Text>
         </View>
         <View style={styles.statPill}>
           <Ionicons name="checkmark-done" size={14} color={colors.success} />

@@ -5,6 +5,7 @@ import {
   StyleSheet,
   Animated,
   Dimensions,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -32,6 +33,7 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const translateY = useRef(new Animated.Value(100)).current;
   const opacity = useRef(new Animated.Value(0)).current;
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const sidebarOffset = Platform.OS === 'web' ? (width < 1200 ? 88 : 260) : 0;
 
   const showToast = useCallback((config: ToastConfig) => {
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
@@ -78,6 +80,8 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           style={[
             styles.container,
             {
+              left: sidebarOffset,
+              right: 0,
               bottom: insets.bottom + 90,
               transform: [{ translateY }],
               opacity,
@@ -102,14 +106,13 @@ const { width } = Dimensions.get('window');
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    left: 0,
-    right: 0,
     alignItems: 'center',
     zIndex: 9999,
   },
   toast: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: colors.primary,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm + 2,

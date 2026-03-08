@@ -260,6 +260,13 @@ export const WebDashboardContent: React.FC<WebDashboardContentProps> = ({
 }) => {
   const { width } = useWindowDimensions();
   const isWide = width >= 1400;
+  const streakHover = useWebHover({
+    hoverStyle: {
+      transform: "translateY(-1px)",
+      boxShadow: "0 14px 30px rgba(212, 163, 115, 0.18)",
+    },
+    transition: "all 0.25s ease-out",
+  });
   const iconScale = useRef(new Animated.Value(1)).current;
   const iconRotate = useRef(new Animated.Value(0)).current;
   const countScale = useRef(new Animated.Value(1)).current;
@@ -356,23 +363,32 @@ export const WebDashboardContent: React.FC<WebDashboardContentProps> = ({
               </Text>
             </View>
 
-            <Animated.View
-              style={[
-                styles.streakPill,
-                {
-                  transform: [{ scale: countScale }],
-                },
-              ]}
+            <TouchableOpacity
+              activeOpacity={1}
+              // @ts-ignore
+              onMouseEnter={streakHover.handlers.onMouseEnter}
+              onMouseLeave={streakHover.handlers.onMouseLeave}
+              style={streakHover.style}
             >
               <Animated.View
-                style={{
-                  transform: [{ scale: iconScale }, { rotate: iconSpin }],
-                }}
+                style={[
+                  styles.streakPill,
+                  {
+                    transform: [{ scale: countScale }],
+                  },
+                ]}
               >
-                <Ionicons name="trophy" size={18} color={colors.accentDark} />
+                <View style={styles.streakPillShimmer} />
+                <Animated.View
+                  style={{
+                    transform: [{ scale: iconScale }, { rotate: iconSpin }],
+                  }}
+                >
+                  <Ionicons name="trophy" size={18} color={colors.accentDark} />
+                </Animated.View>
+                <Text style={styles.streakText}>{streakCount}</Text>
               </Animated.View>
-              <Text style={styles.streakText}>{streakCount}</Text>
-            </Animated.View>
+            </TouchableOpacity>
           </View>
 
           {/* Bismillah Card */}
@@ -515,8 +531,20 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
+    overflow: "hidden",
     // @ts-ignore
     boxShadow: "0 8px 24px rgba(212, 163, 115, 0.14)",
+  },
+  streakPillShimmer: {
+    position: "absolute",
+    top: -10,
+    bottom: -10,
+    left: -24,
+    width: 24,
+    transform: [{ rotate: "20deg" }],
+    backgroundColor: "rgba(255,255,255,0.28)",
+    // @ts-ignore
+    animation: "shimmer 2.8s ease-in-out infinite",
   },
   streakText: {
     fontSize: 15,

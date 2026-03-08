@@ -13,8 +13,9 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import { Audio } from 'expo-av';
 import { useQuery } from '@tanstack/react-query';
-import { colors } from '@/theme';
+import { colors, borderRadius } from '@/theme';
 import { useWebHover } from '@/hooks/useWebHover';
 import { asmaUlHusnaService } from '@/services/asmaUlHusnaService';
 import type { AsmaUlHusnaName } from '@/types/asmaUlHusna';
@@ -22,6 +23,7 @@ import type { AsmaUlHusnaName } from '@/types/asmaUlHusna';
 type QuestionMode = 'arabic-to-english' | 'english-to-arabic';
 
 const TOTAL_QUESTIONS = 10;
+const AUDIO_BASE_URL = 'https://islamicapi.com';
 
 const CORRECT_MESSAGES = [
   'Correct!',
@@ -182,7 +184,22 @@ const OptionButton: React.FC<{
   wasCorrect: boolean;
   onPress: () => void;
   disabled: boolean;
-}> = ({ text, index, isSelected, isSubmitted, isCorrectOption, wasCorrect, onPress, disabled }) => {
+  showAudio?: boolean;
+  isAudioPlaying?: boolean;
+  onAudioPress?: (e: any) => void;
+}> = ({
+  text,
+  index,
+  isSelected,
+  isSubmitted,
+  isCorrectOption,
+  wasCorrect,
+  onPress,
+  disabled,
+  showAudio = false,
+  isAudioPlaying = false,
+  onAudioPress,
+}) => {
   const hover = useWebHover({
     hoverStyle: disabled ? {} : {
       transform: 'translateY(-2px)',
@@ -231,6 +248,19 @@ const OptionButton: React.FC<{
         ]}
       >
         <Text style={[styles.optionText, getTextStyle()]}>{text}</Text>
+        {showAudio && onAudioPress && (
+          <TouchableOpacity
+            onPress={onAudioPress}
+            activeOpacity={0.7}
+            style={styles.optionAudioButton}
+          >
+            <Ionicons
+              name={isAudioPlaying ? 'stop-circle' : 'volume-high'}
+              size={18}
+              color={isAudioPlaying ? colors.accent : colors.primary}
+            />
+          </TouchableOpacity>
+        )}
         {isSubmitted && isCorrectOption && (
           <Ionicons name="checkmark-circle" size={22} color={colors.success} />
         )}
@@ -249,6 +279,7 @@ const OptionButton: React.FC<{
 };
 
 export const WebNamesMultipleChoice: React.FC<WebNamesMultipleChoiceProps> = ({ onBack }) => {
+  const [hasStarted, setHasStarted] = useState(false);
   const [questionIndex, setQuestionIndex] = useState(0);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [isSubmitted, setIsSubmitted] = useState(false);
@@ -257,6 +288,8 @@ export const WebNamesMultipleChoice: React.FC<WebNamesMultipleChoiceProps> = ({ 
   const [feedbackMessage, setFeedbackMessage] = useState('');
   const [quizKey, setQuizKey] = useState(0);
   const [displayPercent, setDisplayPercent] = useState(0);
+  const [playingAudioId, setPlayingAudioId] = useState<number | null>(null);
+  const soundRef = useRef<Audio.Sound | null>(null);
 
   const dataQuery = useQuery({
     queryKey: ['asmaUlHusna'],
@@ -288,7 +321,60 @@ export const WebNamesMultipleChoice: React.FC<WebNamesMultipleChoiceProps> = ({ 
 
   useEffect(() => {
     injectConfettiStyles();
+    return () => {
+      if (soundRef.current) {
+        soundRef.current.unloadAsync();
+        soundRef.current = null;
+      }
+    };
   }, []);
+
+  const handleStart = useCallback(() => {
+    setHasStarted(true);
+  }, []);
+
+  const stopAudio = useCallback(async () => {
+    if (soundRef.current) {
+      await soundRef.current.stopAsync();
+      await soundRef.current.unloadAsync();
+      soundRef.current = null;
+      setPlayingAudioId(null);
+    }
+  }, []);
+
+  const handlePlayAudio = useCallback(async (name: AsmaUlHusnaName) => {
+    try {
+      if (playingAudioId === name.number && soundRef.current) {
+        await stopAudio();
+        return;
+      }
+
+      if (!name.audio) {
+        return;
+      }
+
+      await stopAudio();
+      await Audio.setAudioModeAsync({ playsInSilentModeIOS: true });
+      const { sound } = await Audio.Sound.createAsync(
+        { uri: `${AUDIO_BASE_URL}${name.audio}` },
+        { shouldPlay: true }
+      );
+
+      soundRef.current = sound;
+      setPlayingAudioId(name.number);
+
+      sound.setOnPlaybackStatusUpdate((status) => {
+        if (status.isLoaded && status.didJustFinish) {
+          setPlayingAudioId(null);
+          sound.unloadAsync();
+          soundRef.current = null;
+        }
+      });
+    } catch (error) {
+      console.error('Error playing audio:', error);
+      setPlayingAudioId(null);
+    }
+  }, [playingAudioId, stopAudio]);
 
   const handleSelect = useCallback((index: number) => {
     if (isSubmitted) return;
@@ -308,6 +394,7 @@ export const WebNamesMultipleChoice: React.FC<WebNamesMultipleChoiceProps> = ({ 
   }, [selectedIndex, currentQuestion, isSubmitted]);
 
   const handleNext = useCallback(() => {
+    stopAudio();
     if (questionIndex < TOTAL_QUESTIONS - 1) {
       setQuestionIndex((i) => i + 1);
       setSelectedIndex(null);
@@ -316,9 +403,10 @@ export const WebNamesMultipleChoice: React.FC<WebNamesMultipleChoiceProps> = ({ 
     } else {
       setIsFinished(true);
     }
-  }, [questionIndex]);
+  }, [questionIndex, stopAudio]);
 
   const handleRestart = useCallback(() => {
+    stopAudio();
     setQuestionIndex(0);
     setSelectedIndex(null);
     setIsSubmitted(false);
@@ -326,7 +414,7 @@ export const WebNamesMultipleChoice: React.FC<WebNamesMultipleChoiceProps> = ({ 
     setIsFinished(false);
     setFeedbackMessage('');
     setDisplayPercent(0);
-  }, []);
+  }, [stopAudio]);
 
   const handleNewQuiz = useCallback(() => {
     handleRestart();
@@ -361,6 +449,56 @@ export const WebNamesMultipleChoice: React.FC<WebNamesMultipleChoiceProps> = ({ 
     transition: 'all 0.2s ease-out',
   });
 
+  if (!hasStarted) {
+    return (
+      <View style={styles.introScreen}>
+        <LinearGradient
+          colors={[colors.islamic.midnight, colors.primary, colors.primaryLight]}
+          style={StyleSheet.absoluteFill}
+        />
+        <View style={styles.introContent}>
+          <View style={styles.introIconCircle}>
+            <Ionicons name="help-circle" size={44} color={colors.islamic.gold} />
+          </View>
+          <Text style={styles.introTitle}>Multiple Choice</Text>
+          <Text style={styles.introDesc}>
+            Test your knowledge of the 99 Names of Allah.{'\n'}
+            Match Arabic names to meanings and vice versa across {TOTAL_QUESTIONS} questions.
+          </Text>
+
+          <View style={styles.introQuizMini}>
+            <View style={styles.introQuizQuestion}>
+              <Text style={styles.introQuizQ}>ٱلرَّحِيمُ</Text>
+            </View>
+            <View style={styles.introQuizOptions}>
+              <View style={styles.introQuizOption}><Text style={styles.introQuizOptionText}>A</Text></View>
+              <View style={[styles.introQuizOption, styles.introQuizOptionCorrect]}><Text style={[styles.introQuizOptionText, styles.introQuizOptionCorrectText]}>B ✓</Text></View>
+              <View style={styles.introQuizOption}><Text style={styles.introQuizOptionText}>C</Text></View>
+              <View style={styles.introQuizOption}><Text style={styles.introQuizOptionText}>D</Text></View>
+            </View>
+          </View>
+
+          <View style={styles.introButtons}>
+            <TouchableOpacity onPress={handleStart} activeOpacity={0.85} style={styles.primaryButton}>
+              <LinearGradient
+                colors={[colors.islamic.gold, colors.accentDark]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.primaryButtonGradient}
+              >
+                <Ionicons name="play" size={20} color={colors.islamic.midnight} />
+                <Text style={styles.introStartText}>Start Quiz</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={onBack} activeOpacity={0.8} style={styles.textButton}>
+              <Text style={styles.introBackText}>Back to Games</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    );
+  }
+
   if (dataQuery.isLoading || names.length < 4) {
     return (
       <View style={styles.container}>
@@ -374,7 +512,7 @@ export const WebNamesMultipleChoice: React.FC<WebNamesMultipleChoiceProps> = ({ 
 
   if (isFinished) {
     const percentage = Math.round((score / TOTAL_QUESTIONS) * 100);
-    const showConfetti = percentage >= 90;
+    const showConfetti = percentage === 100;
     const { title: tierTitle, icon: tierIcon, iconColor: tierIconColor } = getResultsConfig(percentage);
     const ringGradient = getScoreGradient(percentage);
 
@@ -505,7 +643,7 @@ export const WebNamesMultipleChoice: React.FC<WebNamesMultipleChoiceProps> = ({ 
               style={[styles.outlineButton, reviewHover.style]}
             >
               <Ionicons name="refresh" size={18} color={colors.primary} />
-              <Text style={styles.outlineButtonText}>Review Same Questions</Text>
+              <Text style={styles.outlineButtonText}>Replay</Text>
             </TouchableOpacity>
 
             <TouchableOpacity onPress={onBack} activeOpacity={0.8} style={styles.textButton}>
@@ -590,6 +728,19 @@ export const WebNamesMultipleChoice: React.FC<WebNamesMultipleChoiceProps> = ({ 
           {currentQuestion.mode === 'arabic-to-english' && (
             <Text style={styles.questionTransliteration}>{currentQuestion.correct.transliteration}</Text>
           )}
+          {currentQuestion.mode === 'arabic-to-english' && currentQuestion.correct.audio && (
+            <TouchableOpacity
+              onPress={() => handlePlayAudio(currentQuestion.correct)}
+              activeOpacity={0.7}
+              style={styles.audioButton}
+            >
+              <Ionicons
+                name={playingAudioId === currentQuestion.correct.number ? 'stop-circle' : 'volume-high'}
+                size={22}
+                color={playingAudioId === currentQuestion.correct.number ? colors.accent : colors.primary}
+              />
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Options */}
@@ -610,6 +761,12 @@ export const WebNamesMultipleChoice: React.FC<WebNamesMultipleChoiceProps> = ({ 
               wasCorrect={!!wasCorrect}
               onPress={() => handleSelect(index)}
               disabled={isSubmitted}
+              showAudio={currentQuestion.mode === 'english-to-arabic' && !!option.audio}
+              isAudioPlaying={playingAudioId === option.number}
+              onAudioPress={(e) => {
+                e.stopPropagation();
+                handlePlayAudio(option);
+              }}
             />
           );
         })}
@@ -664,12 +821,128 @@ export const WebNamesMultipleChoice: React.FC<WebNamesMultipleChoiceProps> = ({ 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    // @ts-ignore
-    maxWidth: 700,
-    marginHorizontal: 'auto',
     width: '100%',
-    padding: 32,
+    height: '100%',
+    padding: 36,
     position: 'relative',
+  },
+  introScreen: {
+    flex: 1,
+    borderRadius: 24,
+    overflow: 'hidden',
+    position: 'relative',
+    width: '100%',
+    minHeight: 720,
+  },
+  introContent: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 48,
+  },
+  introIconCircle: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
+  },
+  introTitle: {
+    fontSize: 30,
+    fontWeight: '700',
+    color: colors.text.white,
+    textAlign: 'center',
+    marginBottom: 12,
+    // @ts-ignore
+    fontFamily: "'DM Sans', sans-serif",
+  },
+  introDesc: {
+    fontSize: 16,
+    color: 'rgba(255,255,255,0.75)',
+    textAlign: 'center',
+    lineHeight: 24,
+    marginBottom: 28,
+    maxWidth: 520,
+    // @ts-ignore
+    fontFamily: "'DM Sans', sans-serif",
+  },
+  introQuizMini: {
+    width: 220,
+    borderRadius: borderRadius.md,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
+    padding: 16,
+    alignItems: 'center',
+    marginBottom: 28,
+  },
+  introQuizQuestion: {
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderRadius: borderRadius.sm,
+    paddingVertical: 10,
+    paddingHorizontal: 18,
+    marginBottom: 12,
+  },
+  introQuizQ: {
+    fontSize: 20,
+    color: colors.text.white,
+    fontWeight: '600',
+    textAlign: 'center',
+    // @ts-ignore
+    fontFamily: "'Amiri', serif",
+  },
+  introQuizOptions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    justifyContent: 'center',
+  },
+  introQuizOption: {
+    width: 40,
+    height: 28,
+    borderRadius: 6,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  introQuizOptionCorrect: {
+    backgroundColor: 'rgba(46,125,50,0.35)',
+    borderColor: 'rgba(82,183,136,0.5)',
+  },
+  introQuizOptionText: {
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.5)',
+    fontWeight: '600',
+    // @ts-ignore
+    fontFamily: "'DM Sans', sans-serif",
+  },
+  introQuizOptionCorrectText: {
+    color: colors.islamic.sage,
+  },
+  introButtons: {
+    width: '100%',
+    maxWidth: 360,
+    alignItems: 'center',
+  },
+  introStartText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.islamic.midnight,
+    // @ts-ignore
+    fontFamily: "'DM Sans', sans-serif",
+  },
+  introBackText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.75)',
+    // @ts-ignore
+    fontFamily: "'DM Sans', sans-serif",
   },
   center: {
     flex: 1,
@@ -791,6 +1064,28 @@ const styles = StyleSheet.create({
     marginTop: 8,
     // @ts-ignore
     fontFamily: "'DM Sans', sans-serif",
+  },
+  audioButton: {
+    marginTop: 16,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.primary + '12',
+    alignItems: 'center',
+    justifyContent: 'center',
+    // @ts-ignore
+    cursor: 'pointer',
+  },
+  optionAudioButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: colors.primary + '12',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 8,
+    // @ts-ignore
+    cursor: 'pointer',
   },
   option: {
     flexDirection: 'row',

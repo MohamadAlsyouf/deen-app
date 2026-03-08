@@ -11,9 +11,10 @@ import {
   TouchableOpacity,
   ActivityIndicator,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
-import { colors } from '@/theme';
+import { colors, borderRadius } from '@/theme';
 import { useWebHover } from '@/hooks/useWebHover';
 import { asmaUlHusnaService } from '@/services/asmaUlHusnaService';
 import type { AsmaUlHusnaName } from '@/types/asmaUlHusna';
@@ -59,6 +60,9 @@ const formatTime = (seconds: number) => {
   const s = seconds % 60;
   return `${m}:${s.toString().padStart(2, '0')}`;
 };
+
+const getMoveLabel = (count: number) => (count === 1 ? 'move' : 'moves');
+const getEfficiency = (moves: number) => Math.min(100, Math.round((PAIRS_PER_ROUND / moves) * 100));
 
 type TileButtonProps = {
   tile: Tile;
@@ -136,6 +140,7 @@ export const WebNamesMatching: React.FC<WebNamesMatchingProps> = ({ onBack }) =>
 
   const names = dataQuery.data?.names ?? [];
 
+  const [hasStarted, setHasStarted] = useState(false);
   const [arabicTiles, setArabicTiles] = useState<Tile[]>([]);
   const [englishTiles, setEnglishTiles] = useState<Tile[]>([]);
   const [selectedTile, setSelectedTile] = useState<string | null>(null);
@@ -144,6 +149,7 @@ export const WebNamesMatching: React.FC<WebNamesMatchingProps> = ({ onBack }) =>
   const [moves, setMoves] = useState(0);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [isFinished, setIsFinished] = useState(false);
+  const [displayEfficiency, setDisplayEfficiency] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const allTiles = useMemo(() => [...arabicTiles, ...englishTiles], [arabicTiles, englishTiles]);
@@ -159,7 +165,18 @@ export const WebNamesMatching: React.FC<WebNamesMatchingProps> = ({ onBack }) =>
     setMoves(0);
     setElapsedSeconds(0);
     setIsFinished(false);
+    setDisplayEfficiency(0);
   }, [names]);
+
+  const handleReplaySame = useCallback(() => {
+    setSelectedTile(null);
+    setMatchedPairs(new Set());
+    setWrongPair(null);
+    setMoves(0);
+    setElapsedSeconds(0);
+    setIsFinished(false);
+    setDisplayEfficiency(0);
+  }, []);
 
   useEffect(() => {
     if (names.length >= PAIRS_PER_ROUND && arabicTiles.length === 0) {
@@ -177,6 +194,19 @@ export const WebNamesMatching: React.FC<WebNamesMatchingProps> = ({ onBack }) =>
       if (timerRef.current) clearInterval(timerRef.current);
     };
   }, [arabicTiles.length, isFinished]);
+
+  useEffect(() => {
+    if (!isFinished) return;
+    const target = getEfficiency(moves);
+    let current = 0;
+    const step = Math.max(1, Math.floor(target / 30));
+    const interval = setInterval(() => {
+      current = Math.min(current + step, target);
+      setDisplayEfficiency(current);
+      if (current >= target) clearInterval(interval);
+    }, 30);
+    return () => clearInterval(interval);
+  }, [isFinished, moves]);
 
   const handleTilePress = useCallback((tileId: string) => {
     if (wrongPair) return;
@@ -232,6 +262,59 @@ export const WebNamesMatching: React.FC<WebNamesMatchingProps> = ({ onBack }) =>
     transition: 'all 0.2s ease-out',
   });
 
+  if (!hasStarted) {
+    return (
+      <View style={styles.introScreen}>
+        <LinearGradient
+          colors={[colors.islamic.midnight, colors.primary, colors.primaryLight]}
+          style={StyleSheet.absoluteFill}
+        />
+        <View style={styles.introContent}>
+          <View style={styles.introIconCircle}>
+            <Ionicons name="git-compare" size={44} color={colors.islamic.gold} />
+          </View>
+          <Text style={styles.introTitle}>Matching</Text>
+          <Text style={styles.introDesc}>
+            Match {PAIRS_PER_ROUND} Arabic names to their English meanings as fast as you can.{'\n'}
+            Fewer moves and less time means a higher efficiency score.
+          </Text>
+
+          <View style={styles.introMatchMini}>
+            <View style={styles.introMatchCol}>
+              <View style={styles.introMatchTile}><Text style={styles.introMatchAr}>ٱلْمَلِكُ</Text></View>
+              <View style={styles.introMatchTile}><Text style={styles.introMatchAr}>ٱلسَّلَامُ</Text></View>
+            </View>
+            <View style={styles.introMatchLines}>
+              <View style={styles.introMatchLine} />
+              <View style={[styles.introMatchLine, styles.introMatchLineCross]} />
+            </View>
+            <View style={styles.introMatchCol}>
+              <View style={[styles.introMatchTile, styles.introMatchTileEn]}><Text style={styles.introMatchEn}>Peace</Text></View>
+              <View style={[styles.introMatchTile, styles.introMatchTileEn]}><Text style={styles.introMatchEn}>The King</Text></View>
+            </View>
+          </View>
+
+          <View style={styles.introButtons}>
+            <TouchableOpacity onPress={() => setHasStarted(true)} activeOpacity={0.85} style={styles.introStartButton}>
+              <LinearGradient
+                colors={[colors.islamic.gold, colors.accentDark]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.introStartGradient}
+              >
+                <Ionicons name="play" size={20} color={colors.islamic.midnight} />
+                <Text style={styles.introStartText}>Start</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={onBack} activeOpacity={0.8} style={styles.textButton}>
+              <Text style={styles.introBackText}>Back to Games</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    );
+  }
+
   if (dataQuery.isLoading || names.length < PAIRS_PER_ROUND) {
     return (
       <View style={styles.container}>
@@ -244,6 +327,7 @@ export const WebNamesMatching: React.FC<WebNamesMatchingProps> = ({ onBack }) =>
   }
 
   if (isFinished) {
+    const efficiency = getEfficiency(moves);
     return (
       <View style={styles.container}>
         <View style={styles.header}>
@@ -288,6 +372,9 @@ export const WebNamesMatching: React.FC<WebNamesMatchingProps> = ({ onBack }) =>
           >
             Round Complete!
           </Text>
+          <Text style={styles.resultsSubtitle}>
+            Completed in {moves} {getMoveLabel(moves)} and {formatTime(elapsedSeconds)}
+          </Text>
 
           <View
             style={[
@@ -302,7 +389,7 @@ export const WebNamesMatching: React.FC<WebNamesMatchingProps> = ({ onBack }) =>
             <View style={styles.statItem}>
               <Ionicons name="swap-horizontal" size={24} color={colors.primary} />
               <Text style={styles.statValue}>{moves}</Text>
-              <Text style={styles.statLabel}>Moves</Text>
+              <Text style={styles.statLabel}>{getMoveLabel(moves)}</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
@@ -312,9 +399,9 @@ export const WebNamesMatching: React.FC<WebNamesMatchingProps> = ({ onBack }) =>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
-              <Ionicons name="layers-outline" size={24} color={colors.accent} />
-              <Text style={styles.statValue}>{PAIRS_PER_ROUND}</Text>
-              <Text style={styles.statLabel}>Pairs</Text>
+              <Ionicons name="analytics" size={24} color={colors.accent} />
+              <Text style={styles.statValue}>{displayEfficiency || efficiency}%</Text>
+              <Text style={styles.statLabel}>Efficiency</Text>
             </View>
           </View>
 
@@ -336,8 +423,20 @@ export const WebNamesMatching: React.FC<WebNamesMatchingProps> = ({ onBack }) =>
               onMouseLeave={playAgainHover.handlers.onMouseLeave}
               style={[styles.playAgainButton, playAgainHover.style]}
             >
-              <Ionicons name="refresh" size={20} color="#fff" />
-              <Text style={styles.playAgainText}>Play Again</Text>
+              <Ionicons name="shuffle" size={20} color="#fff" />
+              <Text style={styles.playAgainText}>New Round</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={handleReplaySame}
+              activeOpacity={0.8}
+              // @ts-ignore
+              onMouseEnter={playAgainHover.handlers.onMouseEnter}
+              onMouseLeave={playAgainHover.handlers.onMouseLeave}
+              style={[styles.outlineButton, playAgainHover.style]}
+            >
+              <Ionicons name="refresh" size={18} color={colors.primary} />
+              <Text style={styles.outlineButtonText}>Replay</Text>
             </TouchableOpacity>
 
             <TouchableOpacity onPress={onBack} activeOpacity={0.8} style={styles.textButton}>
@@ -372,7 +471,7 @@ export const WebNamesMatching: React.FC<WebNamesMatchingProps> = ({ onBack }) =>
       <View style={styles.statsBar}>
         <View style={styles.statsBarItem}>
           <Ionicons name="swap-horizontal" size={16} color={colors.text.secondary} />
-          <Text style={styles.statsBarText}>{moves} moves</Text>
+          <Text style={styles.statsBarText}>{moves} {getMoveLabel(moves)}</Text>
         </View>
         <View style={styles.statsBarItem}>
           <Text style={styles.statsBarTextHighlight}>{matchedPairs.size}/{PAIRS_PER_ROUND}</Text>
@@ -462,11 +561,140 @@ export const WebNamesMatching: React.FC<WebNamesMatchingProps> = ({ onBack }) =>
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    // @ts-ignore
-    maxWidth: 800,
-    marginHorizontal: 'auto',
     width: '100%',
-    padding: 32,
+    height: '100%',
+    padding: 36,
+  },
+  introScreen: {
+    flex: 1,
+    borderRadius: 24,
+    overflow: 'hidden',
+    position: 'relative',
+    width: '100%',
+    minHeight: 720,
+  },
+  introContent: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 48,
+  },
+  introIconCircle: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
+  },
+  introTitle: {
+    fontSize: 30,
+    fontWeight: '700',
+    color: colors.text.white,
+    textAlign: 'center',
+    marginBottom: 12,
+    // @ts-ignore
+    fontFamily: "'DM Sans', sans-serif",
+  },
+  introDesc: {
+    fontSize: 16,
+    color: 'rgba(255,255,255,0.75)',
+    textAlign: 'center',
+    lineHeight: 24,
+    marginBottom: 28,
+    maxWidth: 520,
+    // @ts-ignore
+    fontFamily: "'DM Sans', sans-serif",
+  },
+  introMatchMini: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 28,
+  },
+  introMatchCol: {
+    gap: 12,
+  },
+  introMatchTile: {
+    width: 96,
+    height: 44,
+    borderRadius: borderRadius.sm,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  introMatchTileEn: {
+    backgroundColor: 'rgba(212,163,115,0.12)',
+    borderColor: 'rgba(212,163,115,0.25)',
+  },
+  introMatchAr: {
+    fontSize: 14,
+    color: colors.text.white,
+    fontWeight: '600',
+    // @ts-ignore
+    fontFamily: "'Amiri', serif",
+  },
+  introMatchEn: {
+    fontSize: 11,
+    color: colors.islamic.gold,
+    fontWeight: '600',
+    // @ts-ignore
+    fontFamily: "'DM Sans', sans-serif",
+  },
+  introMatchLines: {
+    width: 24,
+    height: 88,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  introMatchLine: {
+    position: 'absolute',
+    width: 24,
+    height: 1,
+    backgroundColor: 'rgba(255,255,255,0.25)',
+    top: 22,
+  },
+  introMatchLineCross: {
+    top: 64,
+  },
+  introButtons: {
+    width: '100%',
+    maxWidth: 320,
+    alignItems: 'center',
+  },
+  introStartButton: {
+    width: '100%',
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginBottom: 12,
+    // @ts-ignore
+    cursor: 'pointer',
+  },
+  introStartGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    gap: 8,
+  },
+  introStartText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.islamic.midnight,
+    // @ts-ignore
+    fontFamily: "'DM Sans', sans-serif",
+  },
+  introBackText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.75)',
+    // @ts-ignore
+    fontFamily: "'DM Sans', sans-serif",
   },
   center: {
     flex: 1,
@@ -688,6 +916,14 @@ const styles = StyleSheet.create({
     // @ts-ignore
     fontFamily: "'Cormorant Garamond', Georgia, serif",
   },
+  resultsSubtitle: {
+    fontSize: 15,
+    color: colors.text.secondary,
+    marginBottom: 28,
+    textAlign: 'center',
+    // @ts-ignore
+    fontFamily: "'DM Sans', sans-serif",
+  },
   statsRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -745,6 +981,27 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
     color: '#fff',
+    // @ts-ignore
+    fontFamily: "'DM Sans', sans-serif",
+  },
+  outlineButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+    borderRadius: 12,
+    paddingVertical: 14,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+    gap: 8,
+    marginBottom: 8,
+    // @ts-ignore
+    cursor: 'pointer',
+  },
+  outlineButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.primary,
     // @ts-ignore
     fontFamily: "'DM Sans', sans-serif",
   },
