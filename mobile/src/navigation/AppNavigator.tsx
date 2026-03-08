@@ -6,6 +6,8 @@ import {
   LandingScreen,
   QuranChaptersScreen,
   QuranChapterScreen,
+  QuranModeSelectScreen,
+  QuranReadScreen,
   AsmaUlHusnaMenuScreen,
   AsmaUlHusnaScreen,
   AsmaUlHusnaGamesScreen,
@@ -52,11 +54,23 @@ export type RootStackParamList = {
   // Authenticated
   Main: undefined;
   QuranChapters: undefined;
+  QuranModeSelect: {
+    chapterId: number;
+    chapterName: string;
+    chapterArabicName?: string;
+    versesCount: number;
+  };
   QuranChapter: {
     chapterId: number;
     chapterName: string;
     chapterArabicName?: string;
     scrollToVerse?: number;
+  };
+  QuranRead: {
+    chapterId: number;
+    chapterName: string;
+    chapterArabicName?: string;
+    versesCount: number;
   };
   AsmaUlHusnaMenu: undefined;
   AsmaUlHusnaList: undefined;
@@ -123,7 +137,9 @@ export const AppNavigator: React.FC = () => {
             <Stack.Screen name="Main" component={TabNavigator} />
             {!showWelcomeFirst && WelcomeScreenDef}
             <Stack.Screen name="QuranChapters" component={QuranChaptersScreen} />
+            <Stack.Screen name="QuranModeSelect" component={QuranModeSelectScreen} />
             <Stack.Screen name="QuranChapter" component={QuranChapterScreen} />
+            <Stack.Screen name="QuranRead" component={QuranReadScreen} />
             <Stack.Screen name="AsmaUlHusnaMenu" component={AsmaUlHusnaMenuScreen} />
             <Stack.Screen name="AsmaUlHusnaList" component={AsmaUlHusnaScreen} />
             <Stack.Screen name="AsmaUlHusnaGames" component={AsmaUlHusnaGamesScreen} />

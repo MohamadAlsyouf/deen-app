@@ -30,7 +30,33 @@ import { VerseRangeSidebar } from "@/components/quran/VerseRangeSidebar";
 import { ViewModeToggle, type ViewMode } from "@/components/quran/ViewModeToggle";
 import { useAudioPlayer } from "@/contexts/AudioPlayerContext";
 import { useBookmarks } from "@/contexts/BookmarkContext";
+import { useUserProfile } from "@/hooks/useUserProfile";
 import type { RootStackParamList } from "@/navigation/AppNavigator";
+import type { UserType } from "@/types/user";
+
+// Get available view modes based on user type
+const getAvailableViewModes = (
+  userType: UserType | undefined
+): ViewMode[] => {
+  if (userType === "learner") {
+    // Learner: English only (no toggle visible)
+    return ["english"];
+  }
+  if (userType === "revert") {
+    // Revert: All, English
+    return ["all", "english"];
+  }
+  // Muslim (default): All, Arabic, English
+  return ["all", "arabic", "english"];
+};
+
+// Get default view mode based on user type
+const getDefaultViewMode = (userType: UserType | undefined): ViewMode => {
+  if (userType === "learner") {
+    return "english";
+  }
+  return "all";
+};
 
 type QuranChapterRouteProp = RouteProp<RootStackParamList, "QuranChapter">;
 type QuranChapterNavigationProp = StackNavigationProp<
@@ -48,7 +74,20 @@ export const QuranChapterScreen: React.FC = () => {
   const [isReciterModalVisible, setIsReciterModalVisible] = useState(false);
   const [isVerseRangeSidebarVisible, setIsVerseRangeSidebarVisible] = useState(false);
   const [containerHeight, setContainerHeight] = useState(0);
-  const [viewMode, setViewMode] = useState<ViewMode>('all');
+
+  const { userProfile } = useUserProfile();
+  const userType = userProfile?.userType;
+  const availableViewModes = useMemo(() => getAvailableViewModes(userType), [userType]);
+  const defaultViewMode = getDefaultViewMode(userType);
+  const [viewMode, setViewMode] = useState<ViewMode>(defaultViewMode);
+
+  // Update view mode when user type changes (e.g., profile loads)
+  useEffect(() => {
+    const validModes = getAvailableViewModes(userType);
+    if (!validModes.includes(viewMode)) {
+      setViewMode(getDefaultViewMode(userType));
+    }
+  }, [userType, viewMode]);
 
   // Refs for auto-scrolling
   const scrollViewRef = useRef<ScrollView>(null);
@@ -320,7 +359,11 @@ export const QuranChapterScreen: React.FC = () => {
         leftAction={{ iconName: "arrow-back", onPress: handleGoBack }}
         rightAction={{ iconName: "menu", onPress: handleOpenVerseRangeSidebar }}
       />
-      <ViewModeToggle viewMode={viewMode} onViewModeChange={setViewMode} />
+      <ViewModeToggle
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
+        availableModes={availableViewModes}
+      />
       <View style={styles.contentWrapper} onLayout={handleContainerLayout}>
         <ScrollView
           ref={scrollViewRef}

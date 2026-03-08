@@ -39,10 +39,11 @@ export const QuranChaptersScreen: React.FC = () => {
   };
 
   const handleOpenChapter = (chapter: QuranChapter) => {
-    navigation.navigate("QuranChapter", {
+    navigation.navigate("QuranModeSelect", {
       chapterId: chapter.id,
       chapterName: chapter.name_simple,
       chapterArabicName: chapter.name_arabic,
+      versesCount: chapter.verses_count,
     });
   };
 

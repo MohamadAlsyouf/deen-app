@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { colors, spacing, typography, borderRadius } from '@/theme';
 
@@ -7,17 +7,32 @@ export type ViewMode = 'all' | 'arabic' | 'english';
 type ViewModeToggleProps = {
   viewMode: ViewMode;
   onViewModeChange: (mode: ViewMode) => void;
+  /** Optional: Limit which modes are available. If not provided, all modes are shown. */
+  availableModes?: ViewMode[];
 };
+
+const ALL_MODES: { key: ViewMode; label: string }[] = [
+  { key: 'all', label: 'All' },
+  { key: 'arabic', label: 'عربي' },
+  { key: 'english', label: 'English' },
+];
 
 export const ViewModeToggle: React.FC<ViewModeToggleProps> = ({
   viewMode,
   onViewModeChange,
+  availableModes,
 }) => {
-  const modes: { key: ViewMode; label: string }[] = [
-    { key: 'all', label: 'All' },
-    { key: 'arabic', label: 'عربي' },
-    { key: 'english', label: 'English' },
-  ];
+  const modes = useMemo(() => {
+    if (!availableModes || availableModes.length === 0) {
+      return ALL_MODES;
+    }
+    return ALL_MODES.filter((mode) => availableModes.includes(mode.key));
+  }, [availableModes]);
+
+  // Don't render if only one mode is available (or none)
+  if (modes.length <= 1) {
+    return null;
+  }
 
   return (
     <View style={styles.container}>

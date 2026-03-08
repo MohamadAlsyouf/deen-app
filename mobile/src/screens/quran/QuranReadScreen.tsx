@@ -1,0 +1,589 @@
+import React, { useCallback, useMemo, useRef, useState, useEffect } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  Dimensions,
+  TouchableOpacity,
+  Platform,
+  Animated,
+  ViewToken,
+} from "react-native";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { useNavigation, useRoute } from "@react-navigation/native";
+import type { RouteProp } from "@react-navigation/native";
+import type { StackNavigationProp } from "@react-navigation/stack";
+import { useInfiniteQuery } from "@tanstack/react-query";
+import { Ionicons } from "@expo/vector-icons";
+import { colors, spacing, typography, borderRadius } from "@/theme";
+import { quranService } from "@/services/quranService";
+import { useUserProfile } from "@/hooks/useUserProfile";
+import { useBookmarks } from "@/contexts/BookmarkContext";
+import type { QuranVerse } from "@/types/quran";
+import type { RootStackParamList } from "@/navigation/AppNavigator";
+import type { ViewMode } from "@/components/quran/ViewModeToggle";
+import type { UserType } from "@/types/user";
+
+// Conditionally import haptics (not available on web)
+import * as Haptics from "expo-haptics";
+
+type QuranReadRouteProp = RouteProp<RootStackParamList, "QuranRead">;
+type QuranReadNavigationProp = StackNavigationProp<RootStackParamList, "QuranRead">;
+
+const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get("window");
+const PER_PAGE = 50; // Load more verses at once for reading mode
+
+// Get available view modes based on user type
+const getAvailableViewModes = (
+  userType: UserType | undefined
+): { key: ViewMode; label: string }[] => {
+  if (userType === "learner") {
+    // Learner: English only (no toggle visible)
+    return [];
+  }
+  if (userType === "revert") {
+    // Revert: All, English
+    return [
+      { key: "all", label: "All" },
+      { key: "english", label: "English" },
+    ];
+  }
+  // Muslim: All, Arabic, English
+  return [
+    { key: "all", label: "All" },
+    { key: "arabic", label: "عربي" },
+    { key: "english", label: "English" },
+  ];
+};
+
+// Get default view mode based on user type
+const getDefaultViewMode = (userType: UserType | undefined): ViewMode => {
+  if (userType === "learner") {
+    return "english";
+  }
+  return "all";
+};
+
+// Helper functions for verse text processing
+const stripHtmlTags = (value: string): string => {
+  return value.replace(/<[^>]*>/g, " ");
+};
+
+const stripSupFootnotes = (value: string): string => {
+  return value.replace(/<sup[^>]*>.*?<\/sup>/gi, "");
+};
+
+const decodeHtmlEntities = (value: string): string => {
+  return value
+    .replace(/&amp;/g, "&")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&nbsp;/g, " ");
+};
+
+const normalizeWhitespace = (value: string): string => {
+  return value.replace(/\s+/g, " ").trim();
+};
+
+const sanitizeTranslationText = (value: string): string => {
+  const withoutSupFootnotes = stripSupFootnotes(value);
+  const withoutTags = stripHtmlTags(withoutSupFootnotes);
+  const decoded = decodeHtmlEntities(withoutTags);
+  return normalizeWhitespace(decoded);
+};
+
+export const QuranReadScreen: React.FC = () => {
+  const navigation = useNavigation<QuranReadNavigationProp>();
+  const route = useRoute<QuranReadRouteProp>();
+  const insets = useSafeAreaInsets();
+  const { chapterId, chapterName, chapterArabicName, versesCount } = route.params;
+  const { userProfile } = useUserProfile();
+  const { isVerseBookmarked, toggleVerseBookmark } = useBookmarks();
+
+  const userType = userProfile?.userType;
+  const availableViewModes = useMemo(
+    () => getAvailableViewModes(userType),
+    [userType]
+  );
+  const defaultViewMode = getDefaultViewMode(userType);
+
+  const [viewMode, setViewMode] = useState<ViewMode>(defaultViewMode);
+  const [currentVerseIndex, setCurrentVerseIndex] = useState(0);
+  const progressAnim = useRef(new Animated.Value(0)).current;
+  const flatListRef = useRef<FlatList>(null);
+
+  // Calculate item height for FlatList
+  const ITEM_HEIGHT = SCREEN_HEIGHT - insets.top - insets.bottom - 100; // Reserve space for header + progress
+
+  // Fetch all verses
+  const versesQuery = useInfiniteQuery({
+    queryKey: ["quranVersesByChapterRead", chapterId],
+    initialPageParam: 1,
+    queryFn: ({ pageParam }) =>
+      quranService.getVersesByChapter({
+        chapterId,
+        page: pageParam,
+        perPage: PER_PAGE,
+      }),
+    getNextPageParam: (lastPage) => lastPage.pagination.next_page ?? undefined,
+  });
+
+  const verses: QuranVerse[] = useMemo(() => {
+    return versesQuery.data?.pages.flatMap((page) => page.verses) ?? [];
+  }, [versesQuery.data?.pages]);
+
+  const totalVerses = versesCount || verses.length;
+
+  // Update progress bar animation
+  useEffect(() => {
+    const progress = totalVerses > 0 ? (currentVerseIndex + 1) / totalVerses : 0;
+    Animated.spring(progressAnim, {
+      toValue: progress,
+      useNativeDriver: false,
+      friction: 8,
+      tension: 40,
+    }).start();
+  }, [currentVerseIndex, totalVerses, progressAnim]);
+
+  // Trigger haptic feedback
+  const triggerHaptic = useCallback(() => {
+    if (Platform.OS !== "web") {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+  }, []);
+
+  // Handle viewable items change for paging
+  const onViewableItemsChanged = useRef(
+    ({ viewableItems }: { viewableItems: ViewToken[] }) => {
+      if (viewableItems.length > 0 && viewableItems[0].index !== null) {
+        const newIndex = viewableItems[0].index;
+        setCurrentVerseIndex((prevIndex) => {
+          if (newIndex !== prevIndex) {
+            triggerHaptic();
+          }
+          return newIndex;
+        });
+      }
+    }
+  ).current;
+
+  const viewabilityConfig = useRef({
+    itemVisiblePercentThreshold: 50,
+  }).current;
+
+  // Load more verses when reaching end
+  const handleEndReached = useCallback(() => {
+    if (versesQuery.hasNextPage && !versesQuery.isFetchingNextPage) {
+      versesQuery.fetchNextPage();
+    }
+  }, [versesQuery]);
+
+  const handleGoBack = () => {
+    navigation.goBack();
+  };
+
+  const handleToggleVerseBookmark = useCallback(
+    (verse: QuranVerse) => {
+      const translationRaw = verse.translations?.[0]?.text || "";
+      const preview = sanitizeTranslationText(translationRaw).slice(0, 120);
+      toggleVerseBookmark({
+        verseKey: verse.verse_key,
+        chapterId,
+        chapterName: chapterName || "Chapter",
+        chapterArabicName: chapterArabicName || "",
+        verseNumber: verse.verse_number,
+        arabicText: verse.text_uthmani,
+        translationPreview: preview,
+      });
+    },
+    [chapterId, chapterName, chapterArabicName, toggleVerseBookmark]
+  );
+
+  // Render individual verse page
+  const renderVersePage = useCallback(
+    ({ item: verse, index }: { item: QuranVerse; index: number }) => {
+      const isBookmarked = isVerseBookmarked(verse.verse_key);
+      const translationRaw = verse.translations?.[0]?.text || "";
+      const translationText = sanitizeTranslationText(translationRaw);
+
+      const showArabic = viewMode === "all" || viewMode === "arabic";
+      const showTranslation = viewMode === "all" || viewMode === "english";
+
+      return (
+        <View style={[styles.versePage, { height: ITEM_HEIGHT }]}>
+          <View style={styles.verseContent}>
+            {/* Verse Number Badge */}
+            <View style={styles.verseBadge}>
+              <Text style={styles.verseBadgeText}>{verse.verse_number}</Text>
+            </View>
+
+            {/* Arabic Text */}
+            {showArabic && (
+              <Text
+                style={[
+                  styles.arabicText,
+                  viewMode === "arabic" && styles.arabicOnlyText,
+                ]}
+                selectable
+              >
+                {verse.text_uthmani}
+              </Text>
+            )}
+
+            {/* Translation */}
+            {showTranslation && translationText.length > 0 && (
+              <Text
+                style={[
+                  styles.translationText,
+                  viewMode === "english" && styles.englishOnlyText,
+                ]}
+                selectable
+              >
+                {translationText}
+              </Text>
+            )}
+
+            {/* Bookmark Button */}
+            <TouchableOpacity
+              style={styles.bookmarkButton}
+              onPress={() => handleToggleVerseBookmark(verse)}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Ionicons
+                name={isBookmarked ? "bookmark" : "bookmark-outline"}
+                size={24}
+                color={isBookmarked ? colors.accent : colors.text.tertiary}
+              />
+            </TouchableOpacity>
+          </View>
+
+          {/* Verse Key */}
+          <Text style={styles.verseKey}>{verse.verse_key}</Text>
+        </View>
+      );
+    },
+    [viewMode, ITEM_HEIGHT, isVerseBookmarked, handleToggleVerseBookmark]
+  );
+
+  const getItemLayout = useCallback(
+    (_: any, index: number) => ({
+      length: ITEM_HEIGHT,
+      offset: ITEM_HEIGHT * index,
+      index,
+    }),
+    [ITEM_HEIGHT]
+  );
+
+  const keyExtractor = useCallback((item: QuranVerse) => item.verse_key, []);
+
+  // Progress bar width interpolation
+  const progressWidth = progressAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["0%", "100%"],
+  });
+
+  return (
+    <SafeAreaView style={styles.container} edges={["top"]}>
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={handleGoBack}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="arrow-back" size={22} color={colors.text.primary} />
+        </TouchableOpacity>
+
+        <View style={styles.headerCenter}>
+          <Text style={styles.headerTitle} numberOfLines={1}>
+            {chapterName}
+          </Text>
+          <Text style={styles.headerSubtitle}>
+            {currentVerseIndex + 1} of {totalVerses}
+          </Text>
+        </View>
+
+        {/* Placeholder for symmetry */}
+        <View style={styles.headerRight} />
+      </View>
+
+      {/* Progress Bar */}
+      <View style={styles.progressContainer}>
+        <View style={styles.progressTrack}>
+          <Animated.View
+            style={[styles.progressFill, { width: progressWidth }]}
+          />
+        </View>
+      </View>
+
+      {/* View Mode Toggle (for muslim and revert users) */}
+      {availableViewModes.length > 0 && (
+        <View style={styles.viewModeContainer}>
+          <View style={styles.viewModeToggle}>
+            {availableViewModes.map((mode) => {
+              const isActive = viewMode === mode.key;
+              return (
+                <TouchableOpacity
+                  key={mode.key}
+                  style={[
+                    styles.viewModeButton,
+                    isActive && styles.viewModeButtonActive,
+                  ]}
+                  onPress={() => setViewMode(mode.key)}
+                  activeOpacity={0.7}
+                >
+                  <Text
+                    style={[
+                      styles.viewModeText,
+                      isActive && styles.viewModeTextActive,
+                      mode.key === "arabic" && styles.arabicModeText,
+                    ]}
+                  >
+                    {mode.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+      )}
+
+      {/* Swipeable Verse List */}
+      <FlatList
+        ref={flatListRef}
+        data={verses}
+        renderItem={renderVersePage}
+        keyExtractor={keyExtractor}
+        getItemLayout={getItemLayout}
+        pagingEnabled
+        showsVerticalScrollIndicator={false}
+        onViewableItemsChanged={onViewableItemsChanged}
+        viewabilityConfig={viewabilityConfig}
+        onEndReached={handleEndReached}
+        onEndReachedThreshold={0.5}
+        decelerationRate="fast"
+        snapToInterval={ITEM_HEIGHT}
+        snapToAlignment="start"
+        contentContainerStyle={styles.listContent}
+        initialNumToRender={3}
+        maxToRenderPerBatch={5}
+        windowSize={5}
+      />
+
+      {/* Swipe Hint (shown briefly) */}
+      <SwipeHint />
+    </SafeAreaView>
+  );
+};
+
+// Swipe hint component that fades out
+const SwipeHint: React.FC = () => {
+  const opacity = useRef(new Animated.Value(1)).current;
+  const [visible, setVisible] = useState(true);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      Animated.timing(opacity, {
+        toValue: 0,
+        duration: 500,
+        useNativeDriver: true,
+      }).start(() => setVisible(false));
+    }, 2000);
+
+    return () => clearTimeout(timer);
+  }, [opacity]);
+
+  if (!visible) return null;
+
+  return (
+    <Animated.View style={[styles.swipeHint, { opacity }]}>
+      <Ionicons name="chevron-up" size={20} color={colors.text.secondary} />
+      <Text style={styles.swipeHintText}>Swipe to navigate</Text>
+    </Animated.View>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    backgroundColor: colors.background,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.surface,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  headerCenter: {
+    flex: 1,
+    alignItems: "center",
+    paddingHorizontal: spacing.sm,
+  },
+  headerTitle: {
+    ...typography.h4,
+    color: colors.text.primary,
+  },
+  headerSubtitle: {
+    ...typography.caption,
+    color: colors.text.secondary,
+    marginTop: 2,
+  },
+  headerRight: {
+    width: 40,
+  },
+  progressContainer: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.xs,
+    backgroundColor: colors.background,
+  },
+  progressTrack: {
+    height: 4,
+    backgroundColor: colors.surface,
+    borderRadius: 2,
+    overflow: "hidden",
+  },
+  progressFill: {
+    height: "100%",
+    backgroundColor: colors.primary,
+    borderRadius: 2,
+  },
+  viewModeContainer: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    backgroundColor: colors.background,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  viewModeToggle: {
+    flexDirection: "row",
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
+    padding: 4,
+  },
+  viewModeButton: {
+    flex: 1,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.md,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  viewModeButtonActive: {
+    backgroundColor: colors.primary,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  viewModeText: {
+    ...typography.body,
+    fontSize: 14,
+    fontWeight: "600",
+    color: colors.text.secondary,
+  },
+  viewModeTextActive: {
+    color: colors.text.white,
+  },
+  arabicModeText: {
+    fontSize: 16,
+  },
+  listContent: {
+    flexGrow: 1,
+  },
+  versePage: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.lg,
+  },
+  verseContent: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    width: "100%",
+    maxWidth: 600,
+  },
+  verseBadge: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: colors.primary,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: spacing.lg,
+  },
+  verseBadgeText: {
+    ...typography.h4,
+    color: colors.text.white,
+    fontWeight: "700",
+  },
+  arabicText: {
+    fontSize: 32,
+    lineHeight: 56,
+    color: colors.text.primary,
+    textAlign: "center",
+    writingDirection: "rtl",
+    marginBottom: spacing.lg,
+  },
+  arabicOnlyText: {
+    fontSize: 40,
+    lineHeight: 68,
+  },
+  translationText: {
+    ...typography.body,
+    fontSize: 18,
+    lineHeight: 30,
+    color: colors.text.secondary,
+    textAlign: "center",
+  },
+  englishOnlyText: {
+    fontSize: 22,
+    lineHeight: 36,
+    color: colors.text.primary,
+  },
+  bookmarkButton: {
+    position: "absolute",
+    bottom: spacing.lg,
+    right: 0,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.surface,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  verseKey: {
+    ...typography.caption,
+    color: colors.text.tertiary,
+    marginBottom: spacing.md,
+  },
+  swipeHint: {
+    position: "absolute",
+    bottom: 40,
+    left: 0,
+    right: 0,
+    alignItems: "center",
+    paddingVertical: spacing.sm,
+  },
+  swipeHintText: {
+    ...typography.caption,
+    color: colors.text.secondary,
+    marginTop: spacing.xs,
+  },
+});

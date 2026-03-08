@@ -5,6 +5,8 @@ export { AboutScreen } from './about/AboutScreen';
 export { ContactScreen } from './contact/ContactScreen';
 export { QuranChaptersScreen } from './quran/QuranChaptersScreen';
 export { QuranChapterScreen } from './quran/QuranChapterScreen';
+export { QuranModeSelectScreen } from './quran/QuranModeSelectScreen';
+export { QuranReadScreen } from './quran/QuranReadScreen';
 export { AsmaUlHusnaScreen } from './asmaUlHusna/AsmaUlHusnaScreen';
 export { AsmaUlHusnaMenuScreen } from './asmaUlHusna/AsmaUlHusnaMenuScreen';
 export { AsmaUlHusnaGamesScreen } from './asmaUlHusna/AsmaUlHusnaGamesScreen';
