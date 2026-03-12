@@ -37,116 +37,122 @@ export const VerseOfDayScreen: React.FC = () => {
   const isBookmarked = verse ? isVerseBookmarked(verse.verseKey) : false;
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <Header
-        title="Verse of the Day"
-        leftAction={{ iconName: 'arrow-back', onPress: () => navigation.goBack() }}
-      />
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
+      <View style={styles.container}>
+        <Header
+          title="Verse of the Day"
+          leftAction={{ iconName: 'arrow-back', onPress: () => navigation.goBack() }}
+        />
 
-      {verseQuery.isLoading ? (
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.statusText}>Preparing today's verse...</Text>
-        </View>
-      ) : verseQuery.isError || !verse ? (
-        <View style={styles.center}>
-          <Ionicons name="alert-circle-outline" size={42} color={colors.error} />
-          <Text style={styles.errorTitle}>Unable to load today's verse</Text>
-          <Text style={styles.errorText}>Please try again in a moment.</Text>
-        </View>
-      ) : (
-        <>
-          <ScrollView
-            style={styles.scrollView}
-            contentContainerStyle={styles.scrollContent}
-            showsVerticalScrollIndicator={false}
-          >
-            <LinearGradient
-              colors={[colors.gradient.start, colors.gradient.end]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.heroCard}
-            >
-              <View style={styles.heroBadge}>
-                <Text style={styles.heroBadgeText}>Today&apos;s Reflection</Text>
-              </View>
-              <Text style={styles.heroReference}>{verse.verseKey}</Text>
-              <Text style={styles.heroChapter}>{verse.chapterName}</Text>
-              {verse.chapterArabicName ? (
-                <Text style={styles.heroChapterArabic}>{verse.chapterArabicName}</Text>
-              ) : null}
-            </LinearGradient>
-
-            <View style={styles.verseCard}>
-              <Text style={styles.arabicText}>{verse.arabicText}</Text>
-
-              {verse.transliteration ? (
-                <>
-                  <Text style={styles.sectionLabel}>Transliteration</Text>
-                  <Text style={styles.transliterationText}>{verse.transliteration}</Text>
-                </>
-              ) : null}
-
-              {verse.translation ? (
-                <>
-                  <Text style={styles.sectionLabel}>Translation</Text>
-                  <Text style={styles.translationText}>{verse.translation}</Text>
-                </>
-              ) : null}
-            </View>
-          </ScrollView>
-
-          <View style={[styles.actionOverlay, { bottom: Math.max(insets.bottom, spacing.sm) + spacing.sm }]}>
-            <View style={styles.actionRow}>
-              <TouchableOpacity
-                onPress={() =>
-                  navigation.navigate('QuranChapter', {
-                    chapterId: verse.chapterId,
-                    chapterName: verse.chapterName,
-                    chapterArabicName: verse.chapterArabicName,
-                    scrollToVerse: verse.verseNumber,
-                  })
-                }
-                activeOpacity={0.85}
-                style={styles.ctaButton}
-              >
-                <Ionicons name="book-outline" size={18} color={colors.text.white} />
-                <Text style={styles.ctaText}>View in Quran</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                onPress={() =>
-                  toggleVerseBookmark({
-                    verseKey: verse.verseKey,
-                    chapterId: verse.chapterId,
-                    chapterName: verse.chapterName,
-                    chapterArabicName: verse.chapterArabicName,
-                    verseNumber: verse.verseNumber,
-                    arabicText: verse.arabicText,
-                    translationPreview: verse.translation.slice(0, 120),
-                  })
-                }
-                activeOpacity={0.85}
-                style={[styles.secondaryButton, isBookmarked && styles.secondaryButtonActive]}
-              >
-                <Ionicons
-                  name={isBookmarked ? 'bookmark' : 'bookmark-outline'}
-                  size={18}
-                  color={isBookmarked ? colors.accentDark : colors.primary}
-                />
-                <Text style={[styles.secondaryButtonText, isBookmarked && styles.secondaryButtonTextActive]}>
-                  Bookmark
-                </Text>
-              </TouchableOpacity>
-            </View>
+        {verseQuery.isLoading ? (
+          <View style={styles.center}>
+            <ActivityIndicator size="large" color={colors.primary} />
+            <Text style={styles.statusText}>Preparing today's verse...</Text>
           </View>
-        </>
-      )}
+        ) : verseQuery.isError || !verse ? (
+          <View style={styles.center}>
+            <Ionicons name="alert-circle-outline" size={42} color={colors.error} />
+            <Text style={styles.errorTitle}>Unable to load today's verse</Text>
+            <Text style={styles.errorText}>Please try again in a moment.</Text>
+          </View>
+        ) : (
+          <>
+            <ScrollView
+              style={styles.scrollView}
+              contentContainerStyle={styles.scrollContent}
+              showsVerticalScrollIndicator={false}
+            >
+              <LinearGradient
+                colors={[colors.gradient.start, colors.gradient.end]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.heroCard}
+              >
+                <View style={styles.heroBadge}>
+                  <Text style={styles.heroBadgeText}>Today&apos;s Reflection</Text>
+                </View>
+                <Text style={styles.heroReference}>{verse.verseKey}</Text>
+                <Text style={styles.heroChapter}>{verse.chapterName}</Text>
+                {verse.chapterArabicName ? (
+                  <Text style={styles.heroChapterArabic}>{verse.chapterArabicName}</Text>
+                ) : null}
+              </LinearGradient>
+
+              <View style={styles.verseCard}>
+                <Text style={styles.arabicText}>{verse.arabicText}</Text>
+
+                {verse.transliteration ? (
+                  <>
+                    <Text style={styles.sectionLabel}>Transliteration</Text>
+                    <Text style={styles.transliterationText}>{verse.transliteration}</Text>
+                  </>
+                ) : null}
+
+                {verse.translation ? (
+                  <>
+                    <Text style={styles.sectionLabel}>Translation</Text>
+                    <Text style={styles.translationText}>{verse.translation}</Text>
+                  </>
+                ) : null}
+              </View>
+            </ScrollView>
+
+            <View style={[styles.actionOverlay, { bottom: Math.max(insets.bottom, spacing.sm) + spacing.sm }]}>
+              <View style={styles.actionRow}>
+                <TouchableOpacity
+                  onPress={() =>
+                    navigation.navigate('QuranChapter', {
+                      chapterId: verse.chapterId,
+                      chapterName: verse.chapterName,
+                      chapterArabicName: verse.chapterArabicName,
+                      scrollToVerse: verse.verseNumber,
+                    })
+                  }
+                  activeOpacity={0.85}
+                  style={styles.ctaButton}
+                >
+                  <Ionicons name="book-outline" size={18} color={colors.text.white} />
+                  <Text style={styles.ctaText}>View in Quran</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={() =>
+                    toggleVerseBookmark({
+                      verseKey: verse.verseKey,
+                      chapterId: verse.chapterId,
+                      chapterName: verse.chapterName,
+                      chapterArabicName: verse.chapterArabicName,
+                      verseNumber: verse.verseNumber,
+                      arabicText: verse.arabicText,
+                      translationPreview: verse.translation.slice(0, 120),
+                    })
+                  }
+                  activeOpacity={0.85}
+                  style={[styles.secondaryButton, isBookmarked && styles.secondaryButtonActive]}
+                >
+                  <Ionicons
+                    name={isBookmarked ? 'bookmark' : 'bookmark-outline'}
+                    size={18}
+                    color={isBookmarked ? colors.accentDark : colors.primary}
+                  />
+                  <Text style={[styles.secondaryButtonText, isBookmarked && styles.secondaryButtonTextActive]}>
+                    Bookmark Verse
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </>
+        )}
+      </View>
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
   container: {
     flex: 1,
     backgroundColor: colors.surface,
@@ -265,11 +271,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   actionRow: {
+    width: '100%',
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
   },
   ctaButton: {
+    flex: 1,
     minHeight: 52,
     borderRadius: borderRadius.round,
     backgroundColor: colors.primary,
@@ -290,6 +298,7 @@ const styles = StyleSheet.create({
     color: colors.text.white,
   },
   secondaryButton: {
+    flex: 1,
     minHeight: 52,
     borderRadius: borderRadius.round,
     backgroundColor: 'rgba(255,255,255,0.96)',
@@ -299,7 +308,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.sm,
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: spacing.lg,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.1,
@@ -311,7 +320,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(212, 163, 115, 0.34)',
   },
   secondaryButtonText: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '700',
     color: colors.primary,
     textAlign: 'center',
