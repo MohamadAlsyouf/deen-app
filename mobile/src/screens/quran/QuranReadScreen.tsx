@@ -24,6 +24,11 @@ import type { QuranVerse } from "@/types/quran";
 import type { RootStackParamList } from "@/navigation/AppNavigator";
 import type { ViewMode } from "@/components/quran/ViewModeToggle";
 import type { UserType } from "@/types/user";
+import { buildQuranReadPages, type QuranReadPage } from "@/utils/quranReadPagination";
+
+type QuranReadPageItem = QuranReadPage & {
+  verse: QuranVerse;
+};
 
 // Conditionally import haptics (not available on web)
 import * as Haptics from "expo-haptics";
@@ -111,7 +116,7 @@ export const QuranReadScreen: React.FC = () => {
   const defaultViewMode = getDefaultViewMode(userType);
 
   const [viewMode, setViewMode] = useState<ViewMode>(defaultViewMode);
-  const [currentVerseIndex, setCurrentVerseIndex] = useState(0);
+  const [currentPageIndex, setCurrentPageIndex] = useState(0);
   const progressAnim = useRef(new Animated.Value(0)).current;
   const flatListRef = useRef<FlatList>(null);
 
@@ -136,17 +141,42 @@ export const QuranReadScreen: React.FC = () => {
   }, [versesQuery.data?.pages]);
 
   const totalVerses = versesCount || verses.length;
+  const readPages = useMemo<QuranReadPageItem[]>(() => {
+    return verses.flatMap((verse) => {
+      const translationRaw = verse.translations?.[0]?.text || "";
+      const translationText = sanitizeTranslationText(translationRaw);
+
+      return buildQuranReadPages({
+        verseKey: verse.verse_key,
+        verseNumber: verse.verse_number,
+        arabicText: verse.text_uthmani,
+        translationText,
+        viewMode,
+        surface: "mobile",
+      }).map((page) => ({
+        ...page,
+        verse,
+      }));
+    });
+  }, [verses, viewMode]);
+
+  const currentPage = readPages[currentPageIndex] ?? null;
+  const currentVerseProgress = currentPage?.verseNumber ?? 1;
+
+  useEffect(() => {
+    setCurrentPageIndex((prev) => Math.min(prev, Math.max(readPages.length - 1, 0)));
+  }, [readPages.length]);
 
   // Update progress bar animation
   useEffect(() => {
-    const progress = totalVerses > 0 ? (currentVerseIndex + 1) / totalVerses : 0;
+    const progress = totalVerses > 0 ? currentVerseProgress / totalVerses : 0;
     Animated.spring(progressAnim, {
       toValue: progress,
       useNativeDriver: false,
       friction: 8,
       tension: 40,
     }).start();
-  }, [currentVerseIndex, totalVerses, progressAnim]);
+  }, [currentVerseProgress, totalVerses, progressAnim]);
 
   // Trigger haptic feedback
   const triggerHaptic = useCallback(() => {
@@ -160,7 +190,7 @@ export const QuranReadScreen: React.FC = () => {
     ({ viewableItems }: { viewableItems: ViewToken[] }) => {
       if (viewableItems.length > 0 && viewableItems[0].index !== null) {
         const newIndex = viewableItems[0].index;
-        setCurrentVerseIndex((prevIndex) => {
+        setCurrentPageIndex((prevIndex) => {
           if (newIndex !== prevIndex) {
             triggerHaptic();
           }
@@ -204,10 +234,8 @@ export const QuranReadScreen: React.FC = () => {
 
   // Render individual verse page
   const renderVersePage = useCallback(
-    ({ item: verse, index }: { item: QuranVerse; index: number }) => {
-      const isBookmarked = isVerseBookmarked(verse.verse_key);
-      const translationRaw = verse.translations?.[0]?.text || "";
-      const translationText = sanitizeTranslationText(translationRaw);
+    ({ item: page }: { item: QuranReadPageItem; index: number }) => {
+      const isBookmarked = isVerseBookmarked(page.verseKey);
 
       const showArabic = viewMode === "all" || viewMode === "arabic";
       const showTranslation = viewMode === "all" || viewMode === "english";
@@ -216,12 +244,19 @@ export const QuranReadScreen: React.FC = () => {
         <View style={[styles.versePage, { height: ITEM_HEIGHT }]}>
           <View style={styles.verseContent}>
             {/* Verse Number Badge */}
-            <View style={styles.verseBadge}>
-              <Text style={styles.verseBadgeText}>{verse.verse_number}</Text>
+            <View style={[styles.verseBadge, page.continuationIndex > 0 && styles.verseBadgeWide]}>
+              <Text
+                style={[
+                  styles.verseBadgeText,
+                  page.continuationIndex > 0 && styles.verseBadgeContinuationText,
+                ]}
+              >
+                {page.badgeLabel}
+              </Text>
             </View>
 
             {/* Arabic Text */}
-            {showArabic && (
+            {showArabic && page.arabicText.length > 0 && (
               <Text
                 style={[
                   styles.arabicText,
@@ -229,12 +264,12 @@ export const QuranReadScreen: React.FC = () => {
                 ]}
                 selectable
               >
-                {verse.text_uthmani}
+                {page.arabicText}
               </Text>
             )}
 
             {/* Translation */}
-            {showTranslation && translationText.length > 0 && (
+            {showTranslation && page.translationText.length > 0 && (
               <Text
                 style={[
                   styles.translationText,
@@ -242,14 +277,14 @@ export const QuranReadScreen: React.FC = () => {
                 ]}
                 selectable
               >
-                {translationText}
+                {page.translationText}
               </Text>
             )}
 
             {/* Bookmark Button */}
             <TouchableOpacity
               style={styles.bookmarkButton}
-              onPress={() => handleToggleVerseBookmark(verse)}
+              onPress={() => handleToggleVerseBookmark(page.verse)}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
               <Ionicons
@@ -261,7 +296,10 @@ export const QuranReadScreen: React.FC = () => {
           </View>
 
           {/* Verse Key */}
-          <Text style={styles.verseKey}>{verse.verse_key}</Text>
+          <Text style={styles.verseKey}>
+            {page.verseKey}
+            {page.continuationCount > 1 ? ` • ${page.continuationIndex + 1}/${page.continuationCount}` : ""}
+          </Text>
         </View>
       );
     },
@@ -277,7 +315,7 @@ export const QuranReadScreen: React.FC = () => {
     [ITEM_HEIGHT]
   );
 
-  const keyExtractor = useCallback((item: QuranVerse) => item.verse_key, []);
+  const keyExtractor = useCallback((item: QuranReadPageItem) => item.pageKey, []);
 
   // Progress bar width interpolation
   const progressWidth = progressAnim.interpolate({
@@ -302,7 +340,7 @@ export const QuranReadScreen: React.FC = () => {
             {chapterName}
           </Text>
           <Text style={styles.headerSubtitle}>
-            {currentVerseIndex + 1} of {totalVerses}
+            {currentVerseProgress} of {Math.max(totalVerses, 1)}
           </Text>
         </View>
 
@@ -354,7 +392,7 @@ export const QuranReadScreen: React.FC = () => {
       {/* Swipeable Verse List */}
       <FlatList
         ref={flatListRef}
-        data={verses}
+        data={readPages}
         renderItem={renderVersePage}
         keyExtractor={keyExtractor}
         getItemLayout={getItemLayout}
@@ -518,6 +556,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     width: "100%",
     maxWidth: 600,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.xxl + spacing.lg,
   },
   verseBadge: {
     width: 48,
@@ -528,10 +568,18 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginBottom: spacing.lg,
   },
+  verseBadgeWide: {
+    width: "auto",
+    minWidth: 48,
+    paddingHorizontal: spacing.md,
+  },
   verseBadgeText: {
     ...typography.h4,
     color: colors.text.white,
     fontWeight: "700",
+  },
+  verseBadgeContinuationText: {
+    fontSize: 15,
   },
   arabicText: {
     fontSize: 32,
@@ -540,6 +588,8 @@ const styles = StyleSheet.create({
     textAlign: "center",
     writingDirection: "rtl",
     marginBottom: spacing.lg,
+    width: "100%",
+    flexShrink: 1,
   },
   arabicOnlyText: {
     fontSize: 40,
@@ -551,6 +601,8 @@ const styles = StyleSheet.create({
     lineHeight: 30,
     color: colors.text.secondary,
     textAlign: "center",
+    width: "100%",
+    flexShrink: 1,
   },
   englishOnlyText: {
     fontSize: 22,

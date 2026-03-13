@@ -52,12 +52,31 @@ const parseHashRoute = (): { tab: string; subScreen: string | null; subScreenDat
 
   const tab = parts[0] || 'home';
 
-  // Handle Quran chapter sub-routes: #/quran/chapter/1/Al-Fatihah/الفاتحة/255
+  // Handle Quran mode-select sub-routes: #/quran/mode/1/Al-Fatihah/الفاتحة
+  if (tab === 'quran' && parts[1] === 'mode' && parts[2]) {
+    const chapterId = parseInt(parts[2], 10);
+    const chapterName = parts[3] ? decodeURIComponent(parts[3]) : '';
+    const chapterArabicName = parts[4] ? decodeURIComponent(parts[4]) : '';
+    return {
+      tab: 'quran',
+      subScreen: 'mode-select',
+      subScreenData: {
+        chapterId,
+        chapterName,
+        chapterArabicName,
+      },
+    };
+  }
+
+  // Handle Quran chapter sub-routes: #/quran/chapter/1/Al-Fatihah/الفاتحة/listen/255
   if (tab === 'quran' && parts[1] === 'chapter' && parts[2]) {
     const chapterId = parseInt(parts[2], 10);
     const chapterName = parts[3] ? decodeURIComponent(parts[3]) : '';
     const chapterArabicName = parts[4] ? decodeURIComponent(parts[4]) : '';
-    const scrollToVerse = parts[5] ? parseInt(parts[5], 10) : undefined;
+    const modeSegment = parts[5];
+    const hasMode = modeSegment === 'listen' || modeSegment === 'read';
+    const scrollToVerseSegment = hasMode ? parts[6] : parts[5];
+    const scrollToVerse = scrollToVerseSegment ? parseInt(scrollToVerseSegment, 10) : undefined;
     return {
       tab: 'quran',
       subScreen: 'chapter',
@@ -65,6 +84,7 @@ const parseHashRoute = (): { tab: string; subScreen: string | null; subScreenDat
         chapterId,
         chapterName,
         chapterArabicName,
+        mode: hasMode ? modeSegment : 'listen',
         ...(Number.isFinite(scrollToVerse) ? { scrollToVerse } : {}),
       },
     };
@@ -83,11 +103,16 @@ const parseHashRoute = (): { tab: string; subScreen: string | null; subScreenDat
 };
 
 const buildHashRoute = (tab: string, subScreen: string | null, subScreenData: any): string => {
+  if (tab === 'quran' && subScreen === 'mode-select' && subScreenData) {
+    const { chapterId, chapterName, chapterArabicName } = subScreenData;
+    return `#/quran/mode/${chapterId}/${encodeURIComponent(chapterName || '')}/${encodeURIComponent(chapterArabicName || '')}`;
+  }
   if (tab === 'quran' && subScreen === 'chapter' && subScreenData) {
-    const { chapterId, chapterName, chapterArabicName, scrollToVerse } = subScreenData;
+    const { chapterId, chapterName, chapterArabicName, scrollToVerse, mode } = subScreenData;
     const verseSegment =
       typeof scrollToVerse === 'number' && Number.isFinite(scrollToVerse) ? `/${scrollToVerse}` : '';
-    return `#/quran/chapter/${chapterId}/${encodeURIComponent(chapterName || '')}/${encodeURIComponent(chapterArabicName || '')}${verseSegment}`;
+    const modeSegment = mode === 'read' ? '/read' : '/listen';
+    return `#/quran/chapter/${chapterId}/${encodeURIComponent(chapterName || '')}/${encodeURIComponent(chapterArabicName || '')}${modeSegment}${verseSegment}`;
   }
   if (tab === 'home' && subScreen) {
     return `#/home/${subScreen}`;
@@ -345,7 +370,7 @@ export const WebAppShell: React.FC<WebAppShellProps> = ({ initialScreen = 'home'
     chapterArabicName: string;
     scrollToVerse?: number;
   }) => {
-    const nextData = { ...data, backTab: 'bookmarks' };
+    const nextData = { ...data, mode: 'listen', backTab: 'bookmarks' };
     setActiveTab('quran');
     setSubScreen('chapter');
     setSubScreenData(nextData);
@@ -367,6 +392,7 @@ export const WebAppShell: React.FC<WebAppShellProps> = ({ initialScreen = 'home'
   }) => {
     const nextData = {
       ...data,
+      mode: 'listen',
       backTab: 'home',
       backSubScreen: 'verse-of-day',
       backData: null,

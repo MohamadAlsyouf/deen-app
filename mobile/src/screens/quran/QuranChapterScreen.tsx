@@ -307,15 +307,17 @@ export const QuranChapterScreen: React.FC = () => {
 
   if (versesQuery.isLoading) {
     return (
-      <SafeAreaView style={styles.container} edges={["top"]}>
-        <Header
-          title={title}
-          leftAction={{ iconName: "arrow-back", onPress: handleGoBack }}
-          rightAction={{ iconName: "menu", onPress: handleOpenVerseRangeSidebar }}
-        />
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Loading verses…</Text>
+      <SafeAreaView style={styles.safeArea} edges={["top"]}>
+        <View style={styles.container}>
+          <Header
+            title={title}
+            leftAction={{ iconName: "arrow-back", onPress: handleGoBack }}
+            rightAction={{ iconName: "menu", onPress: handleOpenVerseRangeSidebar }}
+          />
+          <View style={styles.center}>
+            <ActivityIndicator size="large" color={colors.primary} />
+            <Text style={styles.loadingText}>Loading verses…</Text>
+          </View>
         </View>
       </SafeAreaView>
     );
@@ -326,15 +328,17 @@ export const QuranChapterScreen: React.FC = () => {
       (versesQuery.error as any)?.message ||
       "Failed to load verses. Please try again.";
     return (
-      <SafeAreaView style={styles.container} edges={["top"]}>
-        <Header
-          title={title}
-          leftAction={{ iconName: "arrow-back", onPress: handleGoBack }}
-          rightAction={{ iconName: "menu", onPress: handleOpenVerseRangeSidebar }}
-        />
-        <View style={styles.center}>
-          <Text style={styles.errorTitle}>Something went wrong</Text>
-          <Text style={styles.errorText}>{message}</Text>
+      <SafeAreaView style={styles.safeArea} edges={["top"]}>
+        <View style={styles.container}>
+          <Header
+            title={title}
+            leftAction={{ iconName: "arrow-back", onPress: handleGoBack }}
+            rightAction={{ iconName: "menu", onPress: handleOpenVerseRangeSidebar }}
+          />
+          <View style={styles.center}>
+            <Text style={styles.errorTitle}>Something went wrong</Text>
+            <Text style={styles.errorText}>{message}</Text>
+          </View>
         </View>
       </SafeAreaView>
     );
@@ -353,104 +357,110 @@ export const QuranChapterScreen: React.FC = () => {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={["top"]}>
-      <Header
-        title={title}
-        leftAction={{ iconName: "arrow-back", onPress: handleGoBack }}
-        rightAction={{ iconName: "menu", onPress: handleOpenVerseRangeSidebar }}
-      />
-      <ViewModeToggle
-        viewMode={viewMode}
-        onViewModeChange={setViewMode}
-        availableModes={availableViewModes}
-      />
-      <View style={styles.contentWrapper} onLayout={handleContainerLayout}>
-        <ScrollView
-          ref={scrollViewRef}
-          style={[
-            styles.scrollView,
-            Platform.OS === "web" && styles.webScrollView,
-          ]}
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
-          scrollEventThrottle={16}
-        >
-          <View style={styles.headerInfo}>
-            <View style={styles.headerInfoRow}>
-              {chapterArabicName && viewMode !== 'english' ? (
-                <Text style={styles.arabicName}>{chapterArabicName}</Text>
-              ) : null}
-              <TouchableOpacity
-                onPress={handleToggleChapterBookmark}
-                style={styles.chapterBookmarkBtn}
-                activeOpacity={0.7}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+    <SafeAreaView style={styles.safeArea} edges={["top"]}>
+      <View style={styles.container}>
+        <Header
+          title={title}
+          leftAction={{ iconName: "arrow-back", onPress: handleGoBack }}
+          rightAction={{ iconName: "menu", onPress: handleOpenVerseRangeSidebar }}
+        />
+        <ViewModeToggle
+          viewMode={viewMode}
+          onViewModeChange={setViewMode}
+          availableModes={availableViewModes}
+        />
+        <View style={styles.contentWrapper} onLayout={handleContainerLayout}>
+          <ScrollView
+            ref={scrollViewRef}
+            style={[
+              styles.scrollView,
+              Platform.OS === "web" && styles.webScrollView,
+            ]}
+            contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
+            scrollEventThrottle={16}
+          >
+            <View style={styles.headerInfo}>
+              <View style={styles.headerInfoRow}>
+                {chapterArabicName && viewMode !== 'english' ? (
+                  <Text style={styles.arabicName}>{chapterArabicName}</Text>
+                ) : null}
+                <TouchableOpacity
+                  onPress={handleToggleChapterBookmark}
+                  style={styles.chapterBookmarkBtn}
+                  activeOpacity={0.7}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Ionicons
+                    name={chapterIsBookmarked ? 'bookmark' : 'bookmark-outline'}
+                    size={22}
+                    color={chapterIsBookmarked ? colors.accent : colors.text.tertiary}
+                  />
+                </TouchableOpacity>
+              </View>
+              <Text style={styles.subtitle}>{getSubtitleText()}</Text>
+            </View>
+
+            {verses.map((verse) => (
+              <View
+                key={verse.verse_key}
+                onLayout={(event) => handleVerseLayout(verse.verse_key, event)}
               >
-                <Ionicons
-                  name={chapterIsBookmarked ? 'bookmark' : 'bookmark-outline'}
-                  size={22}
-                  color={chapterIsBookmarked ? colors.accent : colors.text.tertiary}
+                <QuranVerseCard
+                  verse={verse}
+                  viewMode={viewMode}
+                  highlightStatus={getVerseHighlightStatus(verse.verse_key)}
+                  highlightedWordPosition={getVerseHighlightedWordPosition(
+                    verse.verse_key
+                  )}
+                  isBookmarked={isVerseBookmarked(verse.verse_key)}
+                  onBookmarkPress={() => handleToggleVerseBookmark(verse)}
                 />
-              </TouchableOpacity>
-            </View>
-            <Text style={styles.subtitle}>{getSubtitleText()}</Text>
-          </View>
+              </View>
+            ))}
 
-          {verses.map((verse) => (
-            <View
-              key={verse.verse_key}
-              onLayout={(event) => handleVerseLayout(verse.verse_key, event)}
-            >
-              <QuranVerseCard
-                verse={verse}
-                viewMode={viewMode}
-                highlightStatus={getVerseHighlightStatus(verse.verse_key)}
-                highlightedWordPosition={getVerseHighlightedWordPosition(
-                  verse.verse_key
-                )}
-                isBookmarked={isVerseBookmarked(verse.verse_key)}
-                onBookmarkPress={() => handleToggleVerseBookmark(verse)}
-              />
-            </View>
-          ))}
+            {versesQuery.isFetchingNextPage ? (
+              <View style={styles.footer}>
+                <ActivityIndicator color={colors.primary} />
+                <Text style={styles.footerText}>Loading more…</Text>
+              </View>
+            ) : versesQuery.hasNextPage ? (
+              <View style={styles.loadMoreWrap}>
+                <Button title="Load more" onPress={handleLoadMore} />
+              </View>
+            ) : (
+              <View style={styles.footerSpacer} />
+            )}
+          </ScrollView>
 
-          {versesQuery.isFetchingNextPage ? (
-            <View style={styles.footer}>
-              <ActivityIndicator color={colors.primary} />
-              <Text style={styles.footerText}>Loading more…</Text>
-            </View>
-          ) : versesQuery.hasNextPage ? (
-            <View style={styles.loadMoreWrap}>
-              <Button title="Load more" onPress={handleLoadMore} />
-            </View>
-          ) : (
-            <View style={styles.footerSpacer} />
-          )}
-        </ScrollView>
+          {/* Audio Player Bar */}
+          <AudioPlayerBar onReciterPress={handleOpenReciterModal} />
+        </View>
 
-        {/* Audio Player Bar */}
-        <AudioPlayerBar onReciterPress={handleOpenReciterModal} />
+        {/* Reciter Selection Modal */}
+        <ReciterSelectModal
+          visible={isReciterModalVisible}
+          onClose={handleCloseReciterModal}
+        />
+
+        {/* Verse Range Sidebar */}
+        <VerseRangeSidebar
+          visible={isVerseRangeSidebarVisible}
+          onClose={handleCloseVerseRangeSidebar}
+          totalVerses={totalVerses}
+          chapterId={chapterId}
+          onScrollToVerse={scrollToVerse}
+        />
       </View>
-
-      {/* Reciter Selection Modal */}
-      <ReciterSelectModal
-        visible={isReciterModalVisible}
-        onClose={handleCloseReciterModal}
-      />
-
-      {/* Verse Range Sidebar */}
-      <VerseRangeSidebar
-        visible={isVerseRangeSidebarVisible}
-        onClose={handleCloseVerseRangeSidebar}
-        totalVerses={totalVerses}
-        chapterId={chapterId}
-        onScrollToVerse={scrollToVerse}
-      />
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
   container: {
     flex: 1,
     backgroundColor: colors.surface,
