@@ -297,20 +297,22 @@ const VerseCard: React.FC<{
             <View style={[styles.playingDot, styles.playingDot3]} />
           </View>
         )}
-        <View
-          style={[
-            styles.verseNumber,
-            isHighlighted && styles.verseNumberHighlighted,
-          ]}
-        >
-          <Text
+        <View style={styles.verseLeftColumn}>
+          <View
             style={[
-              styles.verseNumberText,
-              isHighlighted && styles.verseNumberTextHighlighted,
+              styles.verseNumber,
+              isHighlighted && styles.verseNumberHighlighted,
             ]}
           >
-            {verse.verse_number}
-          </Text>
+            <Text
+              style={[
+                styles.verseNumberText,
+                isHighlighted && styles.verseNumberTextHighlighted,
+              ]}
+            >
+              {verse.verse_number}
+            </Text>
+          </View>
         </View>
         <View style={styles.verseContent}>
           <View style={styles.verseHeaderRow}>
@@ -517,7 +519,8 @@ const WebAudioPlayerBar: React.FC<{
   onSkipToEnd: () => void;
   onPreviousChapter: () => void;
   onNextChapter: () => void;
-}> = ({ onSkipToStart, onSkipToEnd, onPreviousChapter, onNextChapter }) => {
+  isChapterTransitioning?: boolean;
+}> = ({ onSkipToStart, onSkipToEnd, onPreviousChapter, onNextChapter, isChapterTransitioning = false }) => {
   const {
     playbackState,
     currentPosition,
@@ -576,7 +579,7 @@ const WebAudioPlayerBar: React.FC<{
     lastSkipToStartTime.current = now;
   }, [onSkipToStart, onPreviousChapter]);
 
-  const isLoading = playbackState === "loading";
+  const isLoading = playbackState === "loading" && !isChapterTransitioning;
   const isPlaying = playbackState === "playing";
   const isDisabled = playbackState === "idle" || playbackState === "error";
   const progress =
@@ -861,7 +864,7 @@ const VerseRangeSidebar: React.FC<{
         // @ts-ignore - web specific
         const element = sidebarScrollRef.current as unknown as HTMLElement;
         if (element?.scrollTo) {
-          element.scrollTo({ top: element.scrollHeight, behavior: 'smooth' });
+          element.scrollTo({ top: element.scrollHeight, behavior: "smooth" });
         } else if (element?.scrollTop !== undefined) {
           element.scrollTop = element.scrollHeight;
         }
@@ -1389,6 +1392,7 @@ export const WebQuranContent: React.FC<WebQuranContentProps> = ({
   const [viewMode, setViewMode] = useState<ViewMode>("all");
   const [currentReadVerseIndex, setCurrentReadVerseIndex] = useState(0);
   const [isReadTransitioning, setIsReadTransitioning] = useState(false);
+  const [isChapterTransitioning, setIsChapterTransitioning] = useState(false);
   const [targetScrollVerse, setTargetScrollVerse] = useState<number | null>(
     subScreenData?.scrollToVerse ?? null,
   );
@@ -1401,6 +1405,11 @@ export const WebQuranContent: React.FC<WebQuranContentProps> = ({
   const readTransition = useRef(new Animated.Value(1)).current;
   const readScreenEntrance = useRef(new Animated.Value(1)).current;
   const readTransitionDirectionRef = useRef<1 | -1>(1);
+
+  // Chapter transition animation
+  const chapterTranslateX = useRef(new Animated.Value(0)).current;
+  const chapterOpacity = useRef(new Animated.Value(1)).current;
+  const chapterScale = useRef(new Animated.Value(1)).current;
   const chapterMode: QuranMode =
     subScreenData?.mode === "read" ? "read" : "listen";
 
@@ -1688,50 +1697,114 @@ export const WebQuranContent: React.FC<WebQuranContentProps> = ({
     handleNextChapter();
   }, []);
 
-  const handlePreviousChapter = useCallback(() => {
-    const currentChapterId = subScreenData?.chapterId;
-    if (currentChapterId && currentChapterId > 1) {
-      const prevChapterId = currentChapterId - 1;
-      const chapter = chaptersQuery.data?.find((c) => c.id === prevChapterId);
-      if (chapter) {
-        reset();
-        resetPlaybackSettings();
+  // Animate chapter transition
+  const animateChapterTransition = useCallback(
+    (direction: "next" | "previous", chapter: QuranChapter) => {
+      if (isChapterTransitioning) return;
+      setIsChapterTransitioning(true);
+
+      const slideDirection = direction === "next" ? -1 : 1;
+      const screenWidth =
+        typeof window !== "undefined" ? window.innerWidth : 800;
+
+      // Reset audio
+      reset();
+      resetPlaybackSettings();
+
+      // Animate out
+      Animated.parallel([
+        Animated.timing(chapterTranslateX, {
+          toValue: slideDirection * screenWidth * 0.4,
+          duration: 250,
+          useNativeDriver: true,
+        }),
+        Animated.timing(chapterOpacity, {
+          toValue: 0,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+        Animated.timing(chapterScale, {
+          toValue: 0.95,
+          duration: 250,
+          useNativeDriver: true,
+        }),
+      ]).start(() => {
+        // Navigate to new chapter
         onSubNavigate("chapter", {
           chapterId: chapter.id,
           chapterName: chapter.name_simple,
           chapterArabicName: chapter.name_arabic,
         });
+
+        // Position for slide in
+        chapterTranslateX.setValue(-slideDirection * screenWidth * 0.4);
+        chapterScale.setValue(0.95);
+
+        // Animate in
+        setTimeout(() => {
+          Animated.parallel([
+            Animated.timing(chapterTranslateX, {
+              toValue: 0,
+              duration: 250,
+              useNativeDriver: true,
+            }),
+            Animated.timing(chapterOpacity, {
+              toValue: 1,
+              duration: 200,
+              useNativeDriver: true,
+            }),
+            Animated.timing(chapterScale, {
+              toValue: 1,
+              duration: 250,
+              useNativeDriver: true,
+            }),
+          ]).start(() => {
+            setIsChapterTransitioning(false);
+          });
+        }, 50);
+      });
+    },
+    [
+      isChapterTransitioning,
+      reset,
+      resetPlaybackSettings,
+      onSubNavigate,
+      chapterTranslateX,
+      chapterOpacity,
+      chapterScale,
+    ],
+  );
+
+  const handlePreviousChapter = useCallback(() => {
+    const currentChapterId = subScreenData?.chapterId;
+    if (currentChapterId && currentChapterId > 1 && !isChapterTransitioning) {
+      const prevChapterId = currentChapterId - 1;
+      const chapter = chaptersQuery.data?.find((c) => c.id === prevChapterId);
+      if (chapter) {
+        animateChapterTransition("previous", chapter);
       }
     }
   }, [
     subScreenData?.chapterId,
     chaptersQuery.data,
-    reset,
-    resetPlaybackSettings,
-    onSubNavigate,
+    isChapterTransitioning,
+    animateChapterTransition,
   ]);
 
   const handleNextChapter = useCallback(() => {
     const currentChapterId = subScreenData?.chapterId;
-    if (currentChapterId && currentChapterId < 114) {
+    if (currentChapterId && currentChapterId < 114 && !isChapterTransitioning) {
       const nextChapterId = currentChapterId + 1;
       const chapter = chaptersQuery.data?.find((c) => c.id === nextChapterId);
       if (chapter) {
-        reset();
-        resetPlaybackSettings();
-        onSubNavigate("chapter", {
-          chapterId: chapter.id,
-          chapterName: chapter.name_simple,
-          chapterArabicName: chapter.name_arabic,
-        });
+        animateChapterTransition("next", chapter);
       }
     }
   }, [
     subScreenData?.chapterId,
     chaptersQuery.data,
-    reset,
-    resetPlaybackSettings,
-    onSubNavigate,
+    isChapterTransitioning,
+    animateChapterTransition,
   ]);
 
   const handleToggleChapterBookmark = useCallback(() => {
@@ -1953,6 +2026,76 @@ export const WebQuranContent: React.FC<WebQuranContentProps> = ({
 
   // Render chapter verses
   if (subScreen === "chapter" && subScreenData) {
+    // Render the full chapter header (used for both loading and loaded states)
+    const renderChapterHeader = () => (
+      <View style={styles.chapterHeaderShell}>
+        <View style={styles.chapterTopBar}>
+          <TouchableOpacity onPress={handleBack} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={20} color={colors.primary} />
+            <Text style={styles.backButtonText}>{backButtonLabel}</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.chapterHeader}>
+          <LinearGradient
+            colors={["#1B4332", "#2D6A4F"]}
+            style={StyleSheet.absoluteFill}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+          />
+          <View style={styles.chapterHeaderPattern} />
+          <View style={styles.chapterHeaderContent}>
+            <View style={styles.chapterHeaderTopRow}>
+              <View style={styles.chapterHeaderSideSlot}>
+                {subScreenData.chapterArabicName ? (
+                  <Text style={styles.chapterHeaderArabic}>
+                    {subScreenData.chapterArabicName}
+                  </Text>
+                ) : (
+                  <View style={styles.chapterHeaderSideSpacer} />
+                )}
+              </View>
+              <View style={styles.chapterHeaderTitleWrap}>
+                <Text style={styles.chapterHeaderName}>
+                  {subScreenData.chapterName}
+                </Text>
+              </View>
+              <View style={styles.chapterHeaderActionSlot}>
+                <TouchableOpacity
+                  onPress={handleToggleChapterBookmark}
+                  activeOpacity={0.85}
+                  style={styles.chapterBookmarkButton}
+                >
+                  <Ionicons
+                    name={
+                      isChapterBookmarked(subScreenData.chapterId)
+                        ? "bookmark"
+                        : "bookmark-outline"
+                    }
+                    size={21}
+                    color={
+                      isChapterBookmarked(subScreenData.chapterId)
+                        ? colors.accent
+                        : "rgba(255,255,255,0.9)"
+                    }
+                  />
+                </TouchableOpacity>
+              </View>
+            </View>
+            <View style={styles.chapterHeaderBismillahRow}>
+              <Text style={styles.chapterHeaderBismillah}>
+                {viewMode === "english"
+                  ? "In the name of Allah, the Most Gracious, the Most Merciful"
+                  : "بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ"}
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        <ViewModeToggle viewMode={viewMode} onViewModeChange={setViewMode} />
+      </View>
+    );
+
     return (
       <View style={styles.chapterContainer}>
         {versesQuery.isLoading ? (
@@ -1961,39 +2104,21 @@ export const WebQuranContent: React.FC<WebQuranContentProps> = ({
             contentContainerStyle={styles.chapterPageScrollContent}
             showsVerticalScrollIndicator={false}
           >
-            <View style={styles.chapterHeaderShell}>
-              <View style={styles.chapterTopBar}>
-                <TouchableOpacity
-                  onPress={handleBack}
-                  style={styles.backButton}
-                >
-                  <Ionicons
-                    name="arrow-back"
-                    size={20}
-                    color={colors.primary}
-                  />
-                  <Text style={styles.backButtonText}>{backButtonLabel}</Text>
-                </TouchableOpacity>
+            {renderChapterHeader()}
+            <Animated.View
+              style={{
+                opacity: chapterOpacity,
+                transform: [
+                  { translateX: chapterTranslateX },
+                  { scale: chapterScale },
+                ],
+              }}
+            >
+              <View style={styles.loadingContainerCentered}>
+                <ActivityIndicator size="large" color={colors.primary} />
+                <Text style={styles.loadingText}>Loading verses...</Text>
               </View>
-              <View style={styles.chapterHeader}>
-                <LinearGradient
-                  colors={["#1B4332", "#2D6A4F"]}
-                  style={StyleSheet.absoluteFill}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                />
-                <View style={styles.chapterHeaderPattern} />
-                <View style={styles.chapterHeaderContent}>
-                  <Text style={styles.chapterHeaderName}>
-                    {subScreenData.chapterName}
-                  </Text>
-                </View>
-              </View>
-            </View>
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color={colors.primary} />
-              <Text style={styles.loadingText}>Loading verses...</Text>
-            </View>
+            </Animated.View>
           </ScrollView>
         ) : versesQuery.isError ? (
           <ScrollView
@@ -2001,32 +2126,28 @@ export const WebQuranContent: React.FC<WebQuranContentProps> = ({
             contentContainerStyle={styles.chapterPageScrollContent}
             showsVerticalScrollIndicator={false}
           >
-            <View style={styles.chapterHeaderShell}>
-              <View style={styles.chapterTopBar}>
-                <TouchableOpacity
-                  onPress={handleBack}
-                  style={styles.backButton}
-                >
-                  <Ionicons
-                    name="arrow-back"
-                    size={20}
-                    color={colors.primary}
-                  />
-                  <Text style={styles.backButtonText}>{backButtonLabel}</Text>
-                </TouchableOpacity>
+            {renderChapterHeader()}
+            <Animated.View
+              style={{
+                opacity: chapterOpacity,
+                transform: [
+                  { translateX: chapterTranslateX },
+                  { scale: chapterScale },
+                ],
+              }}
+            >
+              <View style={styles.errorContainerCentered}>
+                <Ionicons
+                  name="alert-circle-outline"
+                  size={48}
+                  color={colors.error}
+                />
+                <Text style={styles.errorTitle}>Failed to load verses</Text>
+                <Text style={styles.errorText}>
+                  {(versesQuery.error as Error)?.message || "Please try again"}
+                </Text>
               </View>
-            </View>
-            <View style={styles.errorContainer}>
-              <Ionicons
-                name="alert-circle-outline"
-                size={48}
-                color={colors.error}
-              />
-              <Text style={styles.errorTitle}>Failed to load verses</Text>
-              <Text style={styles.errorText}>
-                {(versesQuery.error as Error)?.message || "Please try again"}
-              </Text>
-            </View>
+            </Animated.View>
           </ScrollView>
         ) : chapterMode === "listen" ? (
           <ScrollView
@@ -2035,130 +2156,75 @@ export const WebQuranContent: React.FC<WebQuranContentProps> = ({
             contentContainerStyle={styles.chapterPageScrollContent}
             showsVerticalScrollIndicator={false}
           >
-            <View style={styles.chapterHeaderShell}>
-              <View style={styles.chapterTopBar}>
-                <TouchableOpacity
-                  onPress={handleBack}
-                  style={styles.backButton}
-                >
-                  <Ionicons
-                    name="arrow-back"
-                    size={20}
-                    color={colors.primary}
-                  />
-                  <Text style={styles.backButtonText}>{backButtonLabel}</Text>
-                </TouchableOpacity>
-              </View>
+            {renderChapterHeader()}
 
-              <View style={styles.chapterHeader}>
-                <LinearGradient
-                  colors={["#1B4332", "#2D6A4F"]}
-                  style={StyleSheet.absoluteFill}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                />
-                <View style={styles.chapterHeaderPattern} />
-                <View style={styles.chapterHeaderContent}>
-                  <View style={styles.chapterHeaderTopRow}>
-                    {viewMode !== "english" ? (
-                      <Text style={styles.chapterHeaderArabic}>
-                        {subScreenData.chapterArabicName}
-                      </Text>
-                    ) : (
-                      <View />
-                    )}
-                    <TouchableOpacity
-                      onPress={handleToggleChapterBookmark}
-                      activeOpacity={0.85}
-                      style={styles.chapterBookmarkButton}
+            <Animated.View
+              style={{
+                opacity: chapterOpacity,
+                transform: [
+                  { translateX: chapterTranslateX },
+                  { scale: chapterScale },
+                ],
+              }}
+            >
+              <View style={styles.versesContainer}>
+                {verses.map((verse, index) => {
+                  const verseKey = `${subScreenData.chapterId}:${verse.verse_number}`;
+                  return (
+                    <View
+                      key={verse.id}
+                      ref={(ref) => {
+                        if (ref) {
+                          verseRefs.current.set(verseKey, ref);
+                        }
+                      }}
                     >
-                      <Ionicons
-                        name={
-                          isChapterBookmarked(subScreenData.chapterId)
-                            ? "bookmark"
-                            : "bookmark-outline"
-                        }
-                        size={21}
-                        color={
-                          isChapterBookmarked(subScreenData.chapterId)
-                            ? colors.accent
-                            : "rgba(255,255,255,0.9)"
-                        }
+                      <VerseCard
+                        verse={verse}
+                        verseKey={verseKey}
+                        index={index}
+                        highlightStatus={getVerseHighlightStatus(verseKey)}
+                        highlightedWordPosition={getVerseHighlightedWordPosition(
+                          verseKey,
+                        )}
+                        viewMode={viewMode}
+                        isBookmarked={isVerseBookmarked(verseKey)}
+                        onBookmarkPress={() => handleToggleVerseBookmark(verse)}
                       />
-                    </TouchableOpacity>
-                  </View>
-                  <Text style={styles.chapterHeaderName}>
-                    {subScreenData.chapterName}
-                  </Text>
-                  {viewMode !== "english" && (
-                    <Text style={styles.chapterHeaderBismillah}>
-                      بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ
-                    </Text>
-                  )}
-                </View>
-              </View>
+                    </View>
+                  );
+                })}
 
-              <ViewModeToggle
-                viewMode={viewMode}
-                onViewModeChange={setViewMode}
-              />
-            </View>
-
-            <View style={styles.versesContainer}>
-              {verses.map((verse, index) => {
-                const verseKey = `${subScreenData.chapterId}:${verse.verse_number}`;
-                return (
-                  <View
-                    key={verse.id}
-                    ref={(ref) => {
-                      if (ref) {
-                        verseRefs.current.set(verseKey, ref);
-                      }
-                    }}
+                {versesQuery.hasNextPage && (
+                  <TouchableOpacity
+                    onPress={() => versesQuery.fetchNextPage()}
+                    disabled={versesQuery.isFetchingNextPage}
+                    style={styles.loadMoreButton}
                   >
-                    <VerseCard
-                      verse={verse}
-                      verseKey={verseKey}
-                      index={index}
-                      highlightStatus={getVerseHighlightStatus(verseKey)}
-                      highlightedWordPosition={getVerseHighlightedWordPosition(
-                        verseKey,
-                      )}
-                      viewMode={viewMode}
-                      isBookmarked={isVerseBookmarked(verseKey)}
-                      onBookmarkPress={() => handleToggleVerseBookmark(verse)}
-                    />
-                  </View>
-                );
-              })}
-
-              {versesQuery.hasNextPage && (
-                <TouchableOpacity
-                  onPress={() => versesQuery.fetchNextPage()}
-                  disabled={versesQuery.isFetchingNextPage}
-                  style={styles.loadMoreButton}
-                >
-                  {versesQuery.isFetchingNextPage ? (
-                    <>
-                      <ActivityIndicator
-                        size="small"
-                        color={colors.text.white}
-                      />
-                      <Text style={styles.loadMoreText}>Loading...</Text>
-                    </>
-                  ) : (
-                    <>
-                      <Text style={styles.loadMoreText}>Load More Verses</Text>
-                      <Ionicons
-                        name="chevron-down"
-                        size={18}
-                        color={colors.text.white}
-                      />
-                    </>
-                  )}
-                </TouchableOpacity>
-              )}
-            </View>
+                    {versesQuery.isFetchingNextPage ? (
+                      <>
+                        <ActivityIndicator
+                          size="small"
+                          color={colors.text.white}
+                        />
+                        <Text style={styles.loadMoreText}>Loading...</Text>
+                      </>
+                    ) : (
+                      <>
+                        <Text style={styles.loadMoreText}>
+                          Load More Verses
+                        </Text>
+                        <Ionicons
+                          name="chevron-down"
+                          size={18}
+                          color={colors.text.white}
+                        />
+                      </>
+                    )}
+                  </TouchableOpacity>
+                )}
+              </View>
+            </Animated.View>
           </ScrollView>
         ) : (
           <>
@@ -2220,8 +2286,7 @@ export const WebQuranContent: React.FC<WebQuranContentProps> = ({
                     </TouchableOpacity>
                   </View>
                   <View style={styles.readChapterHeaderContent}>
-                    {viewMode !== "english" &&
-                    subScreenData.chapterArabicName ? (
+                    {subScreenData.chapterArabicName ? (
                       <Text style={styles.readChapterHeaderArabic}>
                         {subScreenData.chapterArabicName}
                       </Text>
@@ -2229,11 +2294,11 @@ export const WebQuranContent: React.FC<WebQuranContentProps> = ({
                     <Text style={styles.readChapterHeaderName}>
                       {subScreenData.chapterName}
                     </Text>
-                    {viewMode !== "english" && (
-                      <Text style={styles.readChapterHeaderBismillah}>
-                        بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ
-                      </Text>
-                    )}
+                    <Text style={styles.readChapterHeaderBismillah}>
+                      {viewMode === "english"
+                        ? "In the name of Allah, the Most Gracious, the Most Merciful"
+                        : "بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ"}
+                    </Text>
                   </View>
                 </View>
 
@@ -2382,6 +2447,7 @@ export const WebQuranContent: React.FC<WebQuranContentProps> = ({
             onSkipToEnd={handleNextChapter}
             onPreviousChapter={handlePreviousChapter}
             onNextChapter={handleNextChapter}
+            isChapterTransitioning={isChapterTransitioning}
           />
         ) : null}
 
@@ -2716,9 +2782,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   chapterHeader: {
-    borderRadius: 24,
+    borderRadius: 16,
     overflow: "hidden",
-    marginBottom: 18,
+    marginBottom: 14,
     position: "relative",
   },
   readChapterHeader: {
@@ -2737,28 +2803,49 @@ const styles = StyleSheet.create({
   },
   chapterHeaderContent: {
     paddingHorizontal: 18,
-    paddingVertical: 14,
-    alignItems: "center",
+    paddingVertical: 10,
+    gap: 8,
   },
   chapterHeaderTopRow: {
     width: "100%",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 6,
+    gap: 16,
+  },
+  chapterHeaderSideSlot: {
+    flex: 1,
+    alignItems: "flex-start",
+    justifyContent: "center",
+    minWidth: 0,
+  },
+  chapterHeaderTitleWrap: {
+    flex: 1.4,
+    alignItems: "center",
+    justifyContent: "center",
+    minWidth: 0,
+  },
+  chapterHeaderActionSlot: {
+    flex: 1,
+    alignItems: "flex-end",
+    justifyContent: "center",
+  },
+  chapterHeaderSideSpacer: {
+    width: 36,
+    height: 36,
   },
   chapterHeaderArabic: {
-    fontSize: 38,
+    fontSize: 32,
     fontWeight: "700",
     color: colors.accent,
-    marginBottom: 8,
     // @ts-ignore
     fontFamily: "'Amiri', serif",
+    textAlign: "left",
   },
   chapterBookmarkButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "rgba(255,255,255,0.12)",
@@ -2768,16 +2855,22 @@ const styles = StyleSheet.create({
     cursor: "pointer",
   },
   chapterHeaderName: {
-    fontSize: 22,
+    fontSize: 30,
     fontWeight: "600",
     color: colors.text.white,
-    marginBottom: 10,
+    textAlign: "center",
     // @ts-ignore
     fontFamily: "'Cormorant Garamond', Georgia, serif",
   },
+  chapterHeaderBismillahRow: {
+    width: "100%",
+    alignItems: "center",
+    justifyContent: "center",
+  },
   chapterHeaderBismillah: {
-    fontSize: 18,
-    color: "rgba(255, 255, 255, 0.8)",
+    fontSize: 24,
+    color: "rgba(255, 255, 255, 0.85)",
+    textAlign: "center",
     // @ts-ignore
     fontFamily: "'Amiri', serif",
   },
@@ -3091,11 +3184,11 @@ const styles = StyleSheet.create({
     direction: "rtl",
   },
   verseTransliteration: {
-    fontSize: 15,
+    fontSize: 21,
     color: colors.primary,
     fontStyle: "italic",
     marginBottom: 12,
-    lineHeight: 24,
+    lineHeight: 28,
     // @ts-ignore
     fontFamily: "'Cormorant Garamond', Georgia, serif",
   },
@@ -3176,6 +3269,12 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     padding: 60,
   },
+  loadingContainerCentered: {
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 60,
+    minHeight: 300,
+  },
   loadingText: {
     fontSize: 15,
     color: colors.text.secondary,
@@ -3187,6 +3286,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     padding: 60,
+  },
+  errorContainerCentered: {
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 60,
+    minHeight: 300,
   },
   errorTitle: {
     fontSize: 18,
