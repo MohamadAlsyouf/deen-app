@@ -843,6 +843,7 @@ const VerseRangeSidebar: React.FC<{
     audioFile,
   } = useAudioPlayer();
   const [showReciterList, setShowReciterList] = useState(false);
+  const sidebarScrollRef = useRef<ScrollView>(null);
 
   const [startInput, setStartInput] = useState("");
   const [endInput, setEndInput] = useState("");
@@ -852,6 +853,21 @@ const VerseRangeSidebar: React.FC<{
   const [lastEditedField, setLastEditedField] = useState<
     "start" | "end" | null
   >(null);
+
+  // Scroll to bottom of sidebar when inputs are focused
+  const scrollToBottom = useCallback(() => {
+    setTimeout(() => {
+      if (sidebarScrollRef.current) {
+        // @ts-ignore - web specific
+        const element = sidebarScrollRef.current as unknown as HTMLElement;
+        if (element?.scrollTo) {
+          element.scrollTo({ top: element.scrollHeight, behavior: 'smooth' });
+        } else if (element?.scrollTop !== undefined) {
+          element.scrollTop = element.scrollHeight;
+        }
+      }
+    }, 100);
+  }, []);
 
   const normalizeVerseInputs = useCallback(
     (startValueRaw: string, endValueRaw: string) => {
@@ -1061,8 +1077,9 @@ const VerseRangeSidebar: React.FC<{
           </View>
 
           <ScrollView
+            ref={sidebarScrollRef}
             style={styles.sidebarScroll}
-            showsVerticalScrollIndicator={false}
+            showsVerticalScrollIndicator={true}
           >
             {/* Reciter Section */}
             <View style={styles.sidebarSection}>
@@ -1103,7 +1120,11 @@ const VerseRangeSidebar: React.FC<{
                   </TouchableOpacity>
 
                   {showReciterList && (
-                    <View style={styles.reciterListContainer}>
+                    <ScrollView
+                      style={styles.reciterListContainer}
+                      nestedScrollEnabled={true}
+                      showsVerticalScrollIndicator={true}
+                    >
                       {reciters.map((reciter) => {
                         const isSelected = selectedReciter?.id === reciter.id;
                         return (
@@ -1138,7 +1159,7 @@ const VerseRangeSidebar: React.FC<{
                           </TouchableOpacity>
                         );
                       })}
-                    </View>
+                    </ScrollView>
                   )}
                 </>
               )}
@@ -1191,6 +1212,7 @@ const VerseRangeSidebar: React.FC<{
                     value={startInput}
                     onChangeText={handleStartChange}
                     onBlur={handleStartBlur}
+                    onFocus={scrollToBottom}
                     keyboardType="number-pad"
                     maxLength={4}
                   />
@@ -1213,6 +1235,7 @@ const VerseRangeSidebar: React.FC<{
                     value={endInput}
                     onChangeText={handleEndChange}
                     onBlur={handleEndBlur}
+                    onFocus={scrollToBottom}
                     keyboardType="number-pad"
                     maxLength={4}
                   />
@@ -1279,6 +1302,7 @@ const VerseRangeSidebar: React.FC<{
                       placeholderTextColor={colors.text.disabled}
                       value={loopCountInput}
                       onChangeText={setLoopCountInput}
+                      onFocus={scrollToBottom}
                       keyboardType="number-pad"
                       maxLength={3}
                     />
@@ -3825,8 +3849,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: colors.border,
-    overflow: "hidden",
-    maxHeight: 200,
+    maxHeight: 300,
   },
   reciterListItem: {
     flexDirection: "row",

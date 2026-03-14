@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -15,11 +15,13 @@ import {
   Switch,
   ScrollView,
   Keyboard,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, spacing, typography, borderRadius, shadows } from '@/theme';
 import { useAudioPlayer } from '@/contexts/AudioPlayerContext';
+import type { NormalizedReciter } from '@/types/quran';
 
 const SIDEBAR_WIDTH = 300;
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -45,24 +47,45 @@ export const VerseRangeSidebar: React.FC<VerseRangeSidebarProps> = ({
   onScrollToVerse,
 }) => {
   const insets = useSafeAreaInsets();
-  const { 
-    verseRange, 
-    setVerseRange, 
-    clearVerseRange, 
+  const {
+    verseRange,
+    setVerseRange,
+    clearVerseRange,
     loopSettings,
     setLoopSettings,
     clearLoopSettings,
-    seekTo, 
-    audioFile 
+    seekTo,
+    audioFile,
+    reciters,
+    selectedReciter,
+    isLoadingReciters,
+    selectReciter,
   } = useAudioPlayer();
+
+  // Ref for scrolling to bottom
+  const scrollViewRef = useRef<ScrollView>(null);
   
   const [startInput, setStartInput] = useState('');
   const [endInput, setEndInput] = useState('');
   const [loopCountInput, setLoopCountInput] = useState('');
   const [isInfiniteLoop, setIsInfiniteLoop] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isReciterListExpanded, setIsReciterListExpanded] = useState(false);
   const slideAnim = useState(new Animated.Value(SIDEBAR_WIDTH))[0];
   const overlayAnim = useState(new Animated.Value(0))[0];
+
+  // Scroll to bottom to show Apply button when inputs are focused
+  const scrollToBottom = useCallback(() => {
+    setTimeout(() => {
+      scrollViewRef.current?.scrollToEnd({ animated: true });
+    }, 100);
+  }, []);
+
+  // Handle reciter selection
+  const handleSelectReciter = useCallback((reciter: NormalizedReciter) => {
+    selectReciter(reciter);
+    setIsReciterListExpanded(false);
+  }, [selectReciter]);
   
   // Track which verse field was edited last (for auto-correction when start > end)
   const [lastEditedField, setLastEditedField] = useState<'start' | 'end' | null>(null);
@@ -304,10 +327,12 @@ export const VerseRangeSidebar: React.FC<VerseRangeSidebarProps> = ({
             </TouchableOpacity>
           </View>
 
-          <ScrollView 
+          <ScrollView
+            ref={scrollViewRef}
             style={styles.scrollContent}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
+            nestedScrollEnabled
           >
             {/* Current Settings Display */}
             {hasCustomSettings && (
@@ -321,14 +346,95 @@ export const VerseRangeSidebar: React.FC<VerseRangeSidebarProps> = ({
                   )}
                   {hasLooping && (
                     <Text style={styles.currentSettingsText}>
-                      {loopSettings.isInfiniteLoop 
-                        ? '∞ Infinite loop' 
+                      {loopSettings.isInfiniteLoop
+                        ? '∞ Infinite loop'
                         : `🔁 Loop ${loopSettings.loopCount}x (${loopSettings.currentIteration}/${loopSettings.loopCount})`}
                     </Text>
                   )}
                 </View>
               </View>
             )}
+
+            {/* Reciter Selection Section */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Reciter</Text>
+              <Text style={styles.sectionDescription}>
+                Select a reciter for Quran audio playback.
+              </Text>
+
+              {isLoadingReciters ? (
+                <View style={styles.reciterLoading}>
+                  <ActivityIndicator size="small" color={colors.primary} />
+                  <Text style={styles.reciterLoadingText}>Loading reciters...</Text>
+                </View>
+              ) : (
+                <>
+                  {/* Current reciter display / toggle */}
+                  <TouchableOpacity
+                    style={[styles.reciterToggle, isReciterListExpanded && styles.reciterToggleExpanded]}
+                    onPress={() => setIsReciterListExpanded(!isReciterListExpanded)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.reciterToggleContent}>
+                      <Ionicons name="person" size={18} color={colors.primary} />
+                      <View style={styles.reciterToggleTextWrapper}>
+                        <Text style={styles.reciterToggleName}>
+                          {selectedReciter?.name || 'Select a reciter'}
+                        </Text>
+                        {selectedReciter?.arabic_name && (
+                          <Text style={styles.reciterToggleArabic}>
+                            {selectedReciter.arabic_name}
+                          </Text>
+                        )}
+                      </View>
+                    </View>
+                    <Ionicons
+                      name={isReciterListExpanded ? 'chevron-up' : 'chevron-down'}
+                      size={20}
+                      color={colors.text.secondary}
+                    />
+                  </TouchableOpacity>
+
+                  {/* Reciter list (scrollable) */}
+                  {isReciterListExpanded && (
+                    <ScrollView
+                      style={styles.reciterList}
+                      nestedScrollEnabled
+                      showsVerticalScrollIndicator
+                    >
+                      {reciters.map((reciter) => (
+                        <TouchableOpacity
+                          key={reciter.id}
+                          style={[
+                            styles.reciterItem,
+                            selectedReciter?.id === reciter.id && styles.reciterItemSelected,
+                          ]}
+                          onPress={() => handleSelectReciter(reciter)}
+                          activeOpacity={0.7}
+                        >
+                          <View style={styles.reciterItemContent}>
+                            <Text
+                              style={[
+                                styles.reciterItemName,
+                                selectedReciter?.id === reciter.id && styles.reciterItemNameSelected,
+                              ]}
+                            >
+                              {reciter.name}
+                            </Text>
+                            {reciter.arabic_name && (
+                              <Text style={styles.reciterItemArabic}>{reciter.arabic_name}</Text>
+                            )}
+                          </View>
+                          {selectedReciter?.id === reciter.id && (
+                            <Ionicons name="checkmark-circle" size={20} color={colors.primary} />
+                          )}
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  )}
+                </>
+              )}
+            </View>
 
             {/* Verse Range Section */}
             <View style={styles.section}>
@@ -348,6 +454,7 @@ export const VerseRangeSidebar: React.FC<VerseRangeSidebarProps> = ({
                     value={startInput}
                     onChangeText={handleStartChange}
                     onBlur={handleStartBlur}
+                    onFocus={scrollToBottom}
                     keyboardType="numeric"
                     maxLength={4}
                     inputAccessoryViewID={Platform.OS === 'ios' ? DONE_ACCESSORY_ID : undefined}
@@ -368,6 +475,7 @@ export const VerseRangeSidebar: React.FC<VerseRangeSidebarProps> = ({
                     value={endInput}
                     onChangeText={handleEndChange}
                     onBlur={handleEndBlur}
+                    onFocus={scrollToBottom}
                     keyboardType="numeric"
                     maxLength={4}
                     inputAccessoryViewID={Platform.OS === 'ios' ? DONE_ACCESSORY_ID : undefined}
@@ -419,6 +527,7 @@ export const VerseRangeSidebar: React.FC<VerseRangeSidebarProps> = ({
                       placeholderTextColor={colors.text.disabled}
                       value={loopCountInput}
                       onChangeText={setLoopCountInput}
+                      onFocus={scrollToBottom}
                       keyboardType="numeric"
                       maxLength={3}
                       inputAccessoryViewID={Platform.OS === 'ios' ? DONE_ACCESSORY_ID : undefined}
@@ -699,6 +808,91 @@ const styles = StyleSheet.create({
   resetButtonText: {
     ...typography.button,
     color: colors.primary,
+  },
+  // Reciter selection styles
+  reciterLoading: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.md,
+    gap: spacing.sm,
+  },
+  reciterLoadingText: {
+    ...typography.caption,
+    color: colors.text.secondary,
+  },
+  reciterToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.surface,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  reciterToggleExpanded: {
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+    borderBottomWidth: 0,
+  },
+  reciterToggleContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    gap: spacing.sm,
+  },
+  reciterToggleTextWrapper: {
+    flex: 1,
+  },
+  reciterToggleName: {
+    ...typography.body,
+    color: colors.text.primary,
+    fontWeight: '500',
+  },
+  reciterToggleArabic: {
+    ...typography.caption,
+    color: colors.text.secondary,
+    marginTop: 2,
+  },
+  reciterList: {
+    maxHeight: 200,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderTopWidth: 0,
+    borderColor: colors.border,
+    borderBottomLeftRadius: borderRadius.md,
+    borderBottomRightRadius: borderRadius.md,
+  },
+  reciterItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  reciterItemSelected: {
+    backgroundColor: '#E8F5E9',
+  },
+  reciterItemContent: {
+    flex: 1,
+  },
+  reciterItemName: {
+    ...typography.body,
+    color: colors.text.primary,
+    fontSize: 14,
+  },
+  reciterItemNameSelected: {
+    color: colors.primary,
+    fontWeight: '600',
+  },
+  reciterItemArabic: {
+    ...typography.caption,
+    color: colors.text.secondary,
+    fontSize: 12,
+    marginTop: 2,
   },
   // Native keyboard accessory toolbar
   keyboardToolbar: {

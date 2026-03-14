@@ -24,16 +24,29 @@ type ArabicWord = {
   isWord: boolean;
 };
 
+// Remove Arabic verse end markers (۝ followed by Arabic-Indic digits)
+const stripArabicVerseNumber = (text: string): string => {
+  // Match Arabic End of Ayah marker (۝) followed by Arabic-Indic digits (٠-٩)
+  // Also match standalone Arabic-Indic number sequences at the end
+  return text
+    .replace(/\s*۝[٠-٩]+\s*/g, '')
+    .replace(/\s*[٠-٩]+\s*$/g, '')
+    .trim();
+};
+
 const getArabicWords = (words: QuranWord[] | undefined): ArabicWord[] => {
   if (!words || words.length === 0) {
     return [];
   }
 
-  return words.map((word) => ({
-    text: word.text_uthmani,
-    position: word.position,
-    isWord: word.char_type_name === 'word',
-  }));
+  // Filter out non-word elements (like verse end markers)
+  return words
+    .filter((word) => word.char_type_name === 'word')
+    .map((word) => ({
+      text: word.text_uthmani,
+      position: word.position,
+      isWord: true,
+    }));
 };
 
 const getWordTransliterations = (words: QuranWord[] | undefined): string[] => {
@@ -99,6 +112,12 @@ export const QuranVerseCard: React.FC<QuranVerseCardProps> = ({
   const showTransliteration = viewMode === 'all';
   const showTranslation = viewMode === 'all' || viewMode === 'english';
 
+  // Memoize the stripped Arabic text
+  const strippedArabicText = useMemo(
+    () => stripArabicVerseNumber(verse.text_uthmani),
+    [verse.text_uthmani]
+  );
+
   const renderArabicText = () => {
     // If no words data, render plain text with potential highlighting
     if (arabicWords.length === 0) {
@@ -108,19 +127,24 @@ export const QuranVerseCard: React.FC<QuranVerseCardProps> = ({
           isCurrentVerse && styles.currentVerseText,
           viewMode === 'arabic' && styles.arabicOnlyText,
         ]}>
-          {verse.text_uthmani}
+          {strippedArabicText}
         </Text>
       );
     }
 
-    // No highlighting needed
+    // No highlighting needed - use word-based rendering (already filtered)
     if (highlightStatus === 'none') {
       return (
         <Text style={[
           styles.arabic,
           viewMode === 'arabic' && styles.arabicOnlyText,
         ]}>
-          {verse.text_uthmani}
+          {arabicWords.map((word, index) => (
+            <Text key={index}>
+              {word.text}
+              {index < arabicWords.length - 1 ? ' ' : ''}
+            </Text>
+          ))}
         </Text>
       );
     }
