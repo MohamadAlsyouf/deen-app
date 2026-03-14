@@ -3,7 +3,13 @@
  * Includes audio player, reciter selection, verse highlighting, auto-scroll, view mode toggle, and verse range/loop settings
  */
 
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import React, {
+  useState,
+  useEffect,
+  useMemo,
+  useCallback,
+  useRef,
+} from "react";
 import {
   View,
   Text,
@@ -15,32 +21,39 @@ import {
   TextInput,
   Switch,
   Animated,
-} from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
-import { colors } from '@/theme';
-import { useWebHover } from '@/hooks/useWebHover';
-import { useAudioPlayer } from '@/contexts/AudioPlayerContext';
-import { useBookmarks } from '@/contexts/BookmarkContext';
-import { quranService } from '@/services/quranService';
-import type { QuranChapter, QuranVerse, NormalizedReciter } from '@/types/quran';
-import { buildQuranReadPages, type QuranReadPage } from '@/utils/quranReadPagination';
+} from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
+import { Ionicons } from "@expo/vector-icons";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import { colors } from "@/theme";
+import { useWebHover } from "@/hooks/useWebHover";
+import { useAudioPlayer } from "@/contexts/AudioPlayerContext";
+import { useBookmarks } from "@/contexts/BookmarkContext";
+import { quranService } from "@/services/quranService";
+import type {
+  QuranChapter,
+  QuranVerse,
+  NormalizedReciter,
+} from "@/types/quran";
+import {
+  buildQuranReadPages,
+  type QuranReadPage,
+} from "@/utils/quranReadPagination";
 
 const PER_PAGE = 50;
 
 // View mode type
-type ViewMode = 'all' | 'arabic' | 'english';
-type QuranMode = 'listen' | 'read';
+type ViewMode = "all" | "arabic" | "english";
+type QuranMode = "listen" | "read";
 
 // Strip HTML tags from translation text (e.g., <sup foot_note=123>1</sup>)
 const stripHtmlTags = (text: string): string => {
-  if (!text) return '';
+  if (!text) return "";
   // Remove all HTML tags including their content for sup tags
   return text
-    .replace(/<sup[^>]*>.*?<\/sup>/gi, '') // Remove <sup>...</sup> entirely
-    .replace(/<[^>]+>/g, '') // Remove any other HTML tags
-    .replace(/\s+/g, ' ') // Normalize whitespace
+    .replace(/<sup[^>]*>.*?<\/sup>/gi, "") // Remove <sup>...</sup> entirely
+    .replace(/<[^>]+>/g, "") // Remove any other HTML tags
+    .replace(/\s+/g, " ") // Normalize whitespace
     .trim();
 };
 
@@ -56,14 +69,15 @@ type ReadPageItem = QuranReadPage & {
 
 const transformVerse = (verse: QuranVerse): TransformedVerse => {
   // Extract transliteration from words
-  const transliteration = verse.words
-    ?.filter(w => w.char_type_name !== 'end')
-    ?.map(w => w.transliteration?.text)
-    ?.filter(Boolean)
-    ?.join(' ') || '';
+  const transliteration =
+    verse.words
+      ?.filter((w) => w.char_type_name !== "end")
+      ?.map((w) => w.transliteration?.text)
+      ?.filter(Boolean)
+      ?.join(" ") || "";
 
   // Extract translation from translations array and strip HTML tags
-  const rawTranslation = verse.translations?.[0]?.text || '';
+  const rawTranslation = verse.translations?.[0]?.text || "";
   const translation = stripHtmlTags(rawTranslation);
 
   return {
@@ -87,10 +101,10 @@ const ChapterCard: React.FC<{
 }> = ({ chapter, onPress, index }) => {
   const hover = useWebHover({
     hoverStyle: {
-      transform: 'translateY(-4px)',
-      boxShadow: '0 12px 32px rgba(27, 67, 50, 0.15)',
+      transform: "translateY(-4px)",
+      boxShadow: "0 12px 32px rgba(27, 67, 50, 0.15)",
     },
-    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+    transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
   });
 
   return (
@@ -133,12 +147,12 @@ const ChapterCard: React.FC<{
 // Format time in mm:ss - handles NaN and invalid values
 const formatTime = (ms: number): string => {
   if (!ms || isNaN(ms) || !isFinite(ms) || ms < 0) {
-    return '0:00';
+    return "0:00";
   }
   const totalSeconds = Math.floor(ms / 1000);
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
-  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  return `${minutes}:${seconds.toString().padStart(2, "0")}`;
 };
 
 // View Mode Toggle Component
@@ -147,9 +161,9 @@ const ViewModeToggle: React.FC<{
   onViewModeChange: (mode: ViewMode) => void;
 }> = ({ viewMode, onViewModeChange }) => {
   const modes: { key: ViewMode; label: string }[] = [
-    { key: 'all', label: 'All' },
-    { key: 'arabic', label: 'عربي' },
-    { key: 'english', label: 'English' },
+    { key: "all", label: "All" },
+    { key: "arabic", label: "عربي" },
+    { key: "english", label: "English" },
   ];
 
   return (
@@ -171,7 +185,7 @@ const ViewModeToggle: React.FC<{
                 style={[
                   styles.viewModeText,
                   isActive && styles.viewModeTextActive,
-                  mode.key === 'arabic' && styles.viewModeArabicText,
+                  mode.key === "arabic" && styles.viewModeArabicText,
                 ]}
               >
                 {mode.label}
@@ -188,7 +202,7 @@ const VerseCard: React.FC<{
   verse: TransformedVerse;
   verseKey: string;
   index: number;
-  highlightStatus?: 'none' | 'current' | 'completed';
+  highlightStatus?: "none" | "current" | "completed";
   highlightedWordPosition?: number | null;
   viewMode?: ViewMode;
   isBookmarked?: boolean;
@@ -197,47 +211,48 @@ const VerseCard: React.FC<{
   verse,
   verseKey,
   index,
-  highlightStatus = 'none',
+  highlightStatus = "none",
   highlightedWordPosition,
-  viewMode = 'all',
+  viewMode = "all",
   isBookmarked = false,
   onBookmarkPress,
 }) => {
   const hover = useWebHover({
     hoverStyle: {
-      backgroundColor: highlightStatus === 'current' ? '#D4EDDA' : '#FAFBFA',
+      backgroundColor: highlightStatus === "current" ? "#D4EDDA" : "#FAFBFA",
       borderColor: colors.primary,
     },
-    transition: 'all 0.2s ease-out',
+    transition: "all 0.2s ease-out",
   });
 
-  const isHighlighted = highlightStatus === 'current';
-  const isCompleted = highlightStatus === 'completed';
+  const isHighlighted = highlightStatus === "current";
+  const isCompleted = highlightStatus === "completed";
 
   // Determine what to show based on view mode
-  const showArabic = viewMode === 'all' || viewMode === 'arabic';
-  const showTransliteration = viewMode === 'all';
-  const showTranslation = viewMode === 'all' || viewMode === 'english';
+  const showArabic = viewMode === "all" || viewMode === "arabic";
+  const showTransliteration = viewMode === "all";
+  const showTranslation = viewMode === "all" || viewMode === "english";
 
   // Render Arabic text with word-level highlighting
   const renderArabicWithHighlight = () => {
     const arabicStyle = [
       styles.verseArabic,
       isHighlighted && styles.verseArabicHighlighted,
-      viewMode === 'arabic' && styles.verseArabicOnly,
+      viewMode === "arabic" && styles.verseArabicOnly,
     ];
 
-    if (!isHighlighted || !verse.words || highlightedWordPosition === null || highlightedWordPosition === undefined) {
-      return (
-        <Text style={arabicStyle}>
-          {verse.text_uthmani}
-        </Text>
-      );
+    if (
+      !isHighlighted ||
+      !verse.words ||
+      highlightedWordPosition === null ||
+      highlightedWordPosition === undefined
+    ) {
+      return <Text style={arabicStyle}>{verse.text_uthmani}</Text>;
     }
 
     // Filter out end markers and render words with highlighting
-    const wordsToRender = verse.words.filter(w => w.char_type_name !== 'end');
-    
+    const wordsToRender = verse.words.filter((w) => w.char_type_name !== "end");
+
     return (
       <Text style={arabicStyle}>
         {wordsToRender.map((word, idx) => {
@@ -247,7 +262,7 @@ const VerseCard: React.FC<{
               key={word.id || idx}
               style={isCurrentWord ? styles.highlightedWord : undefined}
             >
-              {word.text_uthmani}{' '}
+              {word.text_uthmani}{" "}
             </Text>
           );
         })}
@@ -256,7 +271,7 @@ const VerseCard: React.FC<{
   };
 
   // English-only mode renders differently
-  if (viewMode === 'english') {
+  if (viewMode === "english") {
     return (
       <View
         // @ts-ignore
@@ -282,8 +297,18 @@ const VerseCard: React.FC<{
             <View style={[styles.playingDot, styles.playingDot3]} />
           </View>
         )}
-        <View style={[styles.verseNumber, isHighlighted && styles.verseNumberHighlighted]}>
-          <Text style={[styles.verseNumberText, isHighlighted && styles.verseNumberTextHighlighted]}>
+        <View
+          style={[
+            styles.verseNumber,
+            isHighlighted && styles.verseNumberHighlighted,
+          ]}
+        >
+          <Text
+            style={[
+              styles.verseNumberText,
+              isHighlighted && styles.verseNumberTextHighlighted,
+            ]}
+          >
             {verse.verse_number}
           </Text>
         </View>
@@ -291,9 +316,13 @@ const VerseCard: React.FC<{
           <View style={styles.verseHeaderRow}>
             <Text style={styles.verseKeyText}>{verseKey}</Text>
             {onBookmarkPress ? (
-              <TouchableOpacity onPress={onBookmarkPress} activeOpacity={0.8} style={styles.verseBookmarkButton}>
+              <TouchableOpacity
+                onPress={onBookmarkPress}
+                activeOpacity={0.8}
+                style={styles.verseBookmarkButton}
+              >
                 <Ionicons
-                  name={isBookmarked ? 'bookmark' : 'bookmark-outline'}
+                  name={isBookmarked ? "bookmark" : "bookmark-outline"}
                   size={18}
                   color={isBookmarked ? colors.accent : colors.text.tertiary}
                 />
@@ -301,7 +330,12 @@ const VerseCard: React.FC<{
             ) : null}
           </View>
           {verse.translation && (
-            <Text style={[styles.verseTranslationOnly, isHighlighted && styles.verseTranslationHighlighted]}>
+            <Text
+              style={[
+                styles.verseTranslationOnly,
+                isHighlighted && styles.verseTranslationHighlighted,
+              ]}
+            >
               {verse.translation}
             </Text>
           )}
@@ -317,7 +351,7 @@ const VerseCard: React.FC<{
       onMouseLeave={hover.handlers.onMouseLeave}
       style={[
         styles.verseCard,
-        viewMode === 'arabic' && styles.verseCardArabicOnly,
+        viewMode === "arabic" && styles.verseCardArabicOnly,
         hover.style,
         isHighlighted && styles.verseCardHighlighted,
         isCompleted && styles.verseCardCompleted,
@@ -337,15 +371,29 @@ const VerseCard: React.FC<{
         </View>
       )}
       <View style={styles.verseLeftColumn}>
-        <View style={[styles.verseNumber, isHighlighted && styles.verseNumberHighlighted]}>
-          <Text style={[styles.verseNumberText, isHighlighted && styles.verseNumberTextHighlighted]}>
+        <View
+          style={[
+            styles.verseNumber,
+            isHighlighted && styles.verseNumberHighlighted,
+          ]}
+        >
+          <Text
+            style={[
+              styles.verseNumberText,
+              isHighlighted && styles.verseNumberTextHighlighted,
+            ]}
+          >
             {verse.verse_number}
           </Text>
         </View>
         {onBookmarkPress ? (
-          <TouchableOpacity onPress={onBookmarkPress} activeOpacity={0.8} style={styles.verseBookmarkButton}>
+          <TouchableOpacity
+            onPress={onBookmarkPress}
+            activeOpacity={0.8}
+            style={styles.verseBookmarkButton}
+          >
             <Ionicons
-              name={isBookmarked ? 'bookmark' : 'bookmark-outline'}
+              name={isBookmarked ? "bookmark" : "bookmark-outline"}
               size={18}
               color={isBookmarked ? colors.accent : colors.text.tertiary}
             />
@@ -358,7 +406,12 @@ const VerseCard: React.FC<{
         </View>
         {showArabic && renderArabicWithHighlight()}
         {showTransliteration && verse.transliteration && (
-          <Text style={[styles.verseTransliteration, isHighlighted && styles.verseTransliterationHighlighted]}>
+          <Text
+            style={[
+              styles.verseTransliteration,
+              isHighlighted && styles.verseTransliterationHighlighted,
+            ]}
+          >
             {verse.transliteration}
           </Text>
         )}
@@ -377,8 +430,8 @@ const ReadVerseCard: React.FC<{
   isBookmarked: boolean;
   onBookmarkPress: () => void;
 }> = ({ page, viewMode, pageHeight, isBookmarked, onBookmarkPress }) => {
-  const showArabic = viewMode === 'all' || viewMode === 'arabic';
-  const showTranslation = viewMode === 'all' || viewMode === 'english';
+  const showArabic = viewMode === "all" || viewMode === "arabic";
+  const showTranslation = viewMode === "all" || viewMode === "english";
 
   return (
     <View
@@ -403,7 +456,8 @@ const ReadVerseCard: React.FC<{
             <Text
               style={[
                 styles.readVerseBadgeText,
-                page.continuationIndex > 0 && styles.readVerseBadgeContinuationText,
+                page.continuationIndex > 0 &&
+                  styles.readVerseBadgeContinuationText,
               ]}
             >
               {page.badgeLabel}
@@ -415,7 +469,7 @@ const ReadVerseCard: React.FC<{
             style={styles.readVerseBookmarkButton}
           >
             <Ionicons
-              name={isBookmarked ? 'bookmark' : 'bookmark-outline'}
+              name={isBookmarked ? "bookmark" : "bookmark-outline"}
               size={20}
               color={isBookmarked ? colors.accent : colors.text.tertiary}
             />
@@ -427,7 +481,7 @@ const ReadVerseCard: React.FC<{
             <Text
               style={[
                 styles.readVerseArabic,
-                viewMode === 'arabic' && styles.readVerseArabicOnly,
+                viewMode === "arabic" && styles.readVerseArabicOnly,
               ]}
             >
               {page.arabicText}
@@ -438,7 +492,7 @@ const ReadVerseCard: React.FC<{
             <Text
               style={[
                 styles.readVerseTranslation,
-                viewMode === 'english' && styles.readVerseTranslationOnly,
+                viewMode === "english" && styles.readVerseTranslationOnly,
               ]}
             >
               {page.translationText}
@@ -448,7 +502,9 @@ const ReadVerseCard: React.FC<{
 
         <Text style={styles.readVerseKey}>
           {page.verseKey}
-          {page.continuationCount > 1 ? ` • ${page.continuationIndex + 1}/${page.continuationCount}` : ''}
+          {page.continuationCount > 1
+            ? ` • ${page.continuationIndex + 1}/${page.continuationCount}`
+            : ""}
         </Text>
       </View>
     </View>
@@ -457,36 +513,32 @@ const ReadVerseCard: React.FC<{
 
 // Web Audio Player Bar
 const WebAudioPlayerBar: React.FC<{
-  onReciterPress: () => void;
-}> = ({ onReciterPress }) => {
+  onSkipToStart: () => void;
+  onSkipToEnd: () => void;
+  onPreviousChapter: () => void;
+  onNextChapter: () => void;
+}> = ({ onSkipToStart, onSkipToEnd, onPreviousChapter, onNextChapter }) => {
   const {
     playbackState,
     currentPosition,
     duration,
-    selectedReciter,
     audioFile,
     play,
     pause,
+    seekTo,
   } = useAudioPlayer();
 
-  const handlePlayPause = useCallback(async () => {
-    if (playbackState === 'playing') {
-      await pause();
-    } else {
-      await play();
-    }
-  }, [playbackState, play, pause]);
+  const lastSkipToStartTime = useRef<number>(0);
 
   // Get duration from audioFile if context duration is 0 or invalid
-  // The audioFile contains verse_timings with timestamp_to for each verse
+  // Moved above handlers so they can use effectiveDuration
   const effectiveDuration = useMemo(() => {
-    // First try the duration from context
     if (duration && duration > 0 && isFinite(duration)) {
       return duration;
     }
-    // Fallback: calculate from audioFile's verse_timings
     if (audioFile?.verse_timings && audioFile.verse_timings.length > 0) {
-      const lastTiming = audioFile.verse_timings[audioFile.verse_timings.length - 1];
+      const lastTiming =
+        audioFile.verse_timings[audioFile.verse_timings.length - 1];
       if (lastTiming?.timestamp_to && lastTiming.timestamp_to > 0) {
         return lastTiming.timestamp_to;
       }
@@ -494,17 +546,48 @@ const WebAudioPlayerBar: React.FC<{
     return 0;
   }, [duration, audioFile]);
 
-  const isLoading = playbackState === 'loading';
-  const isPlaying = playbackState === 'playing';
-  const isDisabled = playbackState === 'idle' || playbackState === 'error';
-  const progress = effectiveDuration > 0 ? (currentPosition / effectiveDuration) * 100 : 0;
+  const handlePlayPause = useCallback(async () => {
+    if (playbackState === "playing") {
+      await pause();
+    } else {
+      await play();
+    }
+  }, [playbackState, play, pause]);
+
+  const handleRewind = useCallback(async () => {
+    const newPosition = Math.max(0, currentPosition - 10000);
+    await seekTo(newPosition);
+  }, [currentPosition, seekTo]);
+
+  const handleFastForward = useCallback(async () => {
+    const newPosition = Math.min(effectiveDuration, currentPosition + 10000);
+    await seekTo(newPosition);
+  }, [currentPosition, effectiveDuration, seekTo]);
+
+  const handleSkipToStart = useCallback(() => {
+    const now = Date.now();
+    if (now - lastSkipToStartTime.current < 2000) {
+      // Double click within 2 seconds - go to previous chapter
+      onPreviousChapter();
+    } else {
+      // Single click - go to start
+      onSkipToStart();
+    }
+    lastSkipToStartTime.current = now;
+  }, [onSkipToStart, onPreviousChapter]);
+
+  const isLoading = playbackState === "loading";
+  const isPlaying = playbackState === "playing";
+  const isDisabled = playbackState === "idle" || playbackState === "error";
+  const progress =
+    effectiveDuration > 0 ? (currentPosition / effectiveDuration) * 100 : 0;
 
   const playButtonHover = useWebHover({
     hoverStyle: {
-      transform: 'scale(1.1)',
-      boxShadow: '0 8px 24px rgba(27, 67, 50, 0.3)',
+      transform: "scale(1.1)",
+      boxShadow: "0 8px 24px rgba(27, 67, 50, 0.3)",
     },
-    transition: 'all 0.2s ease-out',
+    transition: "all 0.2s ease-out",
   });
 
   return (
@@ -515,53 +598,126 @@ const WebAudioPlayerBar: React.FC<{
       </View>
 
       <View style={styles.audioPlayerContent}>
-        {/* Time display */}
+        {/* Time display - left side */}
         <View style={styles.audioTimeContainer}>
-          <Text style={styles.audioTimeText}>{formatTime(currentPosition)}</Text>
+          <Text style={styles.audioTimeText}>
+            {formatTime(currentPosition)}
+          </Text>
           <Text style={styles.audioTimeSeparator}>/</Text>
-          <Text style={styles.audioTimeText}>{formatTime(effectiveDuration)}</Text>
+          <Text style={styles.audioTimeText}>
+            {formatTime(effectiveDuration)}
+          </Text>
         </View>
 
-        {/* Play/Pause button */}
-        <TouchableOpacity
-          onPress={handlePlayPause}
-          disabled={isDisabled || isLoading}
-          activeOpacity={0.9}
-          // @ts-ignore
-          onMouseEnter={playButtonHover.handlers.onMouseEnter}
-          onMouseLeave={playButtonHover.handlers.onMouseLeave}
-          style={[
-            styles.audioPlayButton,
-            isDisabled && styles.audioPlayButtonDisabled,
-            playButtonHover.style,
-          ]}
-        >
-          {isLoading ? (
-            <ActivityIndicator size="small" color={colors.text.white} />
-          ) : (
+        {/* Center controls */}
+        <View style={styles.audioControlsCenter}>
+          {/* Skip to start / Previous chapter */}
+          <TouchableOpacity
+            onPress={handleSkipToStart}
+            disabled={isDisabled}
+            style={[
+              styles.audioControlButton,
+              isDisabled && styles.audioControlButtonDisabled,
+            ]}
+            activeOpacity={0.7}
+          >
             <Ionicons
-              name={isPlaying ? 'pause' : 'play'}
-              size={22}
-              color={colors.text.white}
-              style={!isPlaying ? { marginLeft: 3 } : undefined}
+              name="play-skip-back"
+              size={20}
+              color={isDisabled ? colors.text.disabled : colors.primary}
             />
-          )}
-        </TouchableOpacity>
+          </TouchableOpacity>
 
-        {/* Reciter selector */}
-        <TouchableOpacity
-          style={styles.audioReciterButton}
-          onPress={onReciterPress}
-          activeOpacity={0.8}
-        >
-          <View style={styles.audioReciterInfo}>
-            <Text style={styles.audioReciterLabel}>Reciter</Text>
-            <Text style={styles.audioReciterName} numberOfLines={1}>
-              {selectedReciter?.name ?? 'Select Reciter'}
+          {/* Rewind 10s */}
+          <TouchableOpacity
+            onPress={handleRewind}
+            disabled={isDisabled}
+            style={[
+              styles.audioControlButton,
+              isDisabled && styles.audioControlButtonDisabled,
+            ]}
+            activeOpacity={0.7}
+          >
+            <Ionicons
+              name="play-back"
+              size={22}
+              color={isDisabled ? colors.text.disabled : colors.primary}
+            />
+            <Text
+              style={[styles.skipText, isDisabled && styles.skipTextDisabled]}
+            >
+              10
             </Text>
-          </View>
-          <Ionicons name="chevron-down" size={18} color={colors.text.secondary} />
-        </TouchableOpacity>
+          </TouchableOpacity>
+
+          {/* Play/Pause button */}
+          <TouchableOpacity
+            onPress={handlePlayPause}
+            disabled={isDisabled || isLoading}
+            activeOpacity={0.9}
+            // @ts-ignore
+            onMouseEnter={playButtonHover.handlers.onMouseEnter}
+            onMouseLeave={playButtonHover.handlers.onMouseLeave}
+            style={[
+              styles.audioPlayButton,
+              isDisabled && styles.audioPlayButtonDisabled,
+              playButtonHover.style,
+            ]}
+          >
+            {isLoading ? (
+              <ActivityIndicator size="small" color={colors.text.white} />
+            ) : (
+              <Ionicons
+                name={isPlaying ? "pause" : "play"}
+                size={24}
+                color={colors.text.white}
+                style={!isPlaying ? { marginLeft: 3 } : undefined}
+              />
+            )}
+          </TouchableOpacity>
+
+          {/* Fast forward 10s */}
+          <TouchableOpacity
+            onPress={handleFastForward}
+            disabled={isDisabled}
+            style={[
+              styles.audioControlButton,
+              isDisabled && styles.audioControlButtonDisabled,
+            ]}
+            activeOpacity={0.7}
+          >
+            <Ionicons
+              name="play-forward"
+              size={22}
+              color={isDisabled ? colors.text.disabled : colors.primary}
+            />
+            <Text
+              style={[styles.skipText, isDisabled && styles.skipTextDisabled]}
+            >
+              10
+            </Text>
+          </TouchableOpacity>
+
+          {/* Skip to end / Next chapter */}
+          <TouchableOpacity
+            onPress={onNextChapter}
+            disabled={isDisabled}
+            style={[
+              styles.audioControlButton,
+              isDisabled && styles.audioControlButtonDisabled,
+            ]}
+            activeOpacity={0.7}
+          >
+            <Ionicons
+              name="play-skip-forward"
+              size={20}
+              color={isDisabled ? colors.text.disabled : colors.primary}
+            />
+          </TouchableOpacity>
+        </View>
+
+        {/* Right side spacer for symmetry */}
+        <View style={styles.audioTimeContainer} />
       </View>
     </View>
   );
@@ -604,13 +760,19 @@ const ReciterModal: React.FC<{
               <ActivityIndicator size="large" color={colors.primary} />
             </View>
           ) : (
-            <ScrollView style={styles.modalScroll} showsVerticalScrollIndicator={false}>
+            <ScrollView
+              style={styles.modalScroll}
+              showsVerticalScrollIndicator={false}
+            >
               {reciters.map((reciter) => {
                 const isSelected = selectedReciter?.id === reciter.id;
                 return (
                   <TouchableOpacity
                     key={reciter.id}
-                    style={[styles.reciterItem, isSelected && styles.reciterItemSelected]}
+                    style={[
+                      styles.reciterItem,
+                      isSelected && styles.reciterItemSelected,
+                    ]}
                     onPress={() => {
                       onSelect(reciter);
                       onClose();
@@ -618,15 +780,26 @@ const ReciterModal: React.FC<{
                     activeOpacity={0.7}
                   >
                     <View style={styles.reciterItemContent}>
-                      <Text style={[styles.reciterItemName, isSelected && styles.reciterItemNameSelected]}>
+                      <Text
+                        style={[
+                          styles.reciterItemName,
+                          isSelected && styles.reciterItemNameSelected,
+                        ]}
+                      >
                         {reciter.name}
                       </Text>
                       {reciter.arabic_name ? (
-                        <Text style={styles.reciterItemArabic}>{reciter.arabic_name}</Text>
+                        <Text style={styles.reciterItemArabic}>
+                          {reciter.arabic_name}
+                        </Text>
                       ) : null}
                     </View>
                     {isSelected && (
-                      <Ionicons name="checkmark-circle" size={24} color={colors.primary} />
+                      <Ionicons
+                        name="checkmark-circle"
+                        size={24}
+                        color={colors.primary}
+                      />
                     )}
                   </TouchableOpacity>
                 );
@@ -639,13 +812,26 @@ const ReciterModal: React.FC<{
   );
 };
 
-// Verse Range Sidebar - for selecting verse range and loop settings
+// Verse Range Sidebar - for selecting verse range, loop settings, and reciter
 const VerseRangeSidebar: React.FC<{
   visible: boolean;
   onClose: () => void;
   totalVerses: number;
   chapterId: number;
-}> = ({ visible, onClose, totalVerses, chapterId }) => {
+  reciters: NormalizedReciter[];
+  selectedReciter: NormalizedReciter | null;
+  onSelectReciter: (reciter: NormalizedReciter) => void;
+  isLoadingReciters: boolean;
+}> = ({
+  visible,
+  onClose,
+  totalVerses,
+  chapterId,
+  reciters,
+  selectedReciter,
+  onSelectReciter,
+  isLoadingReciters,
+}) => {
   const {
     verseRange,
     setVerseRange,
@@ -656,20 +842,24 @@ const VerseRangeSidebar: React.FC<{
     seekTo,
     audioFile,
   } = useAudioPlayer();
+  const [showReciterList, setShowReciterList] = useState(false);
 
-  const [startInput, setStartInput] = useState('');
-  const [endInput, setEndInput] = useState('');
-  const [loopCountInput, setLoopCountInput] = useState('');
+  const [startInput, setStartInput] = useState("");
+  const [endInput, setEndInput] = useState("");
+  const [loopCountInput, setLoopCountInput] = useState("");
   const [isInfiniteLoop, setIsInfiniteLoop] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [lastEditedField, setLastEditedField] = useState<'start' | 'end' | null>(null);
+  const [lastEditedField, setLastEditedField] = useState<
+    "start" | "end" | null
+  >(null);
 
   const normalizeVerseInputs = useCallback(
     (startValueRaw: string, endValueRaw: string) => {
       let nextStartInput = startValueRaw;
       let nextEndInput = endValueRaw;
-      let start = startValueRaw.trim() === '' ? null : parseInt(startValueRaw, 10);
-      let end = endValueRaw.trim() === '' ? null : parseInt(endValueRaw, 10);
+      let start =
+        startValueRaw.trim() === "" ? null : parseInt(startValueRaw, 10);
+      let end = endValueRaw.trim() === "" ? null : parseInt(endValueRaw, 10);
 
       if (start !== null) {
         if (isNaN(start) || start < 1) {
@@ -690,7 +880,7 @@ const VerseRangeSidebar: React.FC<{
       }
 
       if (start !== null && end !== null && start > end) {
-        if (lastEditedField === 'start') {
+        if (lastEditedField === "start") {
           start = end;
           nextStartInput = end.toString();
         } else {
@@ -706,11 +896,11 @@ const VerseRangeSidebar: React.FC<{
         nextEndInput,
       };
     },
-    [lastEditedField, totalVerses]
+    [lastEditedField, totalVerses],
   );
 
   const handleStartBlur = useCallback(() => {
-    if (startInput.trim() === '') {
+    if (startInput.trim() === "") {
       return;
     }
 
@@ -720,7 +910,7 @@ const VerseRangeSidebar: React.FC<{
   }, [endInput, normalizeVerseInputs, startInput]);
 
   const handleEndBlur = useCallback(() => {
-    if (endInput.trim() === '') {
+    if (endInput.trim() === "") {
       return;
     }
 
@@ -731,25 +921,31 @@ const VerseRangeSidebar: React.FC<{
 
   const handleStartChange = useCallback((text: string) => {
     setStartInput(text);
-    setLastEditedField('start');
+    setLastEditedField("start");
   }, []);
 
   const handleEndChange = useCallback((text: string) => {
     setEndInput(text);
-    setLastEditedField('end');
+    setLastEditedField("end");
   }, []);
 
   // Initialize inputs from current settings
   useEffect(() => {
     if (visible) {
-      setStartInput(verseRange.startVerse?.toString() ?? '');
-      setEndInput(verseRange.endVerse?.toString() ?? '');
-      setLoopCountInput(loopSettings.loopCount?.toString() ?? '');
+      setStartInput(verseRange.startVerse?.toString() ?? "");
+      setEndInput(verseRange.endVerse?.toString() ?? "");
+      setLoopCountInput(loopSettings.loopCount?.toString() ?? "");
       setIsInfiniteLoop(loopSettings.isInfiniteLoop);
       setError(null);
       setLastEditedField(null);
     }
-  }, [visible, verseRange.startVerse, verseRange.endVerse, loopSettings.loopCount, loopSettings.isInfiniteLoop]);
+  }, [
+    visible,
+    verseRange.startVerse,
+    verseRange.endVerse,
+    loopSettings.loopCount,
+    loopSettings.isInfiniteLoop,
+  ]);
 
   const validateAndApply = () => {
     setError(null);
@@ -760,16 +956,17 @@ const VerseRangeSidebar: React.FC<{
 
     const start = normalized.start;
     const end = normalized.end;
-    const loopCount = loopCountInput.trim() === '' ? null : parseInt(loopCountInput, 10);
+    const loopCount =
+      loopCountInput.trim() === "" ? null : parseInt(loopCountInput, 10);
 
     // Loop count validation
     if (loopCount !== null && !isInfiniteLoop) {
       if (isNaN(loopCount) || loopCount < 1) {
-        setError('Loop count must be at least 1');
+        setError("Loop count must be at least 1");
         return;
       }
       if (loopCount > 100) {
-        setError('Loop count cannot exceed 100');
+        setError("Loop count cannot exceed 100");
         return;
       }
     }
@@ -790,13 +987,17 @@ const VerseRangeSidebar: React.FC<{
     if (start !== null && audioFile?.verse_timings) {
       if (start > 1) {
         const prevVerseKey = `${chapterId}:${start - 1}`;
-        const prevTiming = audioFile.verse_timings.find((t) => t.verse_key === prevVerseKey);
+        const prevTiming = audioFile.verse_timings.find(
+          (t) => t.verse_key === prevVerseKey,
+        );
         if (prevTiming) {
           seekTo(prevTiming.timestamp_to + 250);
         }
       } else {
         const verseKey = `${chapterId}:${start}`;
-        const timing = audioFile.verse_timings.find((t) => t.verse_key === verseKey);
+        const timing = audioFile.verse_timings.find(
+          (t) => t.verse_key === verseKey,
+        );
         if (timing) {
           seekTo(timing.timestamp_from);
         }
@@ -809,17 +1010,20 @@ const VerseRangeSidebar: React.FC<{
   const handleReset = () => {
     clearVerseRange();
     clearLoopSettings();
-    setStartInput('');
-    setEndInput('');
-    setLoopCountInput('');
+    setStartInput("");
+    setEndInput("");
+    setLoopCountInput("");
     setIsInfiniteLoop(false);
     setError(null);
     seekTo(0);
     onClose();
   };
 
-  const hasRange = verseRange.startVerse !== null || verseRange.endVerse !== null;
-  const hasLooping = loopSettings.isInfiniteLoop || (loopSettings.loopCount !== null && loopSettings.loopCount > 1);
+  const hasRange =
+    verseRange.startVerse !== null || verseRange.endVerse !== null;
+  const hasLooping =
+    loopSettings.isInfiniteLoop ||
+    (loopSettings.loopCount !== null && loopSettings.loopCount > 1);
   const hasCustomSettings = hasRange || hasLooping;
 
   if (!visible) return null;
@@ -841,30 +1045,127 @@ const VerseRangeSidebar: React.FC<{
           {/* Header */}
           <View style={styles.sidebarHeader}>
             <View style={styles.sidebarTitleRow}>
-              <Ionicons name="settings-outline" size={24} color={colors.primary} />
+              <Ionicons
+                name="settings-outline"
+                size={24}
+                color={colors.primary}
+              />
               <Text style={styles.sidebarTitle}>Playback Settings</Text>
             </View>
-            <TouchableOpacity onPress={onClose} style={styles.sidebarCloseButton}>
+            <TouchableOpacity
+              onPress={onClose}
+              style={styles.sidebarCloseButton}
+            >
               <Ionicons name="close" size={24} color={colors.text.secondary} />
             </TouchableOpacity>
           </View>
 
-          <ScrollView style={styles.sidebarScroll} showsVerticalScrollIndicator={false}>
+          <ScrollView
+            style={styles.sidebarScroll}
+            showsVerticalScrollIndicator={false}
+          >
+            {/* Reciter Section */}
+            <View style={styles.sidebarSection}>
+              <Text style={styles.sectionTitle}>Reciter</Text>
+              <Text style={styles.sectionDescription}>
+                Choose a Qari to listen to the recitation.
+              </Text>
+
+              {isLoadingReciters ? (
+                <View style={styles.reciterLoading}>
+                  <ActivityIndicator size="small" color={colors.primary} />
+                  <Text style={styles.reciterLoadingText}>
+                    Loading reciters...
+                  </Text>
+                </View>
+              ) : (
+                <>
+                  <TouchableOpacity
+                    style={styles.reciterSelectButton}
+                    onPress={() => setShowReciterList(!showReciterList)}
+                    activeOpacity={0.8}
+                  >
+                    <View style={styles.reciterSelectContent}>
+                      <Ionicons
+                        name="person-circle-outline"
+                        size={24}
+                        color={colors.primary}
+                      />
+                      <Text style={styles.reciterSelectName} numberOfLines={1}>
+                        {selectedReciter?.name ?? "Select a Reciter"}
+                      </Text>
+                    </View>
+                    <Ionicons
+                      name={showReciterList ? "chevron-up" : "chevron-down"}
+                      size={20}
+                      color={colors.text.secondary}
+                    />
+                  </TouchableOpacity>
+
+                  {showReciterList && (
+                    <View style={styles.reciterListContainer}>
+                      {reciters.map((reciter) => {
+                        const isSelected = selectedReciter?.id === reciter.id;
+                        return (
+                          <TouchableOpacity
+                            key={reciter.id}
+                            style={[
+                              styles.reciterListItem,
+                              isSelected && styles.reciterListItemSelected,
+                            ]}
+                            onPress={() => {
+                              onSelectReciter(reciter);
+                              setShowReciterList(false);
+                            }}
+                            activeOpacity={0.7}
+                          >
+                            <Text
+                              style={[
+                                styles.reciterListItemName,
+                                isSelected &&
+                                  styles.reciterListItemNameSelected,
+                              ]}
+                            >
+                              {reciter.name}
+                            </Text>
+                            {isSelected && (
+                              <Ionicons
+                                name="checkmark-circle"
+                                size={20}
+                                color={colors.primary}
+                              />
+                            )}
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  )}
+                </>
+              )}
+            </View>
+
             {/* Current Settings Display */}
             {hasCustomSettings && (
               <View style={styles.currentSettingsCard}>
-                <Ionicons name="checkmark-circle" size={20} color={colors.primary} />
+                <Ionicons
+                  name="checkmark-circle"
+                  size={20}
+                  color={colors.primary}
+                />
                 <View style={styles.currentSettingsContent}>
-                  <Text style={styles.currentSettingsLabel}>Active Settings</Text>
+                  <Text style={styles.currentSettingsLabel}>
+                    Active Settings
+                  </Text>
                   {hasRange && (
                     <Text style={styles.currentSettingsText}>
-                      Verses {verseRange.startVerse ?? 1} - {verseRange.endVerse ?? totalVerses}
+                      Verses {verseRange.startVerse ?? 1} -{" "}
+                      {verseRange.endVerse ?? totalVerses}
                     </Text>
                   )}
                   {hasLooping && (
                     <Text style={styles.currentSettingsText}>
                       {loopSettings.isInfiniteLoop
-                        ? '∞ Infinite loop'
+                        ? "∞ Infinite loop"
                         : `🔁 Loop ${loopSettings.loopCount}x (${loopSettings.currentIteration}/${loopSettings.loopCount})`}
                     </Text>
                   )}
@@ -876,7 +1177,8 @@ const VerseRangeSidebar: React.FC<{
             <View style={styles.sidebarSection}>
               <Text style={styles.sectionTitle}>Verse Range</Text>
               <Text style={styles.sectionDescription}>
-                Select start and end verses to play a specific portion of this chapter.
+                Select start and end verses to play a specific portion of this
+                chapter.
               </Text>
 
               <View style={styles.inputsRow}>
@@ -895,7 +1197,11 @@ const VerseRangeSidebar: React.FC<{
                 </View>
 
                 <View style={styles.inputDivider}>
-                  <Ionicons name="arrow-forward" size={20} color={colors.text.tertiary} />
+                  <Ionicons
+                    name="arrow-forward"
+                    size={20}
+                    color={colors.text.tertiary}
+                  />
                 </View>
 
                 <View style={styles.inputGroup}>
@@ -926,14 +1232,26 @@ const VerseRangeSidebar: React.FC<{
               </Text>
 
               {/* Infinite Loop Toggle */}
-              <View style={[styles.toggleRow, isInfiniteLoop && styles.toggleRowActive]}>
+              <View
+                style={[
+                  styles.toggleRow,
+                  isInfiniteLoop && styles.toggleRowActive,
+                ]}
+              >
                 <View style={styles.toggleInfo}>
                   <Ionicons
                     name="infinite"
                     size={22}
-                    color={isInfiniteLoop ? colors.primary : colors.text.secondary}
+                    color={
+                      isInfiniteLoop ? colors.primary : colors.text.secondary
+                    }
                   />
-                  <Text style={[styles.toggleLabel, isInfiniteLoop && styles.toggleLabelActive]}>
+                  <Text
+                    style={[
+                      styles.toggleLabel,
+                      isInfiniteLoop && styles.toggleLabelActive,
+                    ]}
+                  >
                     Loop Infinitely
                   </Text>
                 </View>
@@ -942,11 +1260,11 @@ const VerseRangeSidebar: React.FC<{
                   onValueChange={(value) => {
                     setIsInfiniteLoop(value);
                     if (value) {
-                      setLoopCountInput('');
+                      setLoopCountInput("");
                     }
                   }}
-                  trackColor={{ false: '#D1D5DB', true: `${colors.primary}80` }}
-                  thumbColor={isInfiniteLoop ? colors.primary : '#FFFFFF'}
+                  trackColor={{ false: "#D1D5DB", true: `${colors.primary}80` }}
+                  thumbColor={isInfiniteLoop ? colors.primary : "#FFFFFF"}
                 />
               </View>
 
@@ -967,7 +1285,7 @@ const VerseRangeSidebar: React.FC<{
                     <Text style={styles.loopHint}>
                       {loopCountInput && parseInt(loopCountInput, 10) > 1
                         ? `Will play ${loopCountInput} times`
-                        : 'Leave empty for no loop'}
+                        : "Leave empty for no loop"}
                     </Text>
                   </View>
                 </View>
@@ -995,7 +1313,11 @@ const VerseRangeSidebar: React.FC<{
                 onPress={validateAndApply}
                 activeOpacity={0.8}
               >
-                <Ionicons name="checkmark" size={20} color={colors.text.white} />
+                <Ionicons
+                  name="checkmark"
+                  size={20}
+                  color={colors.text.white}
+                />
                 <Text style={styles.applyButtonText}>Apply Settings</Text>
               </TouchableOpacity>
 
@@ -1025,24 +1347,27 @@ export const WebQuranContent: React.FC<WebQuranContentProps> = ({
 }) => {
   const listenModeHover = useWebHover({
     hoverStyle: {
-      boxShadow: '0 18px 48px rgba(27, 67, 50, 0.24), 0 0 0 1px rgba(255,255,255,0.08)',
+      boxShadow:
+        "0 18px 48px rgba(27, 67, 50, 0.24), 0 0 0 1px rgba(255,255,255,0.08)",
       opacity: 0.92,
     },
-    transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+    transition: "all 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
   });
   const readModeHover = useWebHover({
     hoverStyle: {
-      boxShadow: '0 18px 48px rgba(201, 162, 39, 0.28), 0 0 0 1px rgba(255,255,255,0.08)',
+      boxShadow:
+        "0 18px 48px rgba(201, 162, 39, 0.28), 0 0 0 1px rgba(255,255,255,0.08)",
       opacity: 0.92,
     },
-    transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+    transition: "all 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
   });
-  const [showReciterModal, setShowReciterModal] = useState(false);
   const [showVerseRangeSidebar, setShowVerseRangeSidebar] = useState(false);
-  const [viewMode, setViewMode] = useState<ViewMode>('all');
+  const [viewMode, setViewMode] = useState<ViewMode>("all");
   const [currentReadVerseIndex, setCurrentReadVerseIndex] = useState(0);
   const [isReadTransitioning, setIsReadTransitioning] = useState(false);
-  const [targetScrollVerse, setTargetScrollVerse] = useState<number | null>(subScreenData?.scrollToVerse ?? null);
+  const [targetScrollVerse, setTargetScrollVerse] = useState<number | null>(
+    subScreenData?.scrollToVerse ?? null,
+  );
 
   // Refs for auto-scrolling
   const scrollViewRef = useRef<ScrollView>(null);
@@ -1052,7 +1377,8 @@ export const WebQuranContent: React.FC<WebQuranContentProps> = ({
   const readTransition = useRef(new Animated.Value(1)).current;
   const readScreenEntrance = useRef(new Animated.Value(1)).current;
   const readTransitionDirectionRef = useRef<1 | -1>(1);
-  const chapterMode: QuranMode = subScreenData?.mode === 'read' ? 'read' : 'listen';
+  const chapterMode: QuranMode =
+    subScreenData?.mode === "read" ? "read" : "listen";
 
   // Audio player context
   const {
@@ -1065,17 +1391,23 @@ export const WebQuranContent: React.FC<WebQuranContentProps> = ({
     selectReciter,
     reset,
     resetPlaybackSettings,
+    seekTo,
   } = useAudioPlayer();
-  const { isVerseBookmarked, isChapterBookmarked, toggleVerseBookmark, toggleChapterBookmark } = useBookmarks();
+  const {
+    isVerseBookmarked,
+    isChapterBookmarked,
+    toggleVerseBookmark,
+    toggleChapterBookmark,
+  } = useBookmarks();
 
   const chaptersQuery = useQuery({
-    queryKey: ['quranChapters'],
+    queryKey: ["quranChapters"],
     queryFn: quranService.getChapters,
   });
 
   // Use infinite query for verses with pagination
   const versesQuery = useInfiniteQuery({
-    queryKey: ['quranVersesByChapter', subScreenData?.chapterId],
+    queryKey: ["quranVersesByChapter", subScreenData?.chapterId],
     initialPageParam: 1,
     queryFn: ({ pageParam }) =>
       quranService.getVersesByChapter({
@@ -1089,9 +1421,11 @@ export const WebQuranContent: React.FC<WebQuranContentProps> = ({
 
   // Transform and flatten verses from all pages
   const verses: TransformedVerse[] = useMemo(() => {
-    return versesQuery.data?.pages
-      .flatMap((page) => page.verses)
-      .map(transformVerse) ?? [];
+    return (
+      versesQuery.data?.pages
+        .flatMap((page) => page.verses)
+        .map(transformVerse) ?? []
+    );
   }, [versesQuery.data?.pages]);
 
   // Get total verses count from pagination
@@ -1105,13 +1439,13 @@ export const WebQuranContent: React.FC<WebQuranContentProps> = ({
         verseKey: verse.verse_key,
         verseNumber: verse.verse_number,
         arabicText: verse.text_uthmani,
-        translationText: verse.translation || '',
+        translationText: verse.translation || "",
         viewMode,
-        surface: 'web',
+        surface: "web",
       }).map((page) => ({
         ...page,
         verse,
-      }))
+      })),
     );
   }, [verses, viewMode]);
 
@@ -1119,11 +1453,13 @@ export const WebQuranContent: React.FC<WebQuranContentProps> = ({
   const currentReadVerseProgress = currentReadPage?.verseNumber ?? 1;
 
   useEffect(() => {
-    setCurrentReadVerseIndex((prev) => Math.min(prev, Math.max(readPages.length - 1, 0)));
+    setCurrentReadVerseIndex((prev) =>
+      Math.min(prev, Math.max(readPages.length - 1, 0)),
+    );
   }, [readPages.length]);
 
   useEffect(() => {
-    if (subScreen !== 'mode-select') {
+    if (subScreen !== "mode-select") {
       modeSelectEntrance.setValue(1);
       return;
     }
@@ -1137,7 +1473,7 @@ export const WebQuranContent: React.FC<WebQuranContentProps> = ({
   }, [modeSelectEntrance, subScreen, subScreenData?.chapterId]);
 
   useEffect(() => {
-    if (subScreen !== 'chapter' || chapterMode !== 'read') {
+    if (subScreen !== "chapter" || chapterMode !== "read") {
       readScreenEntrance.setValue(1);
       return;
     }
@@ -1152,21 +1488,48 @@ export const WebQuranContent: React.FC<WebQuranContentProps> = ({
 
   // Load chapter audio when viewing a chapter
   useEffect(() => {
-    if (subScreen === 'chapter' && subScreenData?.chapterId && selectedReciter) {
+    if (
+      subScreen === "chapter" &&
+      subScreenData?.chapterId &&
+      selectedReciter
+    ) {
       loadChapter(subScreenData.chapterId);
     }
   }, [subScreen, subScreenData?.chapterId, selectedReciter?.id, loadChapter]);
 
   // Reset audio when leaving chapter view
   useEffect(() => {
-    if (subScreen !== 'chapter') {
+    if (subScreen !== "chapter") {
       reset();
       resetPlaybackSettings();
     }
   }, [subScreen, reset, resetPlaybackSettings]);
 
+  // Scroll to top when chapter changes (for next/previous chapter navigation)
   useEffect(() => {
-    if (subScreen === 'chapter') {
+    if (subScreen === "chapter" && subScreenData?.chapterId) {
+      // Only scroll to top if there's no specific verse to scroll to
+      if (!subScreenData?.scrollToVerse) {
+        // Use web-specific scrolling
+        if (scrollViewRef.current) {
+          // @ts-ignore - web specific
+          const element = scrollViewRef.current as unknown as HTMLElement;
+          if (element?.scrollTo) {
+            element.scrollTo({ top: 0, behavior: "instant" });
+          } else if (element?.scrollTop !== undefined) {
+            element.scrollTop = 0;
+          }
+        }
+        // Also scroll the window/document for web
+        if (typeof window !== "undefined") {
+          window.scrollTo({ top: 0, behavior: "instant" });
+        }
+      }
+    }
+  }, [subScreen, subScreenData?.chapterId]);
+
+  useEffect(() => {
+    if (subScreen === "chapter") {
       setTargetScrollVerse(subScreenData?.scrollToVerse ?? null);
     } else {
       setTargetScrollVerse(null);
@@ -1186,10 +1549,10 @@ export const WebQuranContent: React.FC<WebQuranContentProps> = ({
 
     // Only scroll if we have a new verse to highlight and we're playing
     if (
-      chapterMode !== 'listen' ||
+      chapterMode !== "listen" ||
       !verseKey ||
       verseKey === lastHighlightedVerseKey.current ||
-      playbackState !== 'playing'
+      playbackState !== "playing"
     ) {
       return;
     }
@@ -1203,15 +1566,19 @@ export const WebQuranContent: React.FC<WebQuranContentProps> = ({
       const element = verseElement as unknown as HTMLElement;
       if (element && element.scrollIntoView) {
         element.scrollIntoView({
-          behavior: 'smooth',
-          block: 'center',
+          behavior: "smooth",
+          block: "center",
         });
       }
     }
   }, [chapterMode, highlightState.verseKey, playbackState]);
 
   useEffect(() => {
-    if (subScreen !== 'chapter' || !subScreenData?.chapterId || targetScrollVerse === null) {
+    if (
+      subScreen !== "chapter" ||
+      !subScreenData?.chapterId ||
+      targetScrollVerse === null
+    ) {
       return;
     }
 
@@ -1226,8 +1593,8 @@ export const WebQuranContent: React.FC<WebQuranContentProps> = ({
           const element = verseElement as unknown as HTMLElement;
           if (element?.scrollIntoView) {
             element.scrollIntoView({
-              behavior: 'smooth',
-              block: 'center',
+              behavior: "smooth",
+              block: "center",
             });
           }
         }
@@ -1240,23 +1607,29 @@ export const WebQuranContent: React.FC<WebQuranContentProps> = ({
     if (versesQuery.hasNextPage && !versesQuery.isFetchingNextPage) {
       versesQuery.fetchNextPage();
     }
-  }, [subScreen, subScreenData?.chapterId, targetScrollVerse, verses, versesQuery]);
+  }, [
+    subScreen,
+    subScreenData?.chapterId,
+    targetScrollVerse,
+    verses,
+    versesQuery,
+  ]);
 
   // Get highlight status for a verse
   const getVerseHighlightStatus = useCallback(
-    (verseKey: string): 'none' | 'current' | 'completed' => {
-      if (playbackState === 'idle' || playbackState === 'error') {
-        return 'none';
+    (verseKey: string): "none" | "current" | "completed" => {
+      if (playbackState === "idle" || playbackState === "error") {
+        return "none";
       }
       if (highlightState.completedVerseKeys.has(verseKey)) {
-        return 'completed';
+        return "completed";
       }
       if (highlightState.verseKey === verseKey) {
-        return 'current';
+        return "current";
       }
-      return 'none';
+      return "none";
     },
-    [playbackState, highlightState]
+    [playbackState, highlightState],
   );
 
   // Get highlighted word position for a verse
@@ -1267,7 +1640,7 @@ export const WebQuranContent: React.FC<WebQuranContentProps> = ({
       }
       return null;
     },
-    [highlightState]
+    [highlightState],
   );
 
   // Handle back with audio cleanup
@@ -1276,7 +1649,66 @@ export const WebQuranContent: React.FC<WebQuranContentProps> = ({
     resetPlaybackSettings();
     onBack();
   }, [reset, resetPlaybackSettings, onBack]);
-  const backButtonLabel = subScreenData?.backTab === 'bookmarks' ? 'Back to Bookmarks' : 'Back to Chapters';
+  const backButtonLabel =
+    subScreenData?.backTab === "bookmarks"
+      ? "Back to Bookmarks"
+      : "Back to Chapters";
+
+  // Audio navigation handlers
+  const handleSkipToStart = useCallback(async () => {
+    await seekTo(0);
+  }, [seekTo]);
+
+  const handleSkipToEnd = useCallback(async () => {
+    // Navigate to next chapter
+    handleNextChapter();
+  }, []);
+
+  const handlePreviousChapter = useCallback(() => {
+    const currentChapterId = subScreenData?.chapterId;
+    if (currentChapterId && currentChapterId > 1) {
+      const prevChapterId = currentChapterId - 1;
+      const chapter = chaptersQuery.data?.find((c) => c.id === prevChapterId);
+      if (chapter) {
+        reset();
+        resetPlaybackSettings();
+        onSubNavigate("chapter", {
+          chapterId: chapter.id,
+          chapterName: chapter.name_simple,
+          chapterArabicName: chapter.name_arabic,
+        });
+      }
+    }
+  }, [
+    subScreenData?.chapterId,
+    chaptersQuery.data,
+    reset,
+    resetPlaybackSettings,
+    onSubNavigate,
+  ]);
+
+  const handleNextChapter = useCallback(() => {
+    const currentChapterId = subScreenData?.chapterId;
+    if (currentChapterId && currentChapterId < 114) {
+      const nextChapterId = currentChapterId + 1;
+      const chapter = chaptersQuery.data?.find((c) => c.id === nextChapterId);
+      if (chapter) {
+        reset();
+        resetPlaybackSettings();
+        onSubNavigate("chapter", {
+          chapterId: chapter.id,
+          chapterName: chapter.name_simple,
+          chapterArabicName: chapter.name_arabic,
+        });
+      }
+    }
+  }, [
+    subScreenData?.chapterId,
+    chaptersQuery.data,
+    reset,
+    resetPlaybackSettings,
+    onSubNavigate,
+  ]);
 
   const handleToggleChapterBookmark = useCallback(() => {
     if (!subScreenData?.chapterId) {
@@ -1284,26 +1716,29 @@ export const WebQuranContent: React.FC<WebQuranContentProps> = ({
     }
     toggleChapterBookmark({
       chapterId: subScreenData.chapterId,
-      chapterName: subScreenData.chapterName || 'Chapter',
-      chapterArabicName: subScreenData.chapterArabicName || '',
+      chapterName: subScreenData.chapterName || "Chapter",
+      chapterArabicName: subScreenData.chapterArabicName || "",
       versesCount: totalVerses,
     });
   }, [subScreenData, toggleChapterBookmark, totalVerses]);
 
-  const handleToggleVerseBookmark = useCallback((verse: TransformedVerse) => {
-    if (!subScreenData?.chapterId) {
-      return;
-    }
-    toggleVerseBookmark({
-      verseKey: verse.verse_key,
-      chapterId: subScreenData.chapterId,
-      chapterName: subScreenData.chapterName || 'Chapter',
-      chapterArabicName: subScreenData.chapterArabicName || '',
-      verseNumber: verse.verse_number,
-      arabicText: verse.text_uthmani,
-      translationPreview: (verse.translation || '').slice(0, 120),
-    });
-  }, [subScreenData, toggleVerseBookmark]);
+  const handleToggleVerseBookmark = useCallback(
+    (verse: TransformedVerse) => {
+      if (!subScreenData?.chapterId) {
+        return;
+      }
+      toggleVerseBookmark({
+        verseKey: verse.verse_key,
+        chapterId: subScreenData.chapterId,
+        chapterName: subScreenData.chapterName || "Chapter",
+        chapterArabicName: subScreenData.chapterArabicName || "",
+        verseNumber: verse.verse_number,
+        arabicText: verse.text_uthmani,
+        translationPreview: (verse.translation || "").slice(0, 120),
+      });
+    },
+    [subScreenData, toggleVerseBookmark],
+  );
 
   const animateToReadIndex = useCallback(
     (nextIndex: number) => {
@@ -1311,7 +1746,8 @@ export const WebQuranContent: React.FC<WebQuranContentProps> = ({
         return;
       }
 
-      readTransitionDirectionRef.current = nextIndex > currentReadVerseIndex ? 1 : -1;
+      readTransitionDirectionRef.current =
+        nextIndex > currentReadVerseIndex ? 1 : -1;
       setIsReadTransitioning(true);
 
       Animated.timing(readTransition, {
@@ -1331,7 +1767,7 @@ export const WebQuranContent: React.FC<WebQuranContentProps> = ({
         });
       });
     },
-    [currentReadVerseIndex, isReadTransitioning, readTransition]
+    [currentReadVerseIndex, isReadTransitioning, readTransition],
   );
 
   const handleReadPrevious = useCallback(() => {
@@ -1353,9 +1789,15 @@ export const WebQuranContent: React.FC<WebQuranContentProps> = ({
       await versesQuery.fetchNextPage();
       animateToReadIndex(nextIndex);
     }
-  }, [animateToReadIndex, currentReadVerseIndex, isReadTransitioning, readPages.length, versesQuery]);
+  }, [
+    animateToReadIndex,
+    currentReadVerseIndex,
+    isReadTransitioning,
+    readPages.length,
+    versesQuery,
+  ]);
 
-  if (subScreen === 'mode-select' && subScreenData) {
+  if (subScreen === "mode-select" && subScreenData) {
     return (
       <ScrollView
         style={styles.scrollView}
@@ -1379,30 +1821,40 @@ export const WebQuranContent: React.FC<WebQuranContentProps> = ({
           ]}
         >
           <LinearGradient
-            colors={['#1B4332', '#2D6A4F']}
+            colors={["#1B4332", "#2D6A4F"]}
             style={styles.modeSelectHeader}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
           >
-            <TouchableOpacity onPress={onBack} style={styles.modeSelectBackButton} activeOpacity={0.8}>
+            <TouchableOpacity
+              onPress={onBack}
+              style={styles.modeSelectBackButton}
+              activeOpacity={0.8}
+            >
               <Ionicons name="arrow-back" size={20} color={colors.text.white} />
             </TouchableOpacity>
             {subScreenData.chapterArabicName ? (
-              <Text style={styles.modeSelectArabicName}>{subScreenData.chapterArabicName}</Text>
+              <Text style={styles.modeSelectArabicName}>
+                {subScreenData.chapterArabicName}
+              </Text>
             ) : null}
-            <Text style={styles.modeSelectChapterName}>{subScreenData.chapterName}</Text>
+            <Text style={styles.modeSelectChapterName}>
+              {subScreenData.chapterName}
+            </Text>
           </LinearGradient>
 
           <View style={styles.modeSelectContent}>
-            <Text style={styles.modeSelectPrompt}>How would you like to engage?</Text>
+            <Text style={styles.modeSelectPrompt}>
+              How would you like to engage?
+            </Text>
 
             <View style={styles.modeSelectOptions}>
               <TouchableOpacity
                 style={styles.modeSelectCard}
                 onPress={() =>
-                  onSubNavigate('chapter', {
+                  onSubNavigate("chapter", {
                     ...subScreenData,
-                    mode: 'listen',
+                    mode: "listen",
                   })
                 }
                 activeOpacity={0.85}
@@ -1412,18 +1864,23 @@ export const WebQuranContent: React.FC<WebQuranContentProps> = ({
                 onMouseLeave={listenModeHover.handlers.onMouseLeave}
               >
                 <LinearGradient
-                  colors={[colors.primary, '#2D6A4F']}
+                  colors={[colors.primary, "#2D6A4F"]}
                   // @ts-ignore
                   style={[styles.modeSelectCardGradient, listenModeHover.style]}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
                 >
                   <View style={styles.modeSelectIconWrap}>
-                    <Ionicons name="headset-outline" size={34} color={colors.text.white} />
+                    <Ionicons
+                      name="headset-outline"
+                      size={34}
+                      color={colors.text.white}
+                    />
                   </View>
                   <Text style={styles.modeSelectCardTitle}>Listen</Text>
                   <Text style={styles.modeSelectCardSubtitle}>
-                    Hear the chapter with reciter playback, verse highlighting, looping, and custom verse-range controls.
+                    Hear the chapter with reciter playback, verse highlighting,
+                    looping, and custom verse-range controls.
                   </Text>
                 </LinearGradient>
               </TouchableOpacity>
@@ -1431,9 +1888,9 @@ export const WebQuranContent: React.FC<WebQuranContentProps> = ({
               <TouchableOpacity
                 style={styles.modeSelectCard}
                 onPress={() =>
-                  onSubNavigate('chapter', {
+                  onSubNavigate("chapter", {
                     ...subScreenData,
-                    mode: 'read',
+                    mode: "read",
                   })
                 }
                 activeOpacity={0.85}
@@ -1443,18 +1900,23 @@ export const WebQuranContent: React.FC<WebQuranContentProps> = ({
                 onMouseLeave={readModeHover.handlers.onMouseLeave}
               >
                 <LinearGradient
-                  colors={['#C9A227', '#D6B54D']}
+                  colors={["#C9A227", "#D6B54D"]}
                   // @ts-ignore
                   style={[styles.modeSelectCardGradient, readModeHover.style]}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
                 >
                   <View style={styles.modeSelectIconWrap}>
-                    <Ionicons name="book-outline" size={34} color={colors.text.white} />
+                    <Ionicons
+                      name="book-outline"
+                      size={34}
+                      color={colors.text.white}
+                    />
                   </View>
                   <Text style={styles.modeSelectCardTitle}>Read</Text>
                   <Text style={styles.modeSelectCardSubtitle}>
-                    Move verse by verse in a focused reading flow, with long ayat continuing onto follow-up pages when needed.
+                    Move verse by verse in a focused reading flow, with long
+                    ayat continuing onto follow-up pages when needed.
                   </Text>
                 </LinearGradient>
               </TouchableOpacity>
@@ -1466,7 +1928,7 @@ export const WebQuranContent: React.FC<WebQuranContentProps> = ({
   }
 
   // Render chapter verses
-  if (subScreen === 'chapter' && subScreenData) {
+  if (subScreen === "chapter" && subScreenData) {
     return (
       <View style={styles.chapterContainer}>
         {versesQuery.isLoading ? (
@@ -1477,21 +1939,30 @@ export const WebQuranContent: React.FC<WebQuranContentProps> = ({
           >
             <View style={styles.chapterHeaderShell}>
               <View style={styles.chapterTopBar}>
-                <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-                  <Ionicons name="arrow-back" size={20} color={colors.primary} />
+                <TouchableOpacity
+                  onPress={handleBack}
+                  style={styles.backButton}
+                >
+                  <Ionicons
+                    name="arrow-back"
+                    size={20}
+                    color={colors.primary}
+                  />
                   <Text style={styles.backButtonText}>{backButtonLabel}</Text>
                 </TouchableOpacity>
               </View>
               <View style={styles.chapterHeader}>
                 <LinearGradient
-                  colors={['#1B4332', '#2D6A4F']}
+                  colors={["#1B4332", "#2D6A4F"]}
                   style={StyleSheet.absoluteFill}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
                 />
                 <View style={styles.chapterHeaderPattern} />
                 <View style={styles.chapterHeaderContent}>
-                  <Text style={styles.chapterHeaderName}>{subScreenData.chapterName}</Text>
+                  <Text style={styles.chapterHeaderName}>
+                    {subScreenData.chapterName}
+                  </Text>
                 </View>
               </View>
             </View>
@@ -1508,21 +1979,32 @@ export const WebQuranContent: React.FC<WebQuranContentProps> = ({
           >
             <View style={styles.chapterHeaderShell}>
               <View style={styles.chapterTopBar}>
-                <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-                  <Ionicons name="arrow-back" size={20} color={colors.primary} />
+                <TouchableOpacity
+                  onPress={handleBack}
+                  style={styles.backButton}
+                >
+                  <Ionicons
+                    name="arrow-back"
+                    size={20}
+                    color={colors.primary}
+                  />
                   <Text style={styles.backButtonText}>{backButtonLabel}</Text>
                 </TouchableOpacity>
               </View>
             </View>
             <View style={styles.errorContainer}>
-              <Ionicons name="alert-circle-outline" size={48} color={colors.error} />
+              <Ionicons
+                name="alert-circle-outline"
+                size={48}
+                color={colors.error}
+              />
               <Text style={styles.errorTitle}>Failed to load verses</Text>
               <Text style={styles.errorText}>
-                {(versesQuery.error as Error)?.message || 'Please try again'}
+                {(versesQuery.error as Error)?.message || "Please try again"}
               </Text>
             </View>
           </ScrollView>
-        ) : chapterMode === 'listen' ? (
+        ) : chapterMode === "listen" ? (
           <ScrollView
             ref={scrollViewRef}
             style={styles.scrollView}
@@ -1531,22 +2013,22 @@ export const WebQuranContent: React.FC<WebQuranContentProps> = ({
           >
             <View style={styles.chapterHeaderShell}>
               <View style={styles.chapterTopBar}>
-                <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-                  <Ionicons name="arrow-back" size={20} color={colors.primary} />
-                  <Text style={styles.backButtonText}>{backButtonLabel}</Text>
-                </TouchableOpacity>
-
                 <TouchableOpacity
-                  onPress={() => setShowVerseRangeSidebar(true)}
-                  style={styles.settingsButton}
+                  onPress={handleBack}
+                  style={styles.backButton}
                 >
-                  <Ionicons name="menu" size={22} color={colors.primary} />
+                  <Ionicons
+                    name="arrow-back"
+                    size={20}
+                    color={colors.primary}
+                  />
+                  <Text style={styles.backButtonText}>{backButtonLabel}</Text>
                 </TouchableOpacity>
               </View>
 
               <View style={styles.chapterHeader}>
                 <LinearGradient
-                  colors={['#1B4332', '#2D6A4F']}
+                  colors={["#1B4332", "#2D6A4F"]}
                   style={StyleSheet.absoluteFill}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
@@ -1554,27 +2036,48 @@ export const WebQuranContent: React.FC<WebQuranContentProps> = ({
                 <View style={styles.chapterHeaderPattern} />
                 <View style={styles.chapterHeaderContent}>
                   <View style={styles.chapterHeaderTopRow}>
-                    {viewMode !== 'english' ? (
-                      <Text style={styles.chapterHeaderArabic}>{subScreenData.chapterArabicName}</Text>
+                    {viewMode !== "english" ? (
+                      <Text style={styles.chapterHeaderArabic}>
+                        {subScreenData.chapterArabicName}
+                      </Text>
                     ) : (
                       <View />
                     )}
-                    <TouchableOpacity onPress={handleToggleChapterBookmark} activeOpacity={0.85} style={styles.chapterBookmarkButton}>
+                    <TouchableOpacity
+                      onPress={handleToggleChapterBookmark}
+                      activeOpacity={0.85}
+                      style={styles.chapterBookmarkButton}
+                    >
                       <Ionicons
-                        name={isChapterBookmarked(subScreenData.chapterId) ? 'bookmark' : 'bookmark-outline'}
+                        name={
+                          isChapterBookmarked(subScreenData.chapterId)
+                            ? "bookmark"
+                            : "bookmark-outline"
+                        }
                         size={21}
-                        color={isChapterBookmarked(subScreenData.chapterId) ? colors.accent : 'rgba(255,255,255,0.9)'}
+                        color={
+                          isChapterBookmarked(subScreenData.chapterId)
+                            ? colors.accent
+                            : "rgba(255,255,255,0.9)"
+                        }
                       />
                     </TouchableOpacity>
                   </View>
-                  <Text style={styles.chapterHeaderName}>{subScreenData.chapterName}</Text>
-                  {viewMode !== 'english' && (
-                    <Text style={styles.chapterHeaderBismillah}>بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ</Text>
+                  <Text style={styles.chapterHeaderName}>
+                    {subScreenData.chapterName}
+                  </Text>
+                  {viewMode !== "english" && (
+                    <Text style={styles.chapterHeaderBismillah}>
+                      بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ
+                    </Text>
                   )}
                 </View>
               </View>
 
-              <ViewModeToggle viewMode={viewMode} onViewModeChange={setViewMode} />
+              <ViewModeToggle
+                viewMode={viewMode}
+                onViewModeChange={setViewMode}
+              />
             </View>
 
             <View style={styles.versesContainer}>
@@ -1594,7 +2097,9 @@ export const WebQuranContent: React.FC<WebQuranContentProps> = ({
                       verseKey={verseKey}
                       index={index}
                       highlightStatus={getVerseHighlightStatus(verseKey)}
-                      highlightedWordPosition={getVerseHighlightedWordPosition(verseKey)}
+                      highlightedWordPosition={getVerseHighlightedWordPosition(
+                        verseKey,
+                      )}
                       viewMode={viewMode}
                       isBookmarked={isVerseBookmarked(verseKey)}
                       onBookmarkPress={() => handleToggleVerseBookmark(verse)}
@@ -1611,13 +2116,20 @@ export const WebQuranContent: React.FC<WebQuranContentProps> = ({
                 >
                   {versesQuery.isFetchingNextPage ? (
                     <>
-                      <ActivityIndicator size="small" color={colors.text.white} />
+                      <ActivityIndicator
+                        size="small"
+                        color={colors.text.white}
+                      />
                       <Text style={styles.loadMoreText}>Loading...</Text>
                     </>
                   ) : (
                     <>
                       <Text style={styles.loadMoreText}>Load More Verses</Text>
-                      <Ionicons name="chevron-down" size={18} color={colors.text.white} />
+                      <Ionicons
+                        name="chevron-down"
+                        size={18}
+                        color={colors.text.white}
+                      />
                     </>
                   )}
                 </TouchableOpacity>
@@ -1645,15 +2157,23 @@ export const WebQuranContent: React.FC<WebQuranContentProps> = ({
               <View style={styles.readHeaderShell}>
                 <View style={[styles.chapterHeader, styles.readChapterHeader]}>
                   <LinearGradient
-                    colors={['#1B4332', '#2D6A4F']}
+                    colors={["#1B4332", "#2D6A4F"]}
                     style={StyleSheet.absoluteFill}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
                   />
                   <View style={styles.chapterHeaderPattern} />
                   <View style={styles.readHeaderActions}>
-                    <TouchableOpacity onPress={handleBack} style={styles.readHeaderActionButton} activeOpacity={0.85}>
-                      <Ionicons name="arrow-back" size={20} color={colors.text.white} />
+                    <TouchableOpacity
+                      onPress={handleBack}
+                      style={styles.readHeaderActionButton}
+                      activeOpacity={0.85}
+                    >
+                      <Ionicons
+                        name="arrow-back"
+                        size={20}
+                        color={colors.text.white}
+                      />
                     </TouchableOpacity>
                     <TouchableOpacity
                       onPress={handleToggleChapterBookmark}
@@ -1661,24 +2181,42 @@ export const WebQuranContent: React.FC<WebQuranContentProps> = ({
                       style={styles.readHeaderActionButton}
                     >
                       <Ionicons
-                        name={isChapterBookmarked(subScreenData.chapterId) ? 'bookmark' : 'bookmark-outline'}
+                        name={
+                          isChapterBookmarked(subScreenData.chapterId)
+                            ? "bookmark"
+                            : "bookmark-outline"
+                        }
                         size={21}
-                        color={isChapterBookmarked(subScreenData.chapterId) ? colors.accent : 'rgba(255,255,255,0.9)'}
+                        color={
+                          isChapterBookmarked(subScreenData.chapterId)
+                            ? colors.accent
+                            : "rgba(255,255,255,0.9)"
+                        }
                       />
                     </TouchableOpacity>
                   </View>
                   <View style={styles.readChapterHeaderContent}>
-                    {viewMode !== 'english' && subScreenData.chapterArabicName ? (
-                      <Text style={styles.readChapterHeaderArabic}>{subScreenData.chapterArabicName}</Text>
+                    {viewMode !== "english" &&
+                    subScreenData.chapterArabicName ? (
+                      <Text style={styles.readChapterHeaderArabic}>
+                        {subScreenData.chapterArabicName}
+                      </Text>
                     ) : null}
-                    <Text style={styles.readChapterHeaderName}>{subScreenData.chapterName}</Text>
-                    {viewMode !== 'english' && (
-                      <Text style={styles.readChapterHeaderBismillah}>بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ</Text>
+                    <Text style={styles.readChapterHeaderName}>
+                      {subScreenData.chapterName}
+                    </Text>
+                    {viewMode !== "english" && (
+                      <Text style={styles.readChapterHeaderBismillah}>
+                        بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ
+                      </Text>
                     )}
                   </View>
                 </View>
 
-                <ViewModeToggle viewMode={viewMode} onViewModeChange={setViewMode} />
+                <ViewModeToggle
+                  viewMode={viewMode}
+                  onViewModeChange={setViewMode}
+                />
 
                 <View style={styles.readProgressWrap}>
                   <Text style={styles.readProgressLabel}>
@@ -1709,7 +2247,10 @@ export const WebQuranContent: React.FC<WebQuranContentProps> = ({
                             {
                               translateY: readTransition.interpolate({
                                 inputRange: [0, 1],
-                                outputRange: [readTransitionDirectionRef.current * 22, 0],
+                                outputRange: [
+                                  readTransitionDirectionRef.current * 22,
+                                  0,
+                                ],
                               }),
                             },
                           ],
@@ -1719,8 +2260,12 @@ export const WebQuranContent: React.FC<WebQuranContentProps> = ({
                       <ReadVerseCard
                         page={currentReadPage}
                         viewMode={viewMode}
-                        isBookmarked={isVerseBookmarked(currentReadPage.verseKey)}
-                        onBookmarkPress={() => handleToggleVerseBookmark(currentReadPage.verse)}
+                        isBookmarked={isVerseBookmarked(
+                          currentReadPage.verseKey,
+                        )}
+                        onBookmarkPress={() =>
+                          handleToggleVerseBookmark(currentReadPage.verse)
+                        }
                       />
                     </Animated.View>
                   ) : null}
@@ -1732,19 +2277,25 @@ export const WebQuranContent: React.FC<WebQuranContentProps> = ({
                     disabled={currentReadVerseIndex === 0}
                     style={[
                       styles.readControlButton,
-                      currentReadVerseIndex === 0 && styles.readControlButtonDisabled,
+                      currentReadVerseIndex === 0 &&
+                        styles.readControlButtonDisabled,
                     ]}
                     activeOpacity={0.85}
                   >
                     <Ionicons
                       name="chevron-up"
                       size={22}
-                      color={currentReadVerseIndex === 0 ? colors.text.disabled : colors.primary}
+                      color={
+                        currentReadVerseIndex === 0
+                          ? colors.text.disabled
+                          : colors.primary
+                      }
                     />
                     <Text
                       style={[
                         styles.readControlButtonText,
-                        currentReadVerseIndex === 0 && styles.readControlButtonTextDisabled,
+                        currentReadVerseIndex === 0 &&
+                          styles.readControlButtonTextDisabled,
                       ]}
                     >
                       Previous
@@ -1755,7 +2306,10 @@ export const WebQuranContent: React.FC<WebQuranContentProps> = ({
                     onPress={() => {
                       void handleReadNext();
                     }}
-                    disabled={currentReadVerseIndex >= readPages.length - 1 && !versesQuery.hasNextPage}
+                    disabled={
+                      currentReadVerseIndex >= readPages.length - 1 &&
+                      !versesQuery.hasNextPage
+                    }
                     style={[
                       styles.readControlButton,
                       styles.readControlButtonPrimary,
@@ -1766,14 +2320,22 @@ export const WebQuranContent: React.FC<WebQuranContentProps> = ({
                     activeOpacity={0.85}
                   >
                     {versesQuery.isFetchingNextPage ? (
-                      <ActivityIndicator size="small" color={colors.text.white} />
+                      <ActivityIndicator
+                        size="small"
+                        color={colors.text.white}
+                      />
                     ) : (
-                      <Ionicons name="chevron-down" size={24} color={colors.text.white} />
+                      <Ionicons
+                        name="chevron-down"
+                        size={24}
+                        color={colors.text.white}
+                      />
                     )}
                     <Text style={styles.readControlButtonTextPrimary}>
-                      {currentReadVerseIndex >= readPages.length - 1 && !versesQuery.hasNextPage
-                        ? 'End of Chapter'
-                        : 'Next'}
+                      {currentReadVerseIndex >= readPages.length - 1 &&
+                      !versesQuery.hasNextPage
+                        ? "End of Chapter"
+                        : "Next"}
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -1782,26 +2344,33 @@ export const WebQuranContent: React.FC<WebQuranContentProps> = ({
           </>
         )}
 
-        {chapterMode === 'listen' ? (
-          <WebAudioPlayerBar onReciterPress={() => setShowReciterModal(true)} />
+        {/* Fixed Settings Button */}
+        <TouchableOpacity
+          onPress={() => setShowVerseRangeSidebar(true)}
+          style={styles.fixedSettingsButton}
+        >
+          <Ionicons name="settings-outline" size={22} color={colors.primary} />
+        </TouchableOpacity>
+
+        {chapterMode === "listen" ? (
+          <WebAudioPlayerBar
+            onSkipToStart={handleSkipToStart}
+            onSkipToEnd={handleNextChapter}
+            onPreviousChapter={handlePreviousChapter}
+            onNextChapter={handleNextChapter}
+          />
         ) : null}
 
-        {/* Reciter Selection Modal */}
-        <ReciterModal
-          visible={showReciterModal}
-          onClose={() => setShowReciterModal(false)}
-          reciters={reciters}
-          selectedReciter={selectedReciter}
-          onSelect={selectReciter}
-          isLoading={isLoadingReciters}
-        />
-
-        {/* Verse Range Sidebar */}
+        {/* Playback Settings Sidebar (includes reciter selection) */}
         <VerseRangeSidebar
           visible={showVerseRangeSidebar}
           onClose={() => setShowVerseRangeSidebar(false)}
           totalVerses={totalVerses}
           chapterId={subScreenData.chapterId}
+          reciters={reciters}
+          selectedReciter={selectedReciter}
+          onSelectReciter={selectReciter}
+          isLoadingReciters={isLoadingReciters}
         />
       </View>
     );
@@ -1820,7 +2389,8 @@ export const WebQuranContent: React.FC<WebQuranContentProps> = ({
         </View>
         <Text style={styles.pageTitle}>The Holy Quran</Text>
         <Text style={styles.pageSubtitle}>
-          Explore all 114 surahs with Arabic text, transliteration, and translations
+          Explore all 114 surahs with Arabic text, transliteration, and
+          translations
         </Text>
       </View>
 
@@ -1831,7 +2401,11 @@ export const WebQuranContent: React.FC<WebQuranContentProps> = ({
         </View>
       ) : chaptersQuery.isError ? (
         <View style={styles.errorContainer}>
-          <Ionicons name="alert-circle-outline" size={48} color={colors.error} />
+          <Ionicons
+            name="alert-circle-outline"
+            size={48}
+            color={colors.error}
+          />
           <Text style={styles.errorTitle}>Failed to load chapters</Text>
           <Text style={styles.errorText}>Please try again later</Text>
         </View>
@@ -1842,11 +2416,13 @@ export const WebQuranContent: React.FC<WebQuranContentProps> = ({
               key={chapter.id}
               chapter={chapter}
               index={index}
-              onPress={() => onSubNavigate('mode-select', {
-                chapterId: chapter.id,
-                chapterName: chapter.name_simple,
-                chapterArabicName: chapter.name_arabic,
-              })}
+              onPress={() =>
+                onSubNavigate("mode-select", {
+                  chapterId: chapter.id,
+                  chapterName: chapter.name_simple,
+                  chapterArabicName: chapter.name_arabic,
+                })
+              }
             />
           ))}
         </View>
@@ -1864,7 +2440,7 @@ const styles = StyleSheet.create({
     paddingBottom: 60,
   },
   pageHeader: {
-    alignItems: 'center',
+    alignItems: "center",
     marginBottom: 40,
   },
   pageHeaderIcon: {
@@ -1872,24 +2448,24 @@ const styles = StyleSheet.create({
     height: 80,
     borderRadius: 24,
     backgroundColor: `${colors.primary}15`,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     marginBottom: 20,
   },
   pageTitle: {
     fontSize: 36,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.text.primary,
     letterSpacing: -0.5,
     marginBottom: 12,
-    textAlign: 'center',
+    textAlign: "center",
     // @ts-ignore
     fontFamily: "'Cormorant Garamond', Georgia, serif",
   },
   pageSubtitle: {
     fontSize: 16,
     color: colors.text.secondary,
-    textAlign: 'center',
+    textAlign: "center",
     maxWidth: 500,
     lineHeight: 26,
     // @ts-ignore
@@ -1897,25 +2473,25 @@ const styles = StyleSheet.create({
   },
   chaptersGrid: {
     // @ts-ignore - CSS Grid for responsive layout that fills width
-    display: 'grid',
+    display: "grid",
     gap: 20,
-    width: '100%',
+    width: "100%",
     // @ts-ignore - Increased minimum width to 360px for more breathing room
     // This ensures cards always fill the entire width with uniform columns
-    gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))',
+    gridTemplateColumns: "repeat(auto-fit, minmax(360px, 1fr))",
   },
   chapterCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     backgroundColor: colors.background,
     borderRadius: 16,
     padding: 24,
     // @ts-ignore
-    boxShadow: '0 4px 16px rgba(0, 0, 0, 0.06)',
-    cursor: 'pointer',
-    width: '100%',
+    boxShadow: "0 4px 16px rgba(0, 0, 0, 0.06)",
+    cursor: "pointer",
+    width: "100%",
     // @ts-ignore
-    transition: 'all 0.2s ease-out',
+    transition: "all 0.2s ease-out",
     minHeight: 100,
   },
   chapterNumber: {
@@ -1923,14 +2499,14 @@ const styles = StyleSheet.create({
     height: 36,
     borderRadius: 10,
     backgroundColor: `${colors.primary}15`,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     marginRight: 16,
     flexShrink: 0,
   },
   chapterNumberText: {
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: "700",
     color: colors.primary,
     // @ts-ignore
     fontFamily: "'Cormorant Garamond', Georgia, serif",
@@ -1942,7 +2518,7 @@ const styles = StyleSheet.create({
   },
   chapterName: {
     fontSize: 17,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.text.primary,
     marginBottom: 6,
     // @ts-ignore
@@ -1960,7 +2536,7 @@ const styles = StyleSheet.create({
   chapterMeta: {
     fontSize: 12,
     color: colors.text.tertiary,
-    textTransform: 'capitalize',
+    textTransform: "capitalize",
     // @ts-ignore
     fontFamily: "'DM Sans', sans-serif",
   },
@@ -1975,20 +2551,20 @@ const styles = StyleSheet.create({
     fontFamily: "'Amiri', serif",
   },
   backButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
     paddingVertical: 8,
     paddingHorizontal: 16,
     borderRadius: 100,
     backgroundColor: `${colors.primary}10`,
     gap: 8,
     // @ts-ignore
-    cursor: 'pointer',
+    cursor: "pointer",
   },
   backButtonText: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.primary,
     // @ts-ignore
     fontFamily: "'DM Sans', sans-serif",
@@ -2000,8 +2576,8 @@ const styles = StyleSheet.create({
   },
   modeSelectShell: {
     maxWidth: 980,
-    width: '100%',
-    alignSelf: 'center',
+    width: "100%",
+    alignSelf: "center",
     flex: 1,
   },
   modeSelectHeader: {
@@ -2009,21 +2585,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingTop: 18,
     paddingBottom: 20,
-    alignItems: 'center',
+    alignItems: "center",
     marginBottom: 40,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   modeSelectBackButton: {
-    alignSelf: 'flex-start',
+    alignSelf: "flex-start",
     width: 42,
     height: 42,
     borderRadius: 21,
-    backgroundColor: 'rgba(255,255,255,0.14)',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: "rgba(255,255,255,0.14)",
+    alignItems: "center",
+    justifyContent: "center",
     marginBottom: 12,
     // @ts-ignore
-    cursor: 'pointer',
+    cursor: "pointer",
   },
   modeSelectArabicName: {
     fontSize: 32,
@@ -2034,45 +2610,45 @@ const styles = StyleSheet.create({
   },
   modeSelectChapterName: {
     fontSize: 22,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.text.white,
     // @ts-ignore
     fontFamily: "'Cormorant Garamond', Georgia, serif",
   },
   modeSelectContent: {
-    alignItems: 'stretch',
+    alignItems: "stretch",
     flex: 1,
     paddingTop: 12,
   },
   modeSelectPrompt: {
     fontSize: 28,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.text.primary,
     marginBottom: 10,
-    textAlign: 'center',
+    textAlign: "center",
     // @ts-ignore
     fontFamily: "'Cormorant Garamond', Georgia, serif",
   },
   modeSelectOptions: {
-    width: '100%',
+    width: "100%",
     flex: 1,
     gap: 4,
-    justifyContent: 'center',
+    justifyContent: "center",
   },
   modeSelectCard: {
     borderRadius: 24,
-    overflow: 'hidden',
-    width: '100%',
+    overflow: "hidden",
+    width: "100%",
     flex: 1,
     // @ts-ignore
-    cursor: 'pointer',
+    cursor: "pointer",
   },
   modeSelectCardGradient: {
     paddingHorizontal: 24,
     paddingVertical: 24,
-    alignItems: 'flex-start',
+    alignItems: "flex-start",
     minHeight: 210,
-    justifyContent: 'center',
+    justifyContent: "center",
     borderBottomLeftRadius: 24,
     borderBottomRightRadius: 24,
   },
@@ -2080,14 +2656,14 @@ const styles = StyleSheet.create({
     width: 68,
     height: 68,
     borderRadius: 34,
-    backgroundColor: 'rgba(255,255,255,0.18)',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: "rgba(255,255,255,0.18)",
+    alignItems: "center",
+    justifyContent: "center",
     marginBottom: 14,
   },
   modeSelectCardTitle: {
     fontSize: 24,
-    fontWeight: '700',
+    fontWeight: "700",
     color: colors.text.white,
     marginBottom: 6,
     // @ts-ignore
@@ -2096,8 +2672,8 @@ const styles = StyleSheet.create({
   modeSelectCardSubtitle: {
     fontSize: 14,
     lineHeight: 22,
-    color: 'rgba(255,255,255,0.86)',
-    textAlign: 'left',
+    color: "rgba(255,255,255,0.86)",
+    textAlign: "left",
     maxWidth: 560,
     // @ts-ignore
     fontFamily: "'DM Sans', sans-serif",
@@ -2117,15 +2693,15 @@ const styles = StyleSheet.create({
   },
   chapterHeader: {
     borderRadius: 24,
-    overflow: 'hidden',
+    overflow: "hidden",
     marginBottom: 18,
-    position: 'relative',
+    position: "relative",
   },
   readChapterHeader: {
     marginBottom: 12,
   },
   chapterHeaderPattern: {
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     left: 0,
     right: 0,
@@ -2133,23 +2709,23 @@ const styles = StyleSheet.create({
     opacity: 0.1,
     // @ts-ignore
     backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M30 0L60 30L30 60L0 30z' fill='none' stroke='white' stroke-width='1'/%3E%3C/svg%3E")`,
-    backgroundSize: '60px 60px',
+    backgroundSize: "60px 60px",
   },
   chapterHeaderContent: {
     paddingHorizontal: 18,
     paddingVertical: 14,
-    alignItems: 'center',
+    alignItems: "center",
   },
   chapterHeaderTopRow: {
-    width: '100%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    width: "100%",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     marginBottom: 6,
   },
   chapterHeaderArabic: {
     fontSize: 38,
-    fontWeight: '700',
+    fontWeight: "700",
     color: colors.accent,
     marginBottom: 8,
     // @ts-ignore
@@ -2159,17 +2735,17 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: 21,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.12)',
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255,255,255,0.12)",
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.18)',
+    borderColor: "rgba(255,255,255,0.18)",
     // @ts-ignore
-    cursor: 'pointer',
+    cursor: "pointer",
   },
   chapterHeaderName: {
     fontSize: 22,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.text.white,
     marginBottom: 10,
     // @ts-ignore
@@ -2177,58 +2753,58 @@ const styles = StyleSheet.create({
   },
   chapterHeaderBismillah: {
     fontSize: 18,
-    color: 'rgba(255, 255, 255, 0.8)',
+    color: "rgba(255, 255, 255, 0.8)",
     // @ts-ignore
     fontFamily: "'Amiri', serif",
   },
   readHeaderActions: {
-    position: 'absolute',
+    position: "absolute",
     top: 12,
     left: 12,
     right: 12,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
     zIndex: 1,
   },
   readHeaderActionButton: {
     width: 42,
     height: 42,
     borderRadius: 21,
-    backgroundColor: 'rgba(255,255,255,0.14)',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: "rgba(255,255,255,0.14)",
+    alignItems: "center",
+    justifyContent: "center",
     // @ts-ignore
-    cursor: 'pointer',
+    cursor: "pointer",
   },
   readChapterHeaderContent: {
     minHeight: 124,
     paddingHorizontal: 72,
     paddingTop: 18,
     paddingBottom: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   readChapterHeaderArabic: {
     fontSize: 32,
     color: colors.accent,
     marginBottom: 4,
-    textAlign: 'center',
+    textAlign: "center",
     // @ts-ignore
     fontFamily: "'Amiri', serif",
   },
   readChapterHeaderName: {
     fontSize: 22,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.text.white,
     marginBottom: 6,
-    textAlign: 'center',
+    textAlign: "center",
     // @ts-ignore
     fontFamily: "'Cormorant Garamond', Georgia, serif",
   },
   readChapterHeaderBismillah: {
     fontSize: 16,
-    color: 'rgba(255, 255, 255, 0.82)',
-    textAlign: 'center',
+    color: "rgba(255, 255, 255, 0.82)",
+    textAlign: "center",
     // @ts-ignore
     fontFamily: "'Amiri', serif",
   },
@@ -2238,9 +2814,9 @@ const styles = StyleSheet.create({
   },
   readProgressLabel: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.text.secondary,
-    textAlign: 'center',
+    textAlign: "center",
     marginBottom: 8,
     // @ts-ignore
     fontFamily: "'DM Sans', sans-serif",
@@ -2249,10 +2825,10 @@ const styles = StyleSheet.create({
     height: 4,
     backgroundColor: colors.surface,
     borderRadius: 999,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   readProgressFill: {
-    height: '100%',
+    height: "100%",
     backgroundColor: colors.primary,
     borderRadius: 999,
   },
@@ -2278,7 +2854,7 @@ const styles = StyleSheet.create({
   },
   readVersePage: {
     flex: 1,
-    width: '100%',
+    width: "100%",
   },
   readVerseCard: {
     flex: 1,
@@ -2289,17 +2865,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingTop: 20,
     paddingBottom: 18,
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    alignItems: "center",
+    justifyContent: "space-between",
     // @ts-ignore
-    boxShadow: '0 10px 36px rgba(0, 0, 0, 0.08)',
+    boxShadow: "0 10px 36px rgba(0, 0, 0, 0.08)",
   },
   readVerseTopRow: {
-    width: '100%',
+    width: "100%",
     minHeight: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
+    alignItems: "center",
+    justifyContent: "center",
+    position: "relative",
     marginBottom: 20,
   },
   readVerseBadge: {
@@ -2308,15 +2884,15 @@ const styles = StyleSheet.create({
     borderRadius: 26,
     paddingHorizontal: 14,
     backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   readVerseBadgeWide: {
     minWidth: 110,
   },
   readVerseBadgeText: {
     fontSize: 18,
-    fontWeight: '700',
+    fontWeight: "700",
     color: colors.text.white,
     // @ts-ignore
     fontFamily: "'DM Sans', sans-serif",
@@ -2325,24 +2901,24 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   readVerseBookmarkButton: {
-    position: 'absolute',
+    position: "absolute",
     right: 0,
     top: 0,
     width: 44,
     height: 44,
     borderRadius: 22,
     backgroundColor: colors.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     // @ts-ignore
-    cursor: 'pointer',
+    cursor: "pointer",
   },
   readVerseContent: {
     flex: 1,
-    width: '100%',
+    width: "100%",
     maxWidth: 980,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     paddingHorizontal: 10,
     paddingTop: 8,
     paddingBottom: 12,
@@ -2351,12 +2927,12 @@ const styles = StyleSheet.create({
     fontSize: 32,
     lineHeight: 52,
     color: colors.text.primary,
-    textAlign: 'center',
+    textAlign: "center",
     marginBottom: 16,
-    width: '100%',
+    width: "100%",
     // @ts-ignore
     fontFamily: "'Amiri', serif",
-    direction: 'rtl',
+    direction: "rtl",
   },
   readVerseArabicOnly: {
     marginBottom: 0,
@@ -2365,8 +2941,8 @@ const styles = StyleSheet.create({
     fontSize: 18,
     lineHeight: 28,
     color: colors.text.secondary,
-    textAlign: 'center',
-    width: '100%',
+    textAlign: "center",
+    width: "100%",
     // @ts-ignore
     fontFamily: "'DM Sans', sans-serif",
   },
@@ -2381,7 +2957,7 @@ const styles = StyleSheet.create({
     fontFamily: "'DM Sans', sans-serif",
   },
   readControls: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 12,
     marginTop: 10,
   },
@@ -2392,12 +2968,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     backgroundColor: colors.background,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     gap: 8,
     // @ts-ignore
-    cursor: 'pointer',
+    cursor: "pointer",
   },
   readControlButtonPrimary: {
     backgroundColor: colors.primary,
@@ -2409,7 +2985,7 @@ const styles = StyleSheet.create({
   },
   readControlButtonText: {
     fontSize: 15,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.primary,
     // @ts-ignore
     fontFamily: "'DM Sans', sans-serif",
@@ -2419,23 +2995,23 @@ const styles = StyleSheet.create({
   },
   readControlButtonTextPrimary: {
     fontSize: 15,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.text.white,
     // @ts-ignore
     fontFamily: "'DM Sans', sans-serif",
   },
   verseCard: {
-    flexDirection: 'row',
+    flexDirection: "row",
     backgroundColor: colors.background,
     borderRadius: 16,
     padding: 24,
     borderWidth: 1,
     borderColor: colors.border,
     // @ts-ignore
-    transition: 'all 0.2s ease-out',
+    transition: "all 0.2s ease-out",
   },
   verseLeftColumn: {
-    alignItems: 'center',
+    alignItems: "center",
     marginRight: 20,
     gap: 10,
   },
@@ -2444,12 +3020,12 @@ const styles = StyleSheet.create({
     height: 40,
     borderRadius: 20,
     backgroundColor: `${colors.primary}15`,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   verseNumberText: {
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: "700",
     color: colors.primary,
     // @ts-ignore
     fontFamily: "'DM Sans', sans-serif",
@@ -2458,9 +3034,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   verseHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     marginBottom: 12,
     gap: 10,
   },
@@ -2474,26 +3050,26 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 17,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     backgroundColor: `${colors.primary}08`,
     // @ts-ignore
-    cursor: 'pointer',
+    cursor: "pointer",
   },
   verseArabic: {
     fontSize: 28,
     color: colors.text.primary,
-    textAlign: 'right',
+    textAlign: "right",
     marginBottom: 16,
     lineHeight: 48,
     // @ts-ignore
     fontFamily: "'Amiri', serif",
-    direction: 'rtl',
+    direction: "rtl",
   },
   verseTransliteration: {
     fontSize: 15,
     color: colors.primary,
-    fontStyle: 'italic',
+    fontStyle: "italic",
     marginBottom: 12,
     lineHeight: 24,
     // @ts-ignore
@@ -2511,32 +3087,32 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   viewModeToggle: {
-    flexDirection: 'row',
+    flexDirection: "row",
     backgroundColor: colors.surface,
     borderRadius: 16,
     padding: 4,
     // @ts-ignore
-    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.06)',
+    boxShadow: "0 2px 8px rgba(0, 0, 0, 0.06)",
   },
   viewModeButton: {
     flex: 1,
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     // @ts-ignore
-    cursor: 'pointer',
-    transition: 'all 0.2s ease-out',
+    cursor: "pointer",
+    transition: "all 0.2s ease-out",
   },
   viewModeButtonActive: {
     backgroundColor: colors.primary,
     // @ts-ignore
-    boxShadow: '0 4px 12px rgba(27, 67, 50, 0.25)',
+    boxShadow: "0 4px 12px rgba(27, 67, 50, 0.25)",
   },
   viewModeText: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.text.secondary,
     // @ts-ignore
     fontFamily: "'DM Sans', sans-serif",
@@ -2568,12 +3144,12 @@ const styles = StyleSheet.create({
     fontFamily: "'DM Sans', sans-serif",
   },
   verseTranslationHighlighted: {
-    color: '#047857',
-    fontWeight: '500',
+    color: "#047857",
+    fontWeight: "500",
   },
   loadingContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     padding: 60,
   },
   loadingText: {
@@ -2584,13 +3160,13 @@ const styles = StyleSheet.create({
     fontFamily: "'DM Sans', sans-serif",
   },
   errorContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     padding: 60,
   },
   errorTitle: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.error,
     marginTop: 16,
     marginBottom: 8,
@@ -2604,20 +3180,20 @@ const styles = StyleSheet.create({
     fontFamily: "'DM Sans', sans-serif",
   },
   loadMoreButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     backgroundColor: colors.primary,
     borderRadius: 12,
     padding: 16,
     marginTop: 24,
     gap: 8,
     // @ts-ignore
-    cursor: 'pointer',
+    cursor: "pointer",
   },
   loadMoreText: {
     fontSize: 15,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.text.white,
     // @ts-ignore
     fontFamily: "'DM Sans', sans-serif",
@@ -2625,35 +3201,36 @@ const styles = StyleSheet.create({
   // Chapter container for fixed audio bar
   chapterContainer: {
     flex: 1,
-    position: 'relative',
+    position: "relative",
     backgroundColor: colors.surface,
   },
   // Verse highlighting styles - BRIGHT and OBVIOUS
   verseCardHighlighted: {
-    borderColor: '#10B981',
+    borderColor: "#10B981",
     borderWidth: 3,
-    backgroundColor: '#D1FAE5',
+    backgroundColor: "#D1FAE5",
     // @ts-ignore
-    boxShadow: '0 0 0 4px rgba(16, 185, 129, 0.25), 0 8px 32px rgba(16, 185, 129, 0.2)',
-    position: 'relative',
+    boxShadow:
+      "0 0 0 4px rgba(16, 185, 129, 0.25), 0 8px 32px rgba(16, 185, 129, 0.2)",
+    position: "relative",
     transform: [{ scale: 1.01 }],
   },
   verseCardCompleted: {
-    backgroundColor: '#ECFDF5',
-    borderColor: '#A7F3D0',
+    backgroundColor: "#ECFDF5",
+    borderColor: "#A7F3D0",
     borderWidth: 2,
   },
   verseNumberHighlighted: {
-    backgroundColor: '#10B981',
+    backgroundColor: "#10B981",
     // @ts-ignore
-    boxShadow: '0 0 12px rgba(16, 185, 129, 0.5)',
+    boxShadow: "0 0 12px rgba(16, 185, 129, 0.5)",
   },
   verseNumberTextHighlighted: {
     color: colors.text.white,
-    fontWeight: '800',
+    fontWeight: "800",
   },
   verseArabicHighlighted: {
-    color: '#047857',
+    color: "#047857",
   },
   // Audio Player Bar styles
   audioPlayerBar: {
@@ -2661,28 +3238,28 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: colors.border,
     // @ts-ignore
-    boxShadow: '0 -4px 20px rgba(0, 0, 0, 0.08)',
+    boxShadow: "0 -4px 20px rgba(0, 0, 0, 0.08)",
   },
   audioProgressContainer: {
     height: 4,
     backgroundColor: colors.border,
   },
   audioProgressFill: {
-    height: '100%',
+    height: "100%",
     backgroundColor: colors.primary,
     // @ts-ignore
-    transition: 'width 0.1s linear',
+    transition: "width 0.1s linear",
   },
   audioPlayerContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 24,
     paddingVertical: 16,
     gap: 20,
   },
   audioTimeContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     minWidth: 100,
   },
   audioTimeText: {
@@ -2690,7 +3267,7 @@ const styles = StyleSheet.create({
     color: colors.text.secondary,
     // @ts-ignore
     fontFamily: "'DM Sans', sans-serif",
-    fontVariant: ['tabular-nums'],
+    fontVariant: ["tabular-nums"],
   },
   audioTimeSeparator: {
     fontSize: 14,
@@ -2702,28 +3279,28 @@ const styles = StyleSheet.create({
     height: 52,
     borderRadius: 26,
     backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     // @ts-ignore
-    boxShadow: '0 4px 16px rgba(27, 67, 50, 0.25)',
-    cursor: 'pointer',
+    boxShadow: "0 4px 16px rgba(27, 67, 50, 0.25)",
+    cursor: "pointer",
   },
   audioPlayButtonDisabled: {
     backgroundColor: colors.text.disabled,
     // @ts-ignore
-    boxShadow: 'none',
+    boxShadow: "none",
   },
   audioReciterButton: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     backgroundColor: colors.surface,
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderRadius: 12,
     gap: 12,
     // @ts-ignore
-    cursor: 'pointer',
+    cursor: "pointer",
     maxWidth: 400,
   },
   audioReciterInfo: {
@@ -2732,7 +3309,7 @@ const styles = StyleSheet.create({
   audioReciterLabel: {
     fontSize: 11,
     color: colors.text.tertiary,
-    textTransform: 'uppercase',
+    textTransform: "uppercase",
     letterSpacing: 1,
     marginBottom: 2,
     // @ts-ignore
@@ -2740,7 +3317,7 @@ const styles = StyleSheet.create({
   },
   audioReciterName: {
     fontSize: 15,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.text.primary,
     // @ts-ignore
     fontFamily: "'DM Sans', sans-serif",
@@ -2748,25 +3325,25 @@ const styles = StyleSheet.create({
   // Modal styles
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    alignItems: "center",
+    justifyContent: "center",
     // @ts-ignore
-    backdropFilter: 'blur(4px)',
+    backdropFilter: "blur(4px)",
   },
   modalContent: {
     backgroundColor: colors.background,
     borderRadius: 24,
-    width: '90%',
+    width: "90%",
     maxWidth: 500,
-    maxHeight: '80%',
+    maxHeight: "80%",
     // @ts-ignore
-    boxShadow: '0 24px 80px rgba(0, 0, 0, 0.2)',
+    boxShadow: "0 24px 80px rgba(0, 0, 0, 0.2)",
   },
   modalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: 24,
     paddingVertical: 20,
     borderBottomWidth: 1,
@@ -2774,7 +3351,7 @@ const styles = StyleSheet.create({
   },
   modalTitle: {
     fontSize: 20,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.text.primary,
     // @ts-ignore
     fontFamily: "'Cormorant Garamond', Georgia, serif",
@@ -2784,28 +3361,28 @@ const styles = StyleSheet.create({
     height: 36,
     borderRadius: 18,
     backgroundColor: colors.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     // @ts-ignore
-    cursor: 'pointer',
+    cursor: "pointer",
   },
   modalLoading: {
     padding: 60,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   modalScroll: {
     maxHeight: 400,
   },
   reciterItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 24,
     paddingVertical: 16,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
     // @ts-ignore
-    cursor: 'pointer',
+    cursor: "pointer",
   },
   reciterItemSelected: {
     backgroundColor: `${colors.primary}08`,
@@ -2815,14 +3392,14 @@ const styles = StyleSheet.create({
   },
   reciterItemName: {
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: "500",
     color: colors.text.primary,
     marginBottom: 2,
     // @ts-ignore
     fontFamily: "'DM Sans', sans-serif",
   },
   reciterItemNameSelected: {
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.primary,
   },
   reciterItemArabic: {
@@ -2831,23 +3408,12 @@ const styles = StyleSheet.create({
     // @ts-ignore
     fontFamily: "'Amiri', serif",
   },
-  // Top bar with back and settings
+  // Top bar with back button
   chapterTopBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-start",
     marginBottom: 24,
-  },
-  settingsButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: `${colors.primary}10`,
-    alignItems: 'center',
-    justifyContent: 'center',
-    // @ts-ignore
-    cursor: 'pointer',
-    transition: 'all 0.2s ease-out',
   },
   settingsButtonPlaceholder: {
     width: 44,
@@ -2855,7 +3421,7 @@ const styles = StyleSheet.create({
   },
   // Enhanced verse highlighting - brighter and more obvious
   highlightedWord: {
-    backgroundColor: '#10B981',
+    backgroundColor: "#10B981",
     color: colors.text.white,
     borderRadius: 4,
     // @ts-ignore
@@ -2863,67 +3429,67 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   verseTransliterationHighlighted: {
-    color: '#059669',
-    fontWeight: '600',
+    color: "#059669",
+    fontWeight: "600",
   },
   // Playing indicator animation
   playingIndicator: {
-    position: 'absolute',
+    position: "absolute",
     top: 12,
     right: 12,
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 3,
   },
   playingDot: {
     width: 4,
     height: 12,
-    backgroundColor: '#10B981',
+    backgroundColor: "#10B981",
     borderRadius: 2,
     // @ts-ignore
-    animation: 'audioWave 0.8s ease-in-out infinite',
+    animation: "audioWave 0.8s ease-in-out infinite",
   },
   playingDot2: {
     // @ts-ignore
-    animationDelay: '0.2s',
+    animationDelay: "0.2s",
   },
   playingDot3: {
     // @ts-ignore
-    animationDelay: '0.4s',
+    animationDelay: "0.4s",
   },
   // Sidebar styles
   sidebarOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    flexDirection: "row",
+    justifyContent: "flex-end",
     // @ts-ignore
-    backdropFilter: 'blur(4px)',
+    backdropFilter: "blur(4px)",
   },
   sidebarContent: {
     backgroundColor: colors.background,
     width: 400,
-    maxWidth: '90%',
-    height: '100%',
+    maxWidth: "90%",
+    height: "100%",
     // @ts-ignore
-    boxShadow: '-8px 0 40px rgba(0, 0, 0, 0.15)',
+    boxShadow: "-8px 0 40px rgba(0, 0, 0, 0.15)",
   },
   sidebarHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: 24,
     paddingVertical: 20,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
   sidebarTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 12,
   },
   sidebarTitle: {
     fontSize: 22,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.text.primary,
     // @ts-ignore
     fontFamily: "'Cormorant Garamond', Georgia, serif",
@@ -2933,10 +3499,10 @@ const styles = StyleSheet.create({
     height: 40,
     borderRadius: 20,
     backgroundColor: colors.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     // @ts-ignore
-    cursor: 'pointer',
+    cursor: "pointer",
   },
   sidebarScroll: {
     flex: 1,
@@ -2950,7 +3516,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.text.primary,
     marginBottom: 8,
     // @ts-ignore
@@ -2965,25 +3531,25 @@ const styles = StyleSheet.create({
     fontFamily: "'DM Sans', sans-serif",
   },
   currentSettingsCard: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: '#D1FAE5',
+    flexDirection: "row",
+    alignItems: "flex-start",
+    backgroundColor: "#D1FAE5",
     paddingHorizontal: 16,
     paddingVertical: 14,
     borderRadius: 12,
     marginBottom: 24,
     gap: 12,
     borderWidth: 1,
-    borderColor: '#A7F3D0',
+    borderColor: "#A7F3D0",
   },
   currentSettingsContent: {
     flex: 1,
   },
   currentSettingsLabel: {
     fontSize: 12,
-    fontWeight: '600',
-    color: '#065F46',
-    textTransform: 'uppercase',
+    fontWeight: "600",
+    color: "#065F46",
+    textTransform: "uppercase",
     letterSpacing: 0.5,
     marginBottom: 4,
     // @ts-ignore
@@ -2991,14 +3557,14 @@ const styles = StyleSheet.create({
   },
   currentSettingsText: {
     fontSize: 14,
-    fontWeight: '500',
-    color: '#047857',
+    fontWeight: "500",
+    color: "#047857",
     // @ts-ignore
     fontFamily: "'DM Sans', sans-serif",
   },
   inputsRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
+    flexDirection: "row",
+    alignItems: "flex-end",
     gap: 12,
   },
   inputGroup: {
@@ -3006,7 +3572,7 @@ const styles = StyleSheet.create({
   },
   inputLabel: {
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.text.primary,
     marginBottom: 8,
     // @ts-ignore
@@ -3020,12 +3586,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.text.primary,
-    textAlign: 'center',
+    textAlign: "center",
     // @ts-ignore
     fontFamily: "'DM Sans', sans-serif",
-    outline: 'none',
+    outline: "none",
   },
   inputDivider: {
     paddingBottom: 16,
@@ -3033,15 +3599,15 @@ const styles = StyleSheet.create({
   verseHint: {
     fontSize: 13,
     color: colors.text.tertiary,
-    textAlign: 'center',
+    textAlign: "center",
     marginTop: 12,
     // @ts-ignore
     fontFamily: "'DM Sans', sans-serif",
   },
   toggleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     backgroundColor: colors.surface,
     paddingHorizontal: 16,
     paddingVertical: 14,
@@ -3051,31 +3617,31 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   toggleRowActive: {
-    backgroundColor: '#D1FAE5',
-    borderColor: '#A7F3D0',
+    backgroundColor: "#D1FAE5",
+    borderColor: "#A7F3D0",
   },
   toggleInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 12,
   },
   toggleLabel: {
     fontSize: 15,
-    fontWeight: '500',
+    fontWeight: "500",
     color: colors.text.secondary,
     // @ts-ignore
     fontFamily: "'DM Sans', sans-serif",
   },
   toggleLabelActive: {
-    color: '#047857',
-    fontWeight: '600',
+    color: "#047857",
+    fontWeight: "600",
   },
   loopCountContainer: {
     marginTop: 8,
   },
   loopCountRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 16,
   },
   loopInput: {
@@ -3091,26 +3657,26 @@ const styles = StyleSheet.create({
   infiniteHint: {
     fontSize: 13,
     color: colors.text.tertiary,
-    fontStyle: 'italic',
+    fontStyle: "italic",
     marginTop: 8,
     // @ts-ignore
     fontFamily: "'DM Sans', sans-serif",
   },
   errorBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FEE2E2',
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FEE2E2",
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderRadius: 12,
     marginBottom: 20,
     gap: 10,
     borderWidth: 1,
-    borderColor: '#FECACA',
+    borderColor: "#FECACA",
   },
   errorBoxText: {
     fontSize: 14,
-    color: '#DC2626',
+    color: "#DC2626",
     flex: 1,
     // @ts-ignore
     fontFamily: "'DM Sans', sans-serif",
@@ -3120,30 +3686,30 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
   },
   applyButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     backgroundColor: colors.primary,
     paddingVertical: 16,
     paddingHorizontal: 24,
     borderRadius: 12,
     gap: 10,
     // @ts-ignore
-    boxShadow: '0 4px 16px rgba(27, 67, 50, 0.25)',
-    cursor: 'pointer',
+    boxShadow: "0 4px 16px rgba(27, 67, 50, 0.25)",
+    cursor: "pointer",
   },
   applyButtonText: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.text.white,
     // @ts-ignore
     fontFamily: "'DM Sans', sans-serif",
   },
   resetButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'transparent',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "transparent",
     paddingVertical: 14,
     paddingHorizontal: 24,
     borderRadius: 12,
@@ -3151,13 +3717,139 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
     gap: 8,
     // @ts-ignore
-    cursor: 'pointer',
+    cursor: "pointer",
   },
   resetButtonText: {
     fontSize: 15,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.primary,
     // @ts-ignore
     fontFamily: "'DM Sans', sans-serif",
+  },
+  // Fixed settings button
+  fixedSettingsButton: {
+    // @ts-ignore - position fixed for web
+    position: "fixed",
+    top: 24,
+    right: 24,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: colors.background,
+    alignItems: "center",
+    justifyContent: "center",
+    // @ts-ignore
+    boxShadow: "0 4px 20px rgba(0, 0, 0, 0.12)",
+    cursor: "pointer",
+    zIndex: 1000,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  // Audio controls center
+  audioControlsCenter: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+  audioControlButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: `${colors.primary}10`,
+    alignItems: "center",
+    justifyContent: "center",
+    position: "relative",
+    // @ts-ignore
+    cursor: "pointer",
+  },
+  audioControlButtonDisabled: {
+    backgroundColor: colors.surface,
+  },
+  skipText: {
+    position: "absolute",
+    bottom: 4,
+    fontSize: 9,
+    fontWeight: "700",
+    color: colors.primary,
+    // @ts-ignore
+    fontFamily: "'DM Sans', sans-serif",
+  },
+  skipTextDisabled: {
+    color: colors.text.disabled,
+  },
+  // Reciter selection in sidebar
+  reciterLoading: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 20,
+    gap: 12,
+  },
+  reciterLoadingText: {
+    fontSize: 14,
+    color: colors.text.secondary,
+    // @ts-ignore
+    fontFamily: "'DM Sans', sans-serif",
+  },
+  reciterSelectButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: colors.surface,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    // @ts-ignore
+    cursor: "pointer",
+  },
+  reciterSelectContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    flex: 1,
+  },
+  reciterSelectName: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: colors.text.primary,
+    flex: 1,
+    // @ts-ignore
+    fontFamily: "'DM Sans', sans-serif",
+  },
+  reciterListContainer: {
+    marginTop: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    overflow: "hidden",
+    maxHeight: 200,
+  },
+  reciterListItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    // @ts-ignore
+    cursor: "pointer",
+  },
+  reciterListItemSelected: {
+    backgroundColor: `${colors.primary}08`,
+  },
+  reciterListItemName: {
+    fontSize: 14,
+    color: colors.text.primary,
+    // @ts-ignore
+    fontFamily: "'DM Sans', sans-serif",
+  },
+  reciterListItemNameSelected: {
+    fontWeight: "600",
+    color: colors.primary,
   },
 });

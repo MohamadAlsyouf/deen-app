@@ -29,14 +29,37 @@ type GridCard = {
   title: string;
   subtitle: string;
   icon: IoniconName;
-  gradientColors: [string, string];
   screen: string;
 };
 
-const GridCardItem: React.FC<{ card: GridCard & { onPress: () => void }; size: number }> = ({ card, size }) => (
+// Green gradient palette based on #1B4332 (darkest to lightest)
+const GRADIENT_PALETTE = [
+  '#0D2818', // darkest
+  '#1B4332',
+  '#2D6A4F',
+  '#40916C',
+  '#52B788',
+  '#74C69D',
+  '#95D5B2', // lightest
+];
+
+// Calculate gradient colors for a card based on its position in the grid
+const getCardGradient = (index: number, totalCards: number): [string, string] => {
+  const maxIndex = GRADIENT_PALETTE.length - 1;
+  // Calculate position in gradient (0 to 1)
+  const startPos = totalCards > 1 ? (index / (totalCards - 1)) * (maxIndex - 1) : 0;
+  const endPos = Math.min(startPos + 1.5, maxIndex);
+
+  const startColorIndex = Math.floor(startPos);
+  const endColorIndex = Math.min(Math.ceil(endPos), maxIndex);
+
+  return [GRADIENT_PALETTE[startColorIndex], GRADIENT_PALETTE[endColorIndex]];
+};
+
+const GridCardItem: React.FC<{ card: GridCard & { onPress: () => void }; size: number; index: number; totalCards: number }> = ({ card, size, index, totalCards }) => (
   <TouchableOpacity onPress={card.onPress} activeOpacity={0.85} style={{ width: size }}>
     <LinearGradient
-      colors={card.gradientColors}
+      colors={getCardGradient(index, totalCards)}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
       style={[styles.gridCard, { width: size, height: size }]}
@@ -94,7 +117,6 @@ const ALL_CARDS: GridCard[] = [
     title: 'Quran',
     subtitle: 'Browse chapters & read verses',
     icon: 'book-outline',
-    gradientColors: [colors.primary, colors.secondaryDark],
     screen: 'QuranChapters',
   },
   {
@@ -102,7 +124,6 @@ const ALL_CARDS: GridCard[] = [
     title: 'Prayer Guide',
     subtitle: 'Step-by-step daily prayers',
     icon: 'hand-left-outline',
-    gradientColors: ['#2D6A4F', '#52B788'],
     screen: 'PrayerGuide',
   },
   {
@@ -110,7 +131,6 @@ const ALL_CARDS: GridCard[] = [
     title: 'Pillars of Islam',
     subtitle: '5 Pillars of Islam & 6 of Iman',
     icon: 'compass-outline',
-    gradientColors: ['#40916C', '#74C69D'],
     screen: 'Pillars',
   },
   {
@@ -118,7 +138,6 @@ const ALL_CARDS: GridCard[] = [
     title: '99 Names',
     subtitle: 'Learn the names of Allah',
     icon: 'star-outline',
-    gradientColors: [colors.accentDark, colors.islamic.gold],
     screen: 'AsmaUlHusnaMenu',
   },
   {
@@ -126,7 +145,6 @@ const ALL_CARDS: GridCard[] = [
     title: 'Dua & Dhikr',
     subtitle: 'Daily supplications',
     icon: 'heart-outline',
-    gradientColors: ['#667eea', '#764ba2'],
     screen: 'Dua',
   },
   {
@@ -134,7 +152,6 @@ const ALL_CARDS: GridCard[] = [
     title: 'Sunnah',
     subtitle: 'Prophetic practices for daily life',
     icon: 'sunny-outline',
-    gradientColors: ['#5D4037', '#8D6E63'],
     screen: 'Sunnah',
   },
 ];
@@ -372,11 +389,13 @@ export const HomeScreen: React.FC = () => {
             </Text>
 
             <View style={styles.grid}>
-              {displayCards.map((card) => (
+              {displayCards.map((card, index) => (
                 <GridCardItem
                   key={card.key}
                   card={{ ...card, onPress: () => nav(card.screen) }}
                   size={CARD_SIZE}
+                  index={index}
+                  totalCards={displayCards.length}
                 />
               ))}
             </View>

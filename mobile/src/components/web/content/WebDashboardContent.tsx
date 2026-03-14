@@ -28,9 +28,42 @@ type FeatureCardData = {
   subtitle: string;
   description: string;
   icon: React.ComponentProps<typeof Ionicons>["name"];
-  gradient: [string, string];
   stats?: { label: string; value: string }[];
 };
+
+// Green gradient palette based on #1B4332 (darkest to lightest)
+const GRADIENT_PALETTE = [
+  "#0D2818", // darkest
+  "#1B4332",
+  "#2D6A4F",
+  "#40916C",
+  "#52B788",
+  "#74C69D",
+  "#95D5B2", // lightest
+];
+
+// Calculate gradient colors for a card based on its position in the grid
+const getCardGradient = (index: number, totalCards: number): [string, string] => {
+  const maxIndex = GRADIENT_PALETTE.length - 1;
+  // Calculate position in gradient (0 to 1)
+  const startPos = totalCards > 1 ? (index / (totalCards - 1)) * (maxIndex - 1) : 0;
+  const endPos = Math.min(startPos + 1.5, maxIndex);
+
+  const startColorIndex = Math.floor(startPos);
+  const endColorIndex = Math.min(Math.ceil(endPos), maxIndex);
+
+  return [GRADIENT_PALETTE[startColorIndex], GRADIENT_PALETTE[endColorIndex]];
+};
+
+// Determine if card should use dark text based on its position (lighter backgrounds need dark text)
+const shouldUseDarkText = (index: number, totalCards: number): boolean => {
+  // Cards in the latter half of the grid have lighter backgrounds
+  const threshold = totalCards > 1 ? (totalCards - 1) * 0.5 : 1;
+  return index >= threshold;
+};
+
+// Dark green color for text on light backgrounds
+const DARK_TEXT_COLOR = "#0D2818";
 
 const FEATURE_CARDS: FeatureCardData[] = [
   {
@@ -40,7 +73,6 @@ const FEATURE_CARDS: FeatureCardData[] = [
     description:
       "Explore the divine revelation with translations, transliterations, and beautiful recitations from renowned Qaris.",
     icon: "book",
-    gradient: ["#1B4332", "#2D6A4F"],
     stats: [
       { label: "Chapters", value: "114" },
       { label: "Verses", value: "6,236" },
@@ -53,7 +85,6 @@ const FEATURE_CARDS: FeatureCardData[] = [
     description:
       "Learn to perform the 5 daily prayers with complete step-by-step instructions, Arabic text, and translations.",
     icon: "hand-left",
-    gradient: ["#2D6A4F", "#52B788"],
     stats: [
       { label: "Prayers", value: "5" },
       { label: "Daily", value: "17+" },
@@ -66,7 +97,6 @@ const FEATURE_CARDS: FeatureCardData[] = [
     description:
       "Understand the 5 Pillars of Islam and 6 Pillars of Iman with comprehensive explanations and reflections.",
     icon: "compass",
-    gradient: ["#2D6A4F", "#40916C"],
     stats: [
       { label: "Islam", value: "5" },
       { label: "Iman", value: "6" },
@@ -79,7 +109,6 @@ const FEATURE_CARDS: FeatureCardData[] = [
     description:
       "Learn and memorize the beautiful names of Allah with meanings, benefits, and audio pronunciations.",
     icon: "heart",
-    gradient: ["#40916C", "#52B788"],
     stats: [
       { label: "Names", value: "99" },
       { label: "Attributes", value: "∞" },
@@ -92,7 +121,6 @@ const FEATURE_CARDS: FeatureCardData[] = [
     description:
       "Morning, evening, and daily duas with Arabic text, transliteration, translation, and benefits.",
     icon: "hand-left",
-    gradient: ["#1B4332", "#40916C"],
     stats: [
       { label: "Categories", value: "4" },
       { label: "Duas", value: "25+" },
@@ -105,7 +133,6 @@ const FEATURE_CARDS: FeatureCardData[] = [
     description:
       "Discover the beautiful daily practices of the Prophet Muhammad \uFDFA for eating, sleeping, speaking, and traveling.",
     icon: "sunny",
-    gradient: ["#5D4037", "#8D6E63"],
     stats: [
       { label: "Categories", value: "4" },
       { label: "Practices", value: "24" },
@@ -117,8 +144,21 @@ const FeatureCard: React.FC<{
   data: FeatureCardData;
   onPress: () => void;
   index: number;
-}> = ({ data, onPress, index }) => {
+  totalCards: number;
+}> = ({ data, onPress, index, totalCards }) => {
   const [mounted, setMounted] = useState(false);
+  const gradient = getCardGradient(index, totalCards);
+  const useDarkText = shouldUseDarkText(index, totalCards);
+
+  // Dynamic colors based on background brightness
+  const textColor = useDarkText ? DARK_TEXT_COLOR : colors.text.white;
+  const subtitleColor = useDarkText ? "#1B4332" : colors.accent;
+  const descriptionColor = useDarkText ? "rgba(13, 40, 24, 0.85)" : "rgba(255, 255, 255, 0.85)";
+  const statValueColor = useDarkText ? "#1B4332" : colors.accent;
+  const statLabelColor = useDarkText ? "rgba(13, 40, 24, 0.7)" : "rgba(255, 255, 255, 0.7)";
+  const iconBgColor = useDarkText ? "rgba(13, 40, 24, 0.12)" : "rgba(255, 255, 255, 0.15)";
+  const ctaBgColor = useDarkText ? "rgba(13, 40, 24, 0.12)" : "rgba(255, 255, 255, 0.15)";
+  const patternColor = useDarkText ? "%230D2818" : "white"; // URL encoded for SVG
 
   useEffect(() => {
     requestAnimationFrame(() => setMounted(true));
@@ -163,36 +203,42 @@ const FeatureCard: React.FC<{
       ]}
     >
       <LinearGradient
-        colors={data.gradient as [string, string, ...string[]]}
+        colors={gradient as [string, string, ...string[]]}
         style={styles.featureCardGradient}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
       />
-      <View style={styles.featureCardPattern} />
+      <View
+        style={[
+          styles.featureCardPattern,
+          // @ts-ignore
+          { backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M30 0L60 30L30 60L0 30z' fill='none' stroke='${patternColor}' stroke-width='1'/%3E%3C/svg%3E")` },
+        ]}
+      />
       <View style={styles.featureCardContent}>
         <View style={styles.featureCardHeader}>
-          <View style={[styles.featureCardIcon, iconHover.style]}>
-            <Ionicons name={data.icon} size={28} color={colors.accent} />
+          <View style={[styles.featureCardIcon, iconHover.style, { backgroundColor: iconBgColor }]}>
+            <Ionicons name={data.icon} size={28} color={subtitleColor} />
           </View>
           <View style={styles.featureCardTitleWrap}>
-            <Text style={styles.featureCardSubtitle}>{data.subtitle}</Text>
-            <Text style={styles.featureCardTitle}>{data.title}</Text>
+            <Text style={[styles.featureCardSubtitle, { color: subtitleColor }]}>{data.subtitle}</Text>
+            <Text style={[styles.featureCardTitle, { color: textColor }]}>{data.title}</Text>
           </View>
         </View>
-        <Text style={styles.featureCardDescription}>{data.description}</Text>
+        <Text style={[styles.featureCardDescription, { color: descriptionColor }]}>{data.description}</Text>
         {data.stats && (
           <View style={styles.featureCardStats}>
             {data.stats.map((stat, i) => (
               <View key={i} style={styles.featureCardStat}>
-                <Text style={styles.featureCardStatValue}>{stat.value}</Text>
-                <Text style={styles.featureCardStatLabel}>{stat.label}</Text>
+                <Text style={[styles.featureCardStatValue, { color: statValueColor }]}>{stat.value}</Text>
+                <Text style={[styles.featureCardStatLabel, { color: statLabelColor }]}>{stat.label}</Text>
               </View>
             ))}
           </View>
         )}
-        <View style={styles.featureCardCTA}>
-          <Text style={styles.featureCardCTAText}>Explore</Text>
-          <Ionicons name="arrow-forward" size={18} color={colors.text.white} />
+        <View style={[styles.featureCardCTA, { backgroundColor: ctaBgColor }]}>
+          <Text style={[styles.featureCardCTAText, { color: textColor }]}>Explore</Text>
+          <Ionicons name="arrow-forward" size={18} color={textColor} />
         </View>
       </View>
     </TouchableOpacity>
@@ -482,6 +528,29 @@ export const WebDashboardContent: React.FC<WebDashboardContentProps> = ({
           </View>
         </View>
 
+        {/* Feature Cards */}
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Explore Your Faith</Text>
+          <Text style={styles.sectionSubtitle}>
+            Dive into the core aspects of Islamic learning
+          </Text>
+        </View>
+
+        <View
+          style={[styles.featureCardsGrid, isWide && styles.featureCardsGridWide]}
+        >
+          {FEATURE_CARDS.map((card, index) => (
+            <FeatureCard
+              key={card.id}
+              data={card}
+              onPress={() => onNavigate(card.id)}
+              index={index}
+              totalCards={FEATURE_CARDS.length}
+            />
+          ))}
+        </View>
+
+        {/* Verse of the Day */}
         {verseOfDayQuery.data ? (
           <VerseOfDayCard
             arabicText={verseOfDayQuery.data.arabicText}
@@ -504,27 +573,6 @@ export const WebDashboardContent: React.FC<WebDashboardContentProps> = ({
             <Text style={styles.verseOfDayLoadingText}>Verse of the Day is ready to open</Text>
           </TouchableOpacity>
         ) : null}
-
-        {/* Feature Cards */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Explore Your Faith</Text>
-          <Text style={styles.sectionSubtitle}>
-            Dive into the core aspects of Islamic learning
-          </Text>
-        </View>
-
-        <View
-          style={[styles.featureCardsGrid, isWide && styles.featureCardsGridWide]}
-        >
-          {FEATURE_CARDS.map((card, index) => (
-            <FeatureCard
-              key={card.id}
-              data={card}
-              onPress={() => onNavigate(card.id)}
-              index={index}
-            />
-          ))}
-        </View>
 
         {/* Quick Links */}
         <View style={styles.sectionHeader}>
@@ -839,13 +887,14 @@ const styles = StyleSheet.create({
     fontFamily: "'DM Sans', sans-serif",
   },
   featureCardsGrid: {
-    flexDirection: "column",
-    gap: 24,
-    marginBottom: 48,
-  },
-  featureCardsGridWide: {
     flexDirection: "row",
     flexWrap: "wrap",
+    gap: 24,
+    marginBottom: 48,
+    justifyContent: "center",
+  },
+  featureCardsGridWide: {
+    // No changes needed - base style handles it
   },
   featureCard: {
     borderRadius: 24,
@@ -855,9 +904,9 @@ const styles = StyleSheet.create({
     // @ts-ignore
     boxShadow: "0 8px 32px rgba(27, 67, 50, 0.12)",
     cursor: "pointer",
-    flex: 1,
-    minWidth: 320,
-    maxWidth: 500,
+    width: "calc(33.333% - 16px)",
+    minWidth: 300,
+    maxWidth: 400,
   },
   featureCardGradient: {
     ...StyleSheet.absoluteFillObject,
@@ -870,7 +919,6 @@ const styles = StyleSheet.create({
     bottom: 0,
     opacity: 0.08,
     // @ts-ignore
-    backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M30 0L60 30L30 60L0 30z' fill='none' stroke='white' stroke-width='1'/%3E%3C/svg%3E")`,
     backgroundSize: "60px 60px",
   },
   featureCardContent: {
@@ -889,7 +937,6 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 16,
-    backgroundColor: "rgba(255, 255, 255, 0.15)",
     alignItems: "center",
     justifyContent: "center",
     marginRight: 16,
@@ -955,7 +1002,6 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 20,
     borderRadius: 100,
-    backgroundColor: "rgba(255, 255, 255, 0.15)",
     gap: 8,
   },
   featureCardCTAText: {
