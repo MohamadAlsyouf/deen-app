@@ -21,7 +21,7 @@ export const AboutScreen: React.FC = () => {
         <Card style={styles.card}>
           <Text style={styles.heading}>Our Mission</Text>
           <Text style={styles.text}>
-            Deen Learning is dedicated to making Islamic knowledge accessible, understandable,
+            Arkan is dedicated to making Islamic knowledge accessible, understandable,
             and engaging for Muslims around the world. We believe that learning about our Deen
             should be a beautiful and enriching experience.
           </Text>

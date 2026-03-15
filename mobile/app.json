@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "Deen Learning",
-    "slug": "deen-app",
+    "name": "Arkan",
+    "slug": "arkan-app",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -14,7 +14,7 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.deenlearning.app",
+      "bundleIdentifier": "com.arkan.app",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
@@ -24,7 +24,7 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#1B4332"
       },
-      "package": "com.deenlearning.app",
+      "package": "com.arkan.app",
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false
     },
@@ -32,9 +32,9 @@
       "favicon": "./assets/favicon.png",
       "bundler": "metro",
       "output": "single",
-      "name": "Deen Learning",
-      "shortName": "Deen",
-      "description": "Your comprehensive platform to learn and deepen your understanding of Deen",
+      "name": "Arkan",
+      "shortName": "Arkan",
+      "description": "Your comprehensive platform to learn and deepen your understanding of Islam",
       "themeColor": "#1B4332",
       "backgroundColor": "#ffffff"
     },

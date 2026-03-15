@@ -100,12 +100,21 @@ export const WebLayout: React.FC<WebLayoutProps> = ({
             start={{ x: 0, y: 0 }}
             end={{ x: 0, y: 1 }}
           >
-            {/* Logo */}
+            {/* Logo - Pillars Icon */}
             <View style={styles.sidebarHeader}>
               <View style={styles.logoIcon}>
-                <Ionicons name="moon" size={24} color={colors.accent} />
+                <View style={styles.pillarsContainer}>
+                  <View style={styles.pillarsRow}>
+                    <View style={styles.pillar} />
+                    <View style={styles.pillar} />
+                    <View style={styles.pillar} />
+                    <View style={styles.pillar} />
+                    <View style={styles.pillar} />
+                  </View>
+                  <View style={styles.pillarsBase} />
+                </View>
               </View>
-              <Text style={styles.logoText}>Deen Learning</Text>
+              <Text style={styles.logoText}>Arkan</Text>
             </View>
 
             {/* Navigation */}
@@ -205,6 +214,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: spacing.md,
+  },
+  pillarsContainer: {
+    alignItems: 'center',
+  },
+  pillarsRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 2,
+  },
+  pillar: {
+    width: 4,
+    height: 18,
+    backgroundColor: colors.accent,
+    borderTopLeftRadius: 2,
+    borderTopRightRadius: 2,
+  },
+  pillarsBase: {
+    width: 28,
+    height: 3,
+    backgroundColor: colors.accent,
+    borderRadius: 1.5,
+    marginTop: 1,
   },
   logoText: {
     fontSize: 20,

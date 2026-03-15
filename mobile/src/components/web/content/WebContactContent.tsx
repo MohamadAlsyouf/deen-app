@@ -192,7 +192,7 @@ export const WebContactContent: React.FC = () => {
                   </View>
                   <View style={styles.contactTextWrap}>
                     <Text style={styles.contactLabel}>Email</Text>
-                    <Text style={styles.contactValue}>support@deenlearning.com</Text>
+                    <Text style={styles.contactValue}>support@arkan.com</Text>
                   </View>
                 </View>
 
@@ -202,7 +202,7 @@ export const WebContactContent: React.FC = () => {
                   </View>
                   <View style={styles.contactTextWrap}>
                     <Text style={styles.contactLabel}>Website</Text>
-                    <Text style={styles.contactValue}>www.deenlearning.com</Text>
+                    <Text style={styles.contactValue}>www.arkan.com</Text>
                   </View>
                 </View>
 
@@ -240,7 +240,7 @@ export const WebContactContent: React.FC = () => {
         </Text>
         <View style={styles.faqItems}>
           {[
-            { q: 'Is the app free to use?', a: 'Yes! Deen Learning is completely free for all users.' },
+            { q: 'Is the app free to use?', a: 'Yes! Arkan is completely free for all users.' },
             { q: 'Where does the content come from?', a: 'All content is sourced from authentic Islamic texts and verified scholars.' },
             { q: 'Can I use this offline?', a: 'Some features will be available offline in future updates.' },
           ].map((faq, index) => (

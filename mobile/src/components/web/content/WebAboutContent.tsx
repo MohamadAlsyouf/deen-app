@@ -108,7 +108,7 @@ export const WebAboutContent: React.FC = () => {
         <View style={styles.heroPattern} />
         <View style={styles.heroContent}>
           <Text style={styles.heroSubtitle}>Welcome to</Text>
-          <Text style={styles.heroTitle}>Deen Learning</Text>
+          <Text style={styles.heroTitle}>Arkan</Text>
           <Text style={styles.heroDescription}>
             A comprehensive platform to learn and deepen your understanding of Deen.
             We believe that learning about Islam should be a beautiful and enriching experience.
@@ -123,7 +123,7 @@ export const WebAboutContent: React.FC = () => {
           <View style={styles.sectionDivider} />
         </View>
         <Text style={styles.missionText}>
-          Deen Learning is dedicated to making Islamic knowledge accessible, understandable,
+          Arkan is dedicated to making Islamic knowledge accessible, understandable,
           and engaging for Muslims around the world. We strive to present the teachings of
           Islam in a way that resonates with contemporary learners while staying true to
           authentic sources and traditional scholarship.

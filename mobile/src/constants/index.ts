@@ -1,1 +1,1 @@
-export const APP_NAME = 'Deen Learning';
+export const APP_NAME = 'Arkan';
