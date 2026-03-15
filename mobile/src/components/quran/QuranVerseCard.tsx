@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Card } from '@/components';
+import { Card } from '@/components/common/Card';
 import { colors, spacing, typography, borderRadius } from '@/theme';
 import type { QuranVerse, QuranWord } from '@/types/quran';
 

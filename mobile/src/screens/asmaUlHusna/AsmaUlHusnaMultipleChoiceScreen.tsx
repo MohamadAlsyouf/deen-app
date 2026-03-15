@@ -14,7 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { useQuery } from '@tanstack/react-query';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Audio } from 'expo-av';
+import { createAudioPlayer, setAudioModeAsync, AudioPlayer } from 'expo-audio';
 import { Ionicons } from '@expo/vector-icons';
 import { Header } from '@/components';
 import { colors, spacing, typography, borderRadius } from '@/theme';
@@ -190,7 +190,7 @@ export const AsmaUlHusnaMultipleChoiceScreen: React.FC = () => {
   const [feedbackMessage, setFeedbackMessage] = useState('');
   const [quizKey, setQuizKey] = useState(0);
   const [playingAudioId, setPlayingAudioId] = useState<number | null>(null);
-  const soundRef = useRef<Audio.Sound | null>(null);
+  const playerRef = useRef<AudioPlayer | null>(null);
   const [displayPercent, setDisplayPercent] = useState(0);
 
   const introFade = useRef(new Animated.Value(0)).current;
@@ -304,47 +304,46 @@ export const AsmaUlHusnaMultipleChoiceScreen: React.FC = () => {
 
   useEffect(() => {
     return () => {
-      if (soundRef.current) {
-        soundRef.current.unloadAsync();
-        soundRef.current = null;
+      if (playerRef.current) {
+        playerRef.current.remove();
+        playerRef.current = null;
       }
     };
   }, []);
 
   const handlePlayAudio = useCallback(async (name: AsmaUlHusnaName) => {
     try {
-      if (playingAudioId === name.number && soundRef.current) {
-        await soundRef.current.stopAsync();
-        await soundRef.current.unloadAsync();
-        soundRef.current = null;
+      if (playingAudioId === name.number && playerRef.current) {
+        playerRef.current.pause();
+        playerRef.current.remove();
+        playerRef.current = null;
         setPlayingAudioId(null);
         return;
       }
 
-      if (soundRef.current) {
-        await soundRef.current.stopAsync();
-        await soundRef.current.unloadAsync();
-        soundRef.current = null;
+      if (playerRef.current) {
+        playerRef.current.pause();
+        playerRef.current.remove();
+        playerRef.current = null;
       }
 
       if (!name.audio) return;
 
-      await Audio.setAudioModeAsync({ playsInSilentModeIOS: true });
-      const { sound } = await Audio.Sound.createAsync(
-        { uri: `${AUDIO_BASE_URL}${name.audio}` },
-        { shouldPlay: true }
-      );
+      await setAudioModeAsync({ playsInSilentMode: true });
+      const player = createAudioPlayer({ uri: `${AUDIO_BASE_URL}${name.audio}` });
 
-      soundRef.current = sound;
+      playerRef.current = player;
       setPlayingAudioId(name.number);
 
-      sound.setOnPlaybackStatusUpdate((status) => {
-        if (status.isLoaded && status.didJustFinish) {
+      player.addListener('playbackStatusUpdate', (status) => {
+        if (status.status === 'idle' && status.didJustFinish) {
           setPlayingAudioId(null);
-          sound.unloadAsync();
-          soundRef.current = null;
+          player.remove();
+          playerRef.current = null;
         }
       });
+
+      player.play();
     } catch (error) {
       console.error('Error playing audio:', error);
       setPlayingAudioId(null);

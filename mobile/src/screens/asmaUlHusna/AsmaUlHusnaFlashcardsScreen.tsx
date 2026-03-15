@@ -15,7 +15,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useQuery } from '@tanstack/react-query';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { Audio } from 'expo-av';
+import { createAudioPlayer, setAudioModeAsync, AudioPlayer } from 'expo-audio';
 import { Header } from '@/components';
 import { colors, spacing, typography, borderRadius } from '@/theme';
 import { asmaUlHusnaService } from '@/services/asmaUlHusnaService';
@@ -34,7 +34,7 @@ export const AsmaUlHusnaFlashcardsScreen: React.FC = () => {
   const [isShuffled, setIsShuffled] = useState(false);
   const [shuffledNames, setShuffledNames] = useState<AsmaUlHusnaName[]>([]);
   const flipAnim = useRef(new Animated.Value(0)).current;
-  const soundRef = useRef<Audio.Sound | null>(null);
+  const playerRef = useRef<AudioPlayer | null>(null);
 
   const introFade = useRef(new Animated.Value(0)).current;
   const introIconScale = useRef(new Animated.Value(0.3)).current;
@@ -137,15 +137,13 @@ export const AsmaUlHusnaFlashcardsScreen: React.FC = () => {
     if (!currentName?.audio) return;
     const uri = `${AUDIO_BASE_URL}${currentName.audio}`;
     try {
-      await Audio.setAudioModeAsync({ playsInSilentModeIOS: true });
-      if (soundRef.current) {
-        await soundRef.current.unloadAsync();
+      await setAudioModeAsync({ playsInSilentMode: true });
+      if (playerRef.current) {
+        playerRef.current.remove();
       }
-      const { sound } = await Audio.Sound.createAsync(
-        { uri },
-        { shouldPlay: true },
-      );
-      soundRef.current = sound;
+      const player = createAudioPlayer({ uri });
+      playerRef.current = player;
+      player.play();
     } catch {
       // Audio unavailable — ignore silently
     }

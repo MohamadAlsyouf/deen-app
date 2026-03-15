@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { Audio } from 'expo-av';
+import { createAudioPlayer, AudioPlayer } from 'expo-audio';
 import { useQuery } from '@tanstack/react-query';
 import { colors } from '@/theme';
 import { useWebHover } from '@/hooks/useWebHover';
@@ -187,15 +187,15 @@ const NameCard: React.FC<{
   const [expanded, setExpanded] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoadingAudio, setIsLoadingAudio] = useState(false);
-  const soundRef = useRef<Audio.Sound | null>(null);
+  const playerRef = useRef<AudioPlayer | null>(null);
 
   const audioUrl = name.audio ? `${AUDIO_BASE_URL}${name.audio}` : null;
 
   useEffect(() => {
     return () => {
-      if (soundRef.current) {
-        soundRef.current.unloadAsync();
-        soundRef.current = null;
+      if (playerRef.current) {
+        playerRef.current.remove();
+        playerRef.current = null;
       }
     };
   }, []);
@@ -205,30 +205,29 @@ const NameCard: React.FC<{
     if (!audioUrl) return;
 
     try {
-      if (isPlaying && soundRef.current) {
-        await soundRef.current.stopAsync();
-        await soundRef.current.unloadAsync();
-        soundRef.current = null;
+      if (isPlaying && playerRef.current) {
+        playerRef.current.pause();
+        playerRef.current.remove();
+        playerRef.current = null;
         setIsPlaying(false);
         return;
       }
 
       setIsLoadingAudio(true);
-      const { sound } = await Audio.Sound.createAsync(
-        { uri: audioUrl },
-        { shouldPlay: true }
-      );
-      soundRef.current = sound;
+      const player = createAudioPlayer({ uri: audioUrl });
+      playerRef.current = player;
       setIsPlaying(true);
       setIsLoadingAudio(false);
 
-      sound.setOnPlaybackStatusUpdate((status) => {
-        if (status.isLoaded && status.didJustFinish) {
+      player.addListener('playbackStatusUpdate', (status) => {
+        if (status.status === 'idle' && status.didJustFinish) {
           setIsPlaying(false);
-          sound.unloadAsync();
-          soundRef.current = null;
+          player.remove();
+          playerRef.current = null;
         }
       });
+
+      player.play();
     } catch {
       setIsPlaying(false);
       setIsLoadingAudio(false);

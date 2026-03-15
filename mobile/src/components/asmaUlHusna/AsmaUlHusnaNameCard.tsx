@@ -1,8 +1,8 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Audio } from 'expo-av';
-import { Card } from '@/components';
+import { useAudioPlayer, useAudioPlayerStatus, setAudioModeAsync } from 'expo-audio';
+import { Card } from '@/components/common/Card';
 import { colors, spacing, typography, borderRadius } from '@/theme';
 import type { AsmaUlHusnaName } from '@/types/asmaUlHusna';
 
@@ -14,45 +14,48 @@ const AUDIO_BASE_URL = 'https://islamicapi.com';
 
 export const AsmaUlHusnaNameCard: React.FC<AsmaUlHusnaNameCardProps> = ({ name }) => {
   const [isPlaying, setIsPlaying] = useState(false);
-  const [sound, setSound] = useState<Audio.Sound | null>(null);
+  const hasSetAudioMode = useRef(false);
 
   const audioUrl = name.audio ? `${AUDIO_BASE_URL}${name.audio}` : null;
 
+  // Create audio player with the source (or null if no audio)
+  const player = useAudioPlayer(audioUrl ? { uri: audioUrl } : null);
+  const status = useAudioPlayerStatus(player);
+
+  // Update isPlaying state based on player status
+  useEffect(() => {
+    if (status) {
+      setIsPlaying(status.playing);
+    }
+  }, [status?.playing]);
+
   const handlePlayAudio = useCallback(async () => {
-    if (!audioUrl) {
+    if (!audioUrl || !player) {
       return;
     }
 
     try {
-      if (isPlaying && sound) {
-        await sound.stopAsync();
-        await sound.unloadAsync();
-        setSound(null);
+      if (isPlaying) {
+        player.pause();
+        player.seekTo(0);
         setIsPlaying(false);
         return;
       }
 
-      await Audio.setAudioModeAsync({ playsInSilentModeIOS: true });
-      const { sound: newSound } = await Audio.Sound.createAsync(
-        { uri: audioUrl },
-        { shouldPlay: true }
-      );
+      // Set audio mode once
+      if (!hasSetAudioMode.current) {
+        await setAudioModeAsync({ playsInSilentMode: true });
+        hasSetAudioMode.current = true;
+      }
 
-      setSound(newSound);
+      player.seekTo(0);
+      player.play();
       setIsPlaying(true);
-
-      newSound.setOnPlaybackStatusUpdate((status) => {
-        if (status.isLoaded && status.didJustFinish) {
-          setIsPlaying(false);
-          newSound.unloadAsync();
-          setSound(null);
-        }
-      });
     } catch (error) {
       console.error('Error playing audio:', error);
       setIsPlaying(false);
     }
-  }, [audioUrl, isPlaying, sound]);
+  }, [audioUrl, isPlaying, player]);
 
   const hasAudio = Boolean(audioUrl);
 

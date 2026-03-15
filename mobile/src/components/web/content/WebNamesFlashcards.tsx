@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Audio } from 'expo-av';
+import { createAudioPlayer, AudioPlayer } from 'expo-audio';
 import { useQuery } from '@tanstack/react-query';
 import { colors, borderRadius } from '@/theme';
 import { useWebHover } from '@/hooks/useWebHover';
@@ -32,7 +32,7 @@ export const WebNamesFlashcards: React.FC<WebNamesFlashcardsProps> = ({ onBack }
   const [isShuffled, setIsShuffled] = useState(false);
   const [shuffledNames, setShuffledNames] = useState<AsmaUlHusnaName[]>([]);
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
-  const soundRef = useRef<Audio.Sound | null>(null);
+  const playerRef = useRef<AudioPlayer | null>(null);
 
   const dataQuery = useQuery({
     queryKey: ['asmaUlHusna'],
@@ -46,9 +46,9 @@ export const WebNamesFlashcards: React.FC<WebNamesFlashcardsProps> = ({ onBack }
 
   useEffect(() => {
     return () => {
-      if (soundRef.current) {
-        soundRef.current.unloadAsync();
-        soundRef.current = null;
+      if (playerRef.current) {
+        playerRef.current.remove();
+        playerRef.current = null;
       }
     };
   }, []);
@@ -89,19 +89,20 @@ export const WebNamesFlashcards: React.FC<WebNamesFlashcardsProps> = ({ onBack }
     if (!currentName?.audio) return;
     const uri = `${AUDIO_BASE_URL}${currentName.audio}`;
     try {
-      if (soundRef.current) {
-        await soundRef.current.unloadAsync();
+      if (playerRef.current) {
+        playerRef.current.remove();
       }
       setIsPlayingAudio(true);
-      const { sound } = await Audio.Sound.createAsync({ uri }, { shouldPlay: true });
-      soundRef.current = sound;
-      sound.setOnPlaybackStatusUpdate((status) => {
-        if (status.isLoaded && status.didJustFinish) {
+      const player = createAudioPlayer({ uri });
+      playerRef.current = player;
+      player.addListener('playbackStatusUpdate', (status) => {
+        if (status.status === 'idle' && status.didJustFinish) {
           setIsPlayingAudio(false);
-          sound.unloadAsync();
-          soundRef.current = null;
+          player.remove();
+          playerRef.current = null;
         }
       });
+      player.play();
     } catch {
       setIsPlayingAudio(false);
     }

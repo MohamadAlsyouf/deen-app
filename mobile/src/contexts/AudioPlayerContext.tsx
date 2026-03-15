@@ -7,7 +7,7 @@ import React, {
   useEffect,
   useMemo,
 } from 'react';
-import { Audio } from 'expo-av';
+import { createAudioPlayer, setAudioModeAsync, AudioPlayer, AudioStatus } from 'expo-audio';
 import { useQuery } from '@tanstack/react-query';
 import { quranService } from '@/services/quranService';
 import type {
@@ -53,10 +53,10 @@ type AudioPlayerContextValue = {
 
   // Verse range state
   verseRange: VerseRange;
-  
+
   // Loop settings state
   loopSettings: LoopSettings;
-  
+
   // Audio file for verse info
   audioFile: ChapterAudioFile | null;
 
@@ -84,7 +84,8 @@ type AudioPlayerProviderProps = {
 export const AudioPlayerProvider: React.FC<AudioPlayerProviderProps> = ({
   children,
 }) => {
-  const soundRef = useRef<Audio.Sound | null>(null);
+  const playerRef = useRef<AudioPlayer | null>(null);
+  const listenerSubscriptionRef = useRef<{ remove: () => void } | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const [playbackState, setPlaybackState] = useState<PlaybackState>('idle');
@@ -194,19 +195,24 @@ export const AudioPlayerProvider: React.FC<AudioPlayerProviderProps> = ({
   );
 
   // Cleanup function
-  const cleanup = useCallback(async () => {
+  const cleanup = useCallback(() => {
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
     }
 
-    if (soundRef.current) {
+    if (listenerSubscriptionRef.current) {
+      listenerSubscriptionRef.current.remove();
+      listenerSubscriptionRef.current = null;
+    }
+
+    if (playerRef.current) {
       try {
-        await soundRef.current.unloadAsync();
+        playerRef.current.remove();
       } catch {
-        // Ignore unload errors
+        // Ignore removal errors
       }
-      soundRef.current = null;
+      playerRef.current = null;
     }
   }, []);
 
@@ -244,13 +250,13 @@ export const AudioPlayerProvider: React.FC<AudioPlayerProviderProps> = ({
       if (
         currentChapterId === chapterId &&
         audioFile &&
-        soundRef.current
+        playerRef.current
       ) {
         return;
       }
 
       isLoadingRef.current = true;
-      await cleanup();
+      cleanup();
       setPlaybackState('loading');
       setHighlightState({
         verseKey: null,
@@ -267,51 +273,46 @@ export const AudioPlayerProvider: React.FC<AudioPlayerProviderProps> = ({
         setAudioFile(audio);
         setCurrentChapterId(chapterId);
 
-        await Audio.setAudioModeAsync({
-          playsInSilentModeIOS: true,
-          staysActiveInBackground: true,
+        await setAudioModeAsync({
+          playsInSilentMode: true,
         });
 
-        const { sound, status } = await Audio.Sound.createAsync(
-          { uri: audio.audio_url },
-          { shouldPlay: false }
-        );
-
-        soundRef.current = sound;
-
-        if (status.isLoaded) {
-          setDuration(status.durationMillis ?? 0);
-        }
+        const player = createAudioPlayer({ uri: audio.audio_url });
+        playerRef.current = player;
 
         // Set up playback status callback for reliable end detection
-        sound.setOnPlaybackStatusUpdate((playbackStatus) => {
-          if (!playbackStatus.isLoaded) {
-            return;
+        const subscription = player.addListener('playbackStatusUpdate', (status: AudioStatus) => {
+          // Update duration when available (convert from seconds to ms)
+          if (status.duration && status.duration > 0) {
+            setDuration(status.duration * 1000);
           }
-          
+
           // Check for natural end of audio (didJustFinish)
-          if (playbackStatus.didJustFinish) {
+          if (status.didJustFinish) {
             handlePlaybackFinished();
             return;
           }
-          
+
           // Check for verse range end (if endVerse is set)
           const { endVerse } = verseRangeRef.current;
-          if (endVerse !== null && !isRestartingRef.current) {
+          if (endVerse !== null && !isRestartingRef.current && status.currentTime !== undefined) {
             const currentAudioFile = audioFileRef.current;
             const currentChapter = currentChapterIdRef.current;
-            
+            const positionMs = status.currentTime * 1000;
+
             if (currentAudioFile?.verse_timings && currentChapter) {
               const endVerseKey = `${currentChapter}:${endVerse}`;
               const endTiming = currentAudioFile.verse_timings.find((t) => t.verse_key === endVerseKey);
-              
+
               // Subtract buffer to stop before bleeding into the next verse
-              if (endTiming && playbackStatus.positionMillis >= endTiming.timestamp_to - VERSE_END_BUFFER_MS) {
+              if (endTiming && positionMs >= endTiming.timestamp_to - VERSE_END_BUFFER_MS) {
                 handlePlaybackFinished();
               }
             }
           }
         });
+
+        listenerSubscriptionRef.current = subscription;
 
         setPlaybackState('paused');
       } catch (error) {
@@ -376,17 +377,17 @@ export const AudioPlayerProvider: React.FC<AudioPlayerProviderProps> = ({
     currentChapterIdRef.current = currentChapterId;
   }, [currentChapterId]);
 
-  // Handle playback finished - called by onPlaybackStatusUpdate callback
+  // Handle playback finished - called by playbackStatusUpdate listener
   const handlePlaybackFinished = useCallback(async () => {
-    if (!soundRef.current || isRestartingRef.current) {
+    if (!playerRef.current || isRestartingRef.current) {
       return;
     }
-    
+
     isRestartingRef.current = true;
-    
+
     const { loopCount, isInfiniteLoop, currentIteration } = loopSettingsRef.current;
     const shouldLoop = isInfiniteLoop || (loopCount !== null && currentIteration < loopCount);
-    
+
     if (shouldLoop) {
       // Increment iteration counter (only if not infinite)
       if (!isInfiniteLoop && loopCount !== null) {
@@ -395,10 +396,11 @@ export const AudioPlayerProvider: React.FC<AudioPlayerProviderProps> = ({
           currentIteration: prev.currentIteration + 1,
         }));
       }
-      
+
       // Use the stored start position (calculated when play() was first called)
-      const startPosition = loopStartPositionRef.current;
-      
+      const startPositionMs = loopStartPositionRef.current;
+      const startPositionSec = startPositionMs / 1000;
+
       try {
         // Reset highlight state for new iteration
         setHighlightState({
@@ -406,121 +408,121 @@ export const AudioPlayerProvider: React.FC<AudioPlayerProviderProps> = ({
           wordPosition: null,
           completedVerseKeys: new Set(),
         });
-        
-        // Nuclear option: unload and reload the audio to guarantee fresh start
-        // This clears all internal buffers completely
+
+        // Reload the audio to guarantee fresh start
         const currentAudioFile = audioFileRef.current;
         if (!currentAudioFile) {
           console.error('[LOOP DEBUG] No audio file to reload');
           isRestartingRef.current = false;
           return;
         }
-        
-        
-        // Unload current sound
-        await soundRef.current.unloadAsync();
-        soundRef.current = null;
-        
+
+        // Remove current player and listener
+        if (listenerSubscriptionRef.current) {
+          listenerSubscriptionRef.current.remove();
+          listenerSubscriptionRef.current = null;
+        }
+        playerRef.current.remove();
+        playerRef.current = null;
+
         // Reload audio
-        await Audio.setAudioModeAsync({
-          playsInSilentModeIOS: true,
-          staysActiveInBackground: true,
+        await setAudioModeAsync({
+          playsInSilentMode: true,
         });
-        
-        const { sound: newSound } = await Audio.Sound.createAsync(
-          { uri: currentAudioFile.audio_url },
-          { shouldPlay: false, positionMillis: startPosition }
-        );
-        
-        soundRef.current = newSound;
-        
+
+        const newPlayer = createAudioPlayer({ uri: currentAudioFile.audio_url });
+        playerRef.current = newPlayer;
+
+        // Seek to start position
+        await newPlayer.seekTo(startPositionSec);
+
         // Re-attach the playback status callback
-        newSound.setOnPlaybackStatusUpdate((playbackStatus) => {
-          if (!playbackStatus.isLoaded) return;
-          
-          if (playbackStatus.didJustFinish) {
+        const subscription = newPlayer.addListener('playbackStatusUpdate', (status: AudioStatus) => {
+          if (status.didJustFinish) {
             handlePlaybackFinished();
             return;
           }
-          
+
           const { endVerse } = verseRangeRef.current;
-          if (endVerse !== null && !isRestartingRef.current) {
+          if (endVerse !== null && !isRestartingRef.current && status.currentTime !== undefined) {
             const currentChapter = currentChapterIdRef.current;
+            const positionMs = status.currentTime * 1000;
             if (currentAudioFile?.verse_timings && currentChapter) {
               const endVerseKey = `${currentChapter}:${endVerse}`;
               const endTiming = currentAudioFile.verse_timings.find((t) => t.verse_key === endVerseKey);
-              if (endTiming && playbackStatus.positionMillis >= endTiming.timestamp_to - VERSE_END_BUFFER_MS) {
+              if (endTiming && positionMs >= endTiming.timestamp_to - VERSE_END_BUFFER_MS) {
                 handlePlaybackFinished();
               }
             }
           }
         });
-        
-        setCurrentPosition(startPosition);
-        
-        await newSound.playAsync();
+
+        listenerSubscriptionRef.current = subscription;
+
+        setCurrentPosition(startPositionMs);
+
+        newPlayer.play();
         setPlaybackState('playing');
       } catch (e) {
         console.error('Error restarting playback:', e);
       }
-      
+
       // Small delay before allowing next end detection
       setTimeout(() => {
         isRestartingRef.current = false;
       }, 500);
     } else {
       // No more loops - stop playback and prepare for restart
-      const resetPosition = loopStartPositionRef.current;
-      
+      const resetPositionMs = loopStartPositionRef.current;
+      const resetPositionSec = resetPositionMs / 1000;
+
       try {
-        await soundRef.current.pauseAsync();
+        playerRef.current.pause();
       } catch {
         // May already be paused
       }
-      
-      await soundRef.current.setPositionAsync(resetPosition);
-      setCurrentPosition(resetPosition);
+
+      await playerRef.current.seekTo(resetPositionSec);
+      setCurrentPosition(resetPositionMs);
       setPlaybackState('paused');
-      
+
       // Reset highlight state
       setHighlightState({
         verseKey: null,
         wordPosition: null,
         completedVerseKeys: new Set(),
       });
-      
+
       // Stop tracking
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
         intervalRef.current = null;
       }
-      
+
       isRestartingRef.current = false;
     }
   }, []);
 
   // Start position tracking (simplified - only updates position and highlighting)
-  // End detection is now handled by onPlaybackStatusUpdate callback
+  // End detection is now handled by playbackStatusUpdate listener
   const startTracking = useCallback(() => {
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
     }
-    
+
     // Reset the restart flag when starting fresh tracking
     isRestartingRef.current = false;
 
-    intervalRef.current = setInterval(async () => {
-      if (!soundRef.current) {
+    intervalRef.current = setInterval(() => {
+      if (!playerRef.current) {
         return;
       }
 
       try {
-        const status = await soundRef.current.getStatusAsync();
-        if (status.isLoaded) {
-          const position = status.positionMillis;
-          setCurrentPosition(position);
-          updateHighlightFromPosition(position);
-        }
+        // expo-audio uses seconds, convert to ms for our internal tracking
+        const positionMs = playerRef.current.currentTime * 1000;
+        setCurrentPosition(positionMs);
+        updateHighlightFromPosition(positionMs);
       } catch {
         // Ignore status errors during cleanup
       }
@@ -549,7 +551,7 @@ export const AudioPlayerProvider: React.FC<AudioPlayerProviderProps> = ({
 
   // Play audio
   const play = useCallback(async () => {
-    if (!soundRef.current || !audioFile) {
+    if (!playerRef.current || !audioFile) {
       return;
     }
 
@@ -558,80 +560,84 @@ export const AudioPlayerProvider: React.FC<AudioPlayerProviderProps> = ({
       if (verseRange.startVerse !== null) {
         const startTiming = getVerseTimingByNumber(verseRange.startVerse);
         if (startTiming) {
-          let startPosition: number;
-          
+          let startPositionMs: number;
+
           // If start verse is > 1, use timestamp_to of the PREVIOUS verse
           // This is more accurate than timestamp_from which tends to be too early
           if (verseRange.startVerse > 1) {
             const prevVerseTiming = getVerseTimingByNumber(verseRange.startVerse - 1);
             if (prevVerseTiming) {
               // Use the end of the previous verse + buffer
-              startPosition = prevVerseTiming.timestamp_to + 250;
+              startPositionMs = prevVerseTiming.timestamp_to + 250;
             } else {
               // Fallback to timestamp_from with large buffer
-              startPosition = startTiming.timestamp_from + VERSE_START_BUFFER_MS;
+              startPositionMs = startTiming.timestamp_from + VERSE_START_BUFFER_MS;
             }
           } else {
             // First verse - just use timestamp_from
-            startPosition = startTiming.timestamp_from;
+            startPositionMs = startTiming.timestamp_from;
           }
-          
-          // Store this position for use in loop restarts
-          loopStartPositionRef.current = startPosition;
-          
+
+          // Store this position for use in loop restarts (in ms)
+          loopStartPositionRef.current = startPositionMs;
+
           // Use the same reload approach as loop restarts for consistent behavior
           // This ensures the first iteration matches subsequent iterations
-          
-          await soundRef.current.unloadAsync();
-          soundRef.current = null;
-          
-          await Audio.setAudioModeAsync({
-            playsInSilentModeIOS: true,
-            staysActiveInBackground: true,
+
+          // Remove current player and listener
+          if (listenerSubscriptionRef.current) {
+            listenerSubscriptionRef.current.remove();
+            listenerSubscriptionRef.current = null;
+          }
+          playerRef.current.remove();
+          playerRef.current = null;
+
+          await setAudioModeAsync({
+            playsInSilentMode: true,
           });
-          
-          const { sound: newSound } = await Audio.Sound.createAsync(
-            { uri: audioFile.audio_url },
-            { shouldPlay: false, positionMillis: startPosition }
-          );
-          
-          soundRef.current = newSound;
-          
+
+          const newPlayer = createAudioPlayer({ uri: audioFile.audio_url });
+          playerRef.current = newPlayer;
+
+          // Seek to start position (convert ms to seconds)
+          await newPlayer.seekTo(startPositionMs / 1000);
+
           // Re-attach the playback status callback
-          newSound.setOnPlaybackStatusUpdate((playbackStatus) => {
-            if (!playbackStatus.isLoaded) return;
-            
-            if (playbackStatus.didJustFinish) {
+          const subscription = newPlayer.addListener('playbackStatusUpdate', (status: AudioStatus) => {
+            if (status.didJustFinish) {
               handlePlaybackFinished();
               return;
             }
-            
+
             const { endVerse } = verseRangeRef.current;
-            if (endVerse !== null && !isRestartingRef.current) {
+            if (endVerse !== null && !isRestartingRef.current && status.currentTime !== undefined) {
               const currentChapter = currentChapterIdRef.current;
               const currentAudioFile = audioFileRef.current;
+              const positionMs = status.currentTime * 1000;
               if (currentAudioFile?.verse_timings && currentChapter) {
                 const endVerseKey = `${currentChapter}:${endVerse}`;
                 const endTiming = currentAudioFile.verse_timings.find((t) => t.verse_key === endVerseKey);
-                if (endTiming && playbackStatus.positionMillis >= endTiming.timestamp_to - VERSE_END_BUFFER_MS) {
+                if (endTiming && positionMs >= endTiming.timestamp_to - VERSE_END_BUFFER_MS) {
                   handlePlaybackFinished();
                 }
               }
             }
           });
-          
-          setCurrentPosition(startPosition);
-          await newSound.playAsync();
+
+          listenerSubscriptionRef.current = subscription;
+
+          setCurrentPosition(startPositionMs);
+          newPlayer.play();
           setPlaybackState('playing');
           startTracking();
           return;
         }
       }
-      
+
       // No verse range - start from beginning normally
       loopStartPositionRef.current = 0;
 
-      await soundRef.current.playAsync();
+      playerRef.current.play();
       setPlaybackState('playing');
       startTracking();
     } catch (error) {
@@ -642,12 +648,12 @@ export const AudioPlayerProvider: React.FC<AudioPlayerProviderProps> = ({
 
   // Pause audio
   const pause = useCallback(async () => {
-    if (!soundRef.current) {
+    if (!playerRef.current) {
       return;
     }
 
     try {
-      await soundRef.current.pauseAsync();
+      playerRef.current.pause();
       setPlaybackState('paused');
       stopTracking();
     } catch (error) {
@@ -655,15 +661,16 @@ export const AudioPlayerProvider: React.FC<AudioPlayerProviderProps> = ({
     }
   }, [stopTracking]);
 
-  // Seek to position
+  // Seek to position (accepts ms, converts to seconds for expo-audio)
   const seekTo = useCallback(
     async (positionMs: number) => {
-      if (!soundRef.current) {
+      if (!playerRef.current) {
         return;
       }
 
       try {
-        await soundRef.current.setPositionAsync(positionMs);
+        // Convert ms to seconds for expo-audio
+        await playerRef.current.seekTo(positionMs / 1000);
         setCurrentPosition(positionMs);
         updateHighlightFromPosition(positionMs);
       } catch (error) {
