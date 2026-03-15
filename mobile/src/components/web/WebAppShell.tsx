@@ -242,6 +242,23 @@ export const WebAppShell: React.FC<WebAppShellProps> = ({ initialScreen = 'home'
   const [streakCelebrationKey, setStreakCelebrationKey] = useState(0);
   const streakCheckKeyRef = useRef<string | null>(null);
 
+  // Filter nav items based on user type (Prayer Guide only for reverts/learners)
+  const filteredNavItems = useMemo(() => {
+    if (userProfile?.userType === 'muslim') {
+      return NAV_ITEMS.filter(item => item.id !== 'prayer');
+    }
+    return NAV_ITEMS;
+  }, [userProfile?.userType]);
+
+  // Split filtered items for sections
+  const exploreItems = useMemo(() => filteredNavItems.filter(item =>
+    ['home', 'quran', 'bookmarks', 'prayer', 'pillars', 'names', 'dua', 'sunnah'].includes(item.id)
+  ), [filteredNavItems]);
+
+  const moreItems = useMemo(() => filteredNavItems.filter(item =>
+    ['profile', 'about', 'contact'].includes(item.id)
+  ), [filteredNavItems]);
+
   // Inject web styles and set up hash change listener
   useEffect(() => {
     injectWebStyles();
@@ -523,7 +540,7 @@ export const WebAppShell: React.FC<WebAppShellProps> = ({ initialScreen = 'home'
           <Text style={[styles.navSectionTitle, isCollapsed && styles.hidden]}>
             EXPLORE
           </Text>
-          {NAV_ITEMS.slice(0, 8).map((item, index) => (
+          {exploreItems.map((item, index) => (
             <View
               key={item.id}
               style={mounted ? {
@@ -546,7 +563,7 @@ export const WebAppShell: React.FC<WebAppShellProps> = ({ initialScreen = 'home'
           <Text style={[styles.navSectionTitle, isCollapsed && styles.hidden]}>
             MORE
           </Text>
-          {NAV_ITEMS.slice(8).map((item, index) => (
+          {moreItems.map((item, index) => (
             <View
               key={item.id}
               style={mounted ? {

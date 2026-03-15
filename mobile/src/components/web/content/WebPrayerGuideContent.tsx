@@ -3,7 +3,7 @@
  * Beautiful step-by-step guide to the 5 daily prayers
  */
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,8 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
+  FlatList,
+  Dimensions,
 } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -18,7 +20,35 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius } from '@/theme';
 import { prayerService } from '@/services/prayerService';
 import { useWebHover } from '@/hooks/useWebHover';
+import { useUserProfile } from '@/hooks/useUserProfile';
 import type { Prayer, PrayerStep } from '@/types/prayer';
+
+// Steps to filter out (opening supplication and supplication before tasleem)
+const STEPS_TO_FILTER = [
+  'opening supplication',
+  'opening dua',
+  'dua al-istiftah',
+  'supplication before tasleem',
+  'dua before tasleem',
+  'supplication before salam',
+];
+
+// Steps that need special notes
+const shouldAddSunnahNote = (stepName: string): boolean => {
+  const lowerName = stepName.toLowerCase();
+  return lowerName.includes('additional surah') ||
+         lowerName.includes('recite another surah') ||
+         lowerName.includes('surah after fatiha');
+};
+
+const shouldAddProstrationNote = (stepName: string): boolean => {
+  const lowerName = stepName.toLowerCase();
+  return lowerName.includes('prostration') || lowerName.includes('sujud');
+};
+
+const SUNNAH_SURAH_NOTE = 'This is Sunnah (recommended) and optional. You may recite only Al-Fatiha and your prayer is still valid.';
+
+const PROSTRATION_NOTE = 'This is the closest a servant can be to Allah. This is the perfect time to ask Allah for literally anything - healing, guidance, knowledge, wealth, forgiveness, or anything your heart desires.';
 
 // Prayer gradient colors - matching mobile
 const prayerGradients: Record<string, [string, string]> = {
@@ -45,6 +75,25 @@ const positionIcons: Record<string, keyof typeof Ionicons.glyphMap> = {
   prostrating: 'chevron-down-circle-outline',
   sitting: 'tablet-landscape-outline',
   turning: 'sync-outline',
+};
+
+// Wudu steps data
+const WUDU_STEPS = [
+  { order: 1, name: 'Intention (Niyyah)', nameArabic: 'النية', action: 'Make intention in your heart. Say "Bismillah" before starting.', repetitions: 1, isFard: false, icon: 'heart-outline' as const },
+  { order: 2, name: 'Wash Hands', nameArabic: 'غسل اليدين', action: 'Wash both hands up to the wrists, ensuring water reaches between fingers. Start with right.', repetitions: 3, isFard: false, icon: 'hand-left-outline' as const },
+  { order: 3, name: 'Rinse Mouth', nameArabic: 'المضمضة', action: 'Take water with right hand and rinse mouth thoroughly.', repetitions: 3, isFard: false, icon: 'water-outline' as const },
+  { order: 4, name: 'Clean Nose', nameArabic: 'الاستنشاق', action: 'Sniff water gently into nose using right hand, blow out with left.', repetitions: 3, isFard: false, icon: 'remove-outline' as const },
+  { order: 5, name: 'Wash Face', nameArabic: 'غسل الوجه', action: 'Wash entire face from forehead to chin, ear to ear.', repetitions: 3, isFard: true, icon: 'happy-outline' as const },
+  { order: 6, name: 'Wash Arms', nameArabic: 'غسل اليدين إلى المرفقين', action: 'Wash from fingertips to elbows (including elbows). Start with right.', repetitions: 3, isFard: true, icon: 'fitness-outline' as const },
+  { order: 7, name: 'Wipe Head', nameArabic: 'مسح الرأس', action: 'Wet hands and wipe over head from forehead to back, then return.', repetitions: 1, isFard: true, icon: 'person-outline' as const },
+  { order: 8, name: 'Clean Ears', nameArabic: 'مسح الأذنين', action: 'Wipe inside of ears with index fingers and behind with thumbs.', repetitions: 1, isFard: false, icon: 'ear-outline' as const },
+  { order: 9, name: 'Wash Feet', nameArabic: 'غسل القدمين', action: 'Wash feet up to and including ankles. Ensure water reaches between toes. Start with right.', repetitions: 3, isFard: true, icon: 'footsteps-outline' as const },
+];
+
+const CLOSING_DUA = {
+  arabic: 'أَشْهَدُ أَنْ لَا إِلَهَ إِلَّا اللهُ وَحْدَهُ لَا شَرِيكَ لَهُ، وَأَشْهَدُ أَنَّ مُحَمَّدًا عَبْدُهُ وَرَسُولُهُ',
+  transliteration: 'Ash-hadu an la ilaha illallahu wahdahu la sharika lah, wa ash-hadu anna Muhammadan abduhu wa rasuluh',
+  translation: 'I bear witness that there is no god but Allah alone, with no partner, and I bear witness that Muhammad is His servant and messenger.',
 };
 
 interface PrayerCardProps {
@@ -235,8 +284,24 @@ const StepCard: React.FC<StepCardProps> = ({ step, index, totalSteps, accentColo
               </View>
             )}
 
-            {/* Note */}
-            {step.note && (
+            {/* Special notes for Sunnah emphasis */}
+            {shouldAddSunnahNote(step.name) && (
+              <View style={[styles.noteBox, styles.sunnahNoteBox]}>
+                <Ionicons name="information-circle" size={18} color={colors.primary} />
+                <Text style={styles.noteText}>{SUNNAH_SURAH_NOTE}</Text>
+              </View>
+            )}
+
+            {/* Special notes for Prostration */}
+            {shouldAddProstrationNote(step.name) && (
+              <View style={[styles.noteBox, styles.prostrationNoteBox]}>
+                <Ionicons name="heart" size={18} color={colors.error} />
+                <Text style={[styles.noteText, styles.prostrationNoteText]}>{PROSTRATION_NOTE}</Text>
+              </View>
+            )}
+
+            {/* Regular note */}
+            {step.note && !shouldAddSunnahNote(step.name) && !shouldAddProstrationNote(step.name) && (
               <View style={styles.noteBox}>
                 <Ionicons name="information-circle" size={18} color={colors.accent} />
                 <Text style={styles.noteText}>{step.note}</Text>
@@ -251,18 +316,32 @@ const StepCard: React.FC<StepCardProps> = ({ step, index, totalSteps, accentColo
 
 export const WebPrayerGuideContent: React.FC = () => {
   const [selectedPrayer, setSelectedPrayer] = useState<Prayer | null>(null);
+  const [showWuduGuide, setShowWuduGuide] = useState(false);
+  const { userProfile, loading: profileLoading } = useUserProfile();
 
   const prayerGuideQuery = useQuery({
     queryKey: ['prayerGuide'],
     queryFn: prayerService.getPrayerGuide,
   });
 
+  // Filter steps for selected prayer (remove opening supplication and supplication before tasleem)
+  const filteredSteps = useMemo(() => {
+    if (!selectedPrayer?.steps) return [];
+    return selectedPrayer.steps.filter(step => {
+      const lowerName = step.name.toLowerCase();
+      return !STEPS_TO_FILTER.some(filter => lowerName.includes(filter));
+    });
+  }, [selectedPrayer?.steps]);
+
   const accentColor = selectedPrayer
     ? prayerGradients[selectedPrayer.id]?.[0] || colors.primary
     : colors.primary;
 
+  // Check if user has access (reverts and learners only)
+  const hasAccess = userProfile?.userType === 'revert' || userProfile?.userType === 'learner';
+
   // Loading state
-  if (prayerGuideQuery.isLoading) {
+  if (prayerGuideQuery.isLoading || profileLoading) {
     return (
       <View style={styles.container}>
         <View style={styles.loadingContainer}>
@@ -288,7 +367,123 @@ export const WebPrayerGuideContent: React.FC = () => {
     );
   }
 
+  // Access restriction - only for reverts and learners
+  if (!hasAccess) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.restrictedContainer}>
+          <View style={styles.restrictedIconWrap}>
+            <Ionicons name="hand-left-outline" size={64} color={colors.primary} />
+          </View>
+          <Text style={styles.restrictedTitle}>Prayer Guide</Text>
+          <Text style={styles.restrictedText}>
+            This feature is designed specifically for new Muslims and those learning about Islam.
+            As an experienced Muslim, you likely already know how to pray.
+          </Text>
+          <Text style={styles.restrictedSubtext}>
+            If you'd like access to this feature, you can update your profile type in Settings.
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
   const data = prayerGuideQuery.data;
+
+  // Wudu guide view
+  if (showWuduGuide) {
+    return (
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Back button */}
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => setShowWuduGuide(false)}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="arrow-back" size={20} color={colors.primary} />
+          <Text style={styles.backButtonText}>Back to prayers</Text>
+        </TouchableOpacity>
+
+        {/* Wudu header */}
+        <LinearGradient
+          colors={[colors.accent, colors.accentLight]}
+          style={styles.wuduHero}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+        >
+          <View style={styles.wuduHeroContent}>
+            <View style={styles.wuduHeroIcon}>
+              <Ionicons name="water" size={48} color="rgba(255,255,255,0.95)" />
+            </View>
+            <Text style={styles.wuduHeroTitle}>Wudu (Ablution)</Text>
+            <Text style={styles.wuduHeroArabic}>الوضوء</Text>
+            <Text style={styles.wuduHeroSubtitle}>Ritual purification before prayer</Text>
+          </View>
+        </LinearGradient>
+
+        {/* Steps */}
+        <View style={styles.wuduStepsSection}>
+          <Text style={styles.sectionTitle}>Step-by-Step Guide</Text>
+          <Text style={styles.sectionSubtitle}>
+            Steps marked as "Required (Fard)" must be performed for wudu to be valid
+          </Text>
+
+          <View style={styles.wuduStepsList}>
+            {WUDU_STEPS.map((step, index) => (
+              <View key={step.order} style={styles.wuduStepCard}>
+                <View style={styles.wuduStepHeader}>
+                  <View style={[styles.wuduStepIcon, step.isFard ? styles.wuduStepIconFard : styles.wuduStepIconSunnah]}>
+                    <Ionicons name={step.icon} size={24} color={step.isFard ? colors.primary : colors.accent} />
+                  </View>
+                  <View style={styles.wuduStepInfo}>
+                    <View style={styles.wuduStepTitleRow}>
+                      <Text style={styles.wuduStepNumber}>{step.order}.</Text>
+                      <Text style={styles.wuduStepName}>{step.name}</Text>
+                      <View style={[styles.wuduStepBadge, step.isFard ? styles.wuduStepBadgeFard : styles.wuduStepBadgeSunnah]}>
+                        <Text style={[styles.wuduStepBadgeText, step.isFard ? styles.wuduStepBadgeTextFard : styles.wuduStepBadgeTextSunnah]}>
+                          {step.isFard ? 'Required' : 'Sunnah'}
+                        </Text>
+                      </View>
+                    </View>
+                    <Text style={styles.wuduStepArabic}>{step.nameArabic}</Text>
+                  </View>
+                </View>
+                <Text style={styles.wuduStepAction}>{step.action}</Text>
+                <View style={styles.wuduStepRepetitions}>
+                  <Ionicons name="repeat-outline" size={16} color={colors.text.secondary} />
+                  <Text style={styles.wuduStepRepetitionsText}>
+                    {step.repetitions === 1 ? 'Once' : `${step.repetitions} times`}
+                  </Text>
+                </View>
+              </View>
+            ))}
+          </View>
+        </View>
+
+        {/* Closing dua */}
+        <View style={styles.closingDuaSection}>
+          <Text style={styles.sectionTitle}>Closing Dua</Text>
+          <Text style={styles.sectionSubtitle}>Say this after completing wudu:</Text>
+
+          <View style={styles.closingDuaCard}>
+            <Text style={styles.closingDuaArabic}>{CLOSING_DUA.arabic}</Text>
+            <View style={styles.closingDuaDetail}>
+              <Text style={styles.detailLabel}>TRANSLITERATION</Text>
+              <Text style={styles.transliteration}>{CLOSING_DUA.transliteration}</Text>
+            </View>
+            <View style={styles.closingDuaDetail}>
+              <Text style={styles.detailLabel}>TRANSLATION</Text>
+              <Text style={styles.translation}>{CLOSING_DUA.translation}</Text>
+            </View>
+          </View>
+        </View>
+      </ScrollView>
+    );
+  }
 
   // Prayer detail view
   if (selectedPrayer) {
@@ -370,12 +565,12 @@ export const WebPrayerGuideContent: React.FC = () => {
           </Text>
 
           <View style={styles.stepsList}>
-            {selectedPrayer.steps.map((step, index) => (
+            {filteredSteps.map((step, index) => (
               <StepCard
                 key={step.order}
                 step={step}
                 index={index}
-                totalSteps={selectedPrayer.steps.length}
+                totalSteps={filteredSteps.length}
                 accentColor={accentColor}
               />
             ))}
@@ -401,8 +596,8 @@ export const WebPrayerGuideContent: React.FC = () => {
         <Text style={styles.headerDescription}>{data?.introduction}</Text>
       </View>
 
-      {/* Wudu reminder card */}
-      <View style={styles.wuduCard}>
+      {/* Wudu reminder card - clickable */}
+      <TouchableOpacity style={styles.wuduCard} onPress={() => setShowWuduGuide(true)} activeOpacity={0.9}>
         <LinearGradient
           colors={[colors.accent, colors.accentLight]}
           style={styles.wuduGradient}
@@ -413,13 +608,14 @@ export const WebPrayerGuideContent: React.FC = () => {
             <Ionicons name="water" size={28} color="rgba(255,255,255,0.95)" />
           </View>
           <View style={styles.wuduContent}>
-            <Text style={styles.wuduTitle}>Remember Wudu (Ablution)</Text>
+            <Text style={styles.wuduTitle}>Don't Forget Wudu (Ablution)</Text>
             <Text style={styles.wuduText}>
-              Before praying, ensure you have performed wudu to purify yourself for prayer.
+              Tap to learn the step-by-step ablution guide
             </Text>
           </View>
+          <Ionicons name="chevron-forward" size={24} color="rgba(255,255,255,0.7)" />
         </LinearGradient>
-      </View>
+      </TouchableOpacity>
 
       {/* Section title */}
       <View style={styles.prayersSectionHeader}>
@@ -943,5 +1139,210 @@ const styles = StyleSheet.create({
     color: colors.text.secondary,
     flex: 1,
     lineHeight: 22,
+  },
+  sunnahNoteBox: {
+    backgroundColor: `${colors.primary}10`,
+  },
+  prostrationNoteBox: {
+    backgroundColor: `${colors.error}08`,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.error,
+  },
+  prostrationNoteText: {
+    color: colors.text.primary,
+  },
+
+  // Restricted access
+  restrictedContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 48,
+  },
+  restrictedIconWrap: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: `${colors.primary}15`,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 24,
+  },
+  restrictedTitle: {
+    fontSize: 32,
+    fontWeight: '700',
+    color: colors.text.primary,
+    marginBottom: 16,
+  },
+  restrictedText: {
+    ...typography.body,
+    color: colors.text.secondary,
+    textAlign: 'center',
+    lineHeight: 26,
+    marginBottom: 12,
+    maxWidth: 500,
+  },
+  restrictedSubtext: {
+    ...typography.caption,
+    color: colors.text.tertiary,
+    textAlign: 'center',
+    maxWidth: 400,
+  },
+
+  // Wudu guide
+  wuduHero: {
+    borderRadius: borderRadius.xl,
+    marginBottom: 32,
+    overflow: 'hidden',
+  },
+  wuduHeroContent: {
+    padding: 40,
+    alignItems: 'center',
+  },
+  wuduHeroIcon: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
+  },
+  wuduHeroTitle: {
+    fontSize: 32,
+    fontWeight: '700',
+    color: colors.text.white,
+    marginBottom: 8,
+  },
+  wuduHeroArabic: {
+    fontSize: 36,
+    color: 'rgba(255,255,255,0.9)',
+    marginBottom: 8,
+    // @ts-ignore
+    fontFamily: "'Amiri', serif",
+  },
+  wuduHeroSubtitle: {
+    ...typography.body,
+    color: 'rgba(255,255,255,0.85)',
+  },
+  wuduStepsSection: {
+    marginBottom: 40,
+  },
+  wuduStepsList: {
+    gap: 16,
+  },
+  wuduStepCard: {
+    backgroundColor: colors.background,
+    borderRadius: borderRadius.lg,
+    padding: 20,
+    // @ts-ignore
+    boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
+  },
+  wuduStepHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+  },
+  wuduStepIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 16,
+  },
+  wuduStepIconFard: {
+    backgroundColor: `${colors.primary}15`,
+  },
+  wuduStepIconSunnah: {
+    backgroundColor: `${colors.accent}15`,
+  },
+  wuduStepInfo: {
+    flex: 1,
+  },
+  wuduStepTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 4,
+  },
+  wuduStepNumber: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text.primary,
+  },
+  wuduStepName: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.text.primary,
+  },
+  wuduStepBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: borderRadius.round,
+  },
+  wuduStepBadgeFard: {
+    backgroundColor: `${colors.primary}15`,
+  },
+  wuduStepBadgeSunnah: {
+    backgroundColor: `${colors.accent}15`,
+  },
+  wuduStepBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  wuduStepBadgeTextFard: {
+    color: colors.primary,
+  },
+  wuduStepBadgeTextSunnah: {
+    color: colors.accent,
+  },
+  wuduStepArabic: {
+    fontSize: 16,
+    color: colors.text.secondary,
+    // @ts-ignore
+    fontFamily: "'Amiri', serif",
+  },
+  wuduStepAction: {
+    ...typography.body,
+    color: colors.text.secondary,
+    lineHeight: 24,
+    marginBottom: 8,
+  },
+  wuduStepRepetitions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  wuduStepRepetitionsText: {
+    ...typography.caption,
+    color: colors.text.secondary,
+  },
+  closingDuaSection: {
+    marginBottom: 40,
+  },
+  closingDuaCard: {
+    backgroundColor: colors.background,
+    borderRadius: borderRadius.lg,
+    padding: 24,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.accent,
+    // @ts-ignore
+    boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
+  },
+  closingDuaArabic: {
+    fontSize: 24,
+    color: colors.text.primary,
+    textAlign: 'right',
+    lineHeight: 42,
+    marginBottom: 24,
+    // @ts-ignore
+    fontFamily: "'Amiri', serif",
+  },
+  closingDuaDetail: {
+    marginBottom: 16,
   },
 });

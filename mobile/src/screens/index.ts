@@ -16,6 +16,8 @@ export { AsmaUlHusnaMultipleChoiceScreen } from './asmaUlHusna/AsmaUlHusnaMultip
 export { AsmaUlHusnaMatchingScreen } from './asmaUlHusna/AsmaUlHusnaMatchingScreen';
 export { PillarsScreen } from './pillars/PillarsScreen';
 export { PrayerGuideScreen } from './prayer/PrayerGuideScreen';
+export { WuduGuideScreen } from './prayer/WuduGuideScreen';
+export { SalahStepsScreen } from './prayer/SalahStepsScreen';
 export { DuaScreen } from './dua/DuaScreen';
 export { SunnahScreen } from './prayer/SunnahScreen';
 export { ProfileScreen } from './profile/ProfileScreen';

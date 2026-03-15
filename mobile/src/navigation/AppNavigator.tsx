@@ -16,6 +16,8 @@ import {
   AsmaUlHusnaMatchingScreen,
   PillarsScreen,
   PrayerGuideScreen,
+  WuduGuideScreen,
+  SalahStepsScreen,
   DuaScreen,
   SunnahScreen,
   ProfileScreen,
@@ -32,6 +34,7 @@ import { TabNavigator } from './TabNavigator';
 import { useAuth } from '@/hooks/useAuth';
 import { colors } from '@/theme';
 import { UserType, FeatureKey } from '@/types/user';
+import type { Prayer } from '@/types/prayer';
 import { hasPendingWelcome } from '@/utils/pendingWelcome';
 
 export type RootStackParamList = {
@@ -81,6 +84,10 @@ export type RootStackParamList = {
   AsmaUlHusnaMatching: undefined;
   Pillars: undefined;
   PrayerGuide: undefined;
+  WuduGuide: undefined;
+  SalahSteps: {
+    prayer: Prayer;
+  };
   Dua: undefined;
   Sunnah: undefined;
   Profile: undefined;
@@ -150,6 +157,8 @@ export const AppNavigator: React.FC = () => {
             <Stack.Screen name="AsmaUlHusnaMatching" component={AsmaUlHusnaMatchingScreen} />
             <Stack.Screen name="Pillars" component={PillarsScreen} />
             <Stack.Screen name="PrayerGuide" component={PrayerGuideScreen} />
+            <Stack.Screen name="WuduGuide" component={WuduGuideScreen} />
+            <Stack.Screen name="SalahSteps" component={SalahStepsScreen} />
             <Stack.Screen name="Dua" component={DuaScreen} />
             <Stack.Screen name="Sunnah" component={SunnahScreen} />
             <Stack.Screen name="Profile" component={ProfileScreen} />

@@ -298,17 +298,24 @@ export const HomeScreen: React.FC = () => {
     };
   }, [user?.uid, profileLoading, triggerStreakCelebration]);
 
-  // Filter cards based on user's focusFeatures preferences
+  // Filter cards based on user's focusFeatures preferences and user type
   // If no preferences set (legacy users or no profile), show all cards
   const displayCards = useMemo(() => {
-    if (!userProfile?.focusFeatures || userProfile.focusFeatures.length === 0) {
-      // No preferences set - show all cards
-      return ALL_CARDS;
+    let cards = ALL_CARDS;
+
+    // Filter based on focusFeatures if set
+    if (userProfile?.focusFeatures && userProfile.focusFeatures.length > 0) {
+      cards = cards.filter(card => userProfile.focusFeatures.includes(card.key));
     }
 
-    // Filter to only show selected features, maintaining the original order
-    return ALL_CARDS.filter(card => userProfile.focusFeatures.includes(card.key));
-  }, [userProfile?.focusFeatures]);
+    // Prayer Guide is only available for reverts and learners (non-Muslims)
+    // Regular Muslims who already know how to pray don't need this feature
+    if (userProfile?.userType === 'muslim') {
+      cards = cards.filter(card => card.key !== 'prayer');
+    }
+
+    return cards;
+  }, [userProfile?.focusFeatures, userProfile?.userType]);
 
   const displayName = user?.displayName || 'Muslim User';
   const streakCount = currentStreakCount || userProfile?.loginStreakCount || 0;

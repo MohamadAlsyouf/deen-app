@@ -18,7 +18,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { Header, Card } from '@/components';
 import { colors, spacing, typography, borderRadius } from '@/theme';
 import { prayerService } from '@/services/prayerService';
+import { useUserProfile } from '@/hooks/useUserProfile';
 import type { Prayer, PrayerStep } from '@/types/prayer';
+import type { StackNavigationProp } from '@react-navigation/stack';
+import type { RootStackParamList } from '@/navigation/AppNavigator';
 
 // Position icons mapping
 const positionIcons: Record<string, keyof typeof Ionicons.glyphMap> = {
@@ -235,33 +238,38 @@ const StepCard: React.FC<StepCardProps> = ({ step, index, totalSteps, accentColo
 };
 
 export const PrayerGuideScreen: React.FC = () => {
-  const navigation = useNavigation();
+  const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const isWeb = Platform.OS === 'web';
   const isDesktop = width >= 1024;
+  const { userProfile, loading: profileLoading } = useUserProfile();
 
-  const [selectedPrayer, setSelectedPrayer] = useState<Prayer | null>(null);
+  // Note: We no longer use selectedPrayer state since we navigate to SalahStepsScreen
 
   const prayerGuideQuery = useQuery({
     queryKey: ['prayerGuide'],
     queryFn: prayerService.getPrayerGuide,
   });
 
+  // Check if user has access to prayer guide (reverts and learners only)
+  const hasAccess = userProfile?.userType === 'revert' || userProfile?.userType === 'learner';
+
   const handleGoBack = () => {
-    if (selectedPrayer) {
-      setSelectedPrayer(null);
-    } else {
-      navigation.goBack();
-    }
+    navigation.goBack();
   };
 
-  const accentColor = selectedPrayer
-    ? prayerGradients[selectedPrayer.id]?.[0] || colors.primary
-    : colors.primary;
+  const handleWuduPress = () => {
+    navigation.navigate('WuduGuide');
+  };
+
+  const handlePrayerPress = (prayer: Prayer) => {
+    navigation.navigate('SalahSteps', { prayer });
+  };
+
 
   // Loading state
-  if (prayerGuideQuery.isLoading) {
+  if (prayerGuideQuery.isLoading || profileLoading) {
     return (
       <View style={styles.container}>
         <View style={[styles.headerContainer, { paddingTop: insets.top }]}>
@@ -273,6 +281,39 @@ export const PrayerGuideScreen: React.FC = () => {
         <View style={styles.center}>
           <ActivityIndicator size="large" color={colors.primary} />
           <Text style={styles.loadingText}>Loading prayer guide...</Text>
+        </View>
+      </View>
+    );
+  }
+
+  // Access restriction - only for reverts and learners
+  if (!hasAccess) {
+    return (
+      <View style={styles.container}>
+        <View style={[styles.headerContainer, { paddingTop: insets.top }]}>
+          <Header
+            title="Prayer Guide"
+            leftAction={{ iconName: 'arrow-back', onPress: handleGoBack }}
+          />
+        </View>
+        <View style={styles.center}>
+          <View style={styles.restrictedIconContainer}>
+            <Ionicons name="hand-left-outline" size={48} color={colors.primary} />
+          </View>
+          <Text style={styles.restrictedTitle}>Prayer Guide</Text>
+          <Text style={styles.restrictedText}>
+            This feature is designed specifically for new Muslims and those learning about Islam.
+            As an experienced Muslim, you likely already know how to pray.
+          </Text>
+          <Text style={styles.restrictedSubtext}>
+            If you'd like access to this feature, you can update your profile type in Settings.
+          </Text>
+          <TouchableOpacity
+            style={styles.restrictedButton}
+            onPress={() => navigation.goBack()}
+          >
+            <Text style={styles.restrictedButtonText}>Go Back</Text>
+          </TouchableOpacity>
         </View>
       </View>
     );
@@ -300,85 +341,6 @@ export const PrayerGuideScreen: React.FC = () => {
   }
 
   const data = prayerGuideQuery.data;
-
-  // Prayer detail view
-  if (selectedPrayer) {
-    return (
-      <View style={styles.container}>
-        <View style={[styles.headerContainer, { paddingTop: insets.top }]}>
-          <Header
-            title={`${selectedPrayer.name} Prayer`}
-            titleNumberOfLines={1}
-            leftAction={{ iconName: 'arrow-back', onPress: handleGoBack }}
-          />
-        </View>
-
-        <ScrollView
-          style={[styles.scrollView, isWeb && styles.webScrollView]}
-          contentContainerStyle={[
-            styles.scrollContent,
-            isDesktop && styles.scrollContentDesktop,
-          ]}
-          showsVerticalScrollIndicator={false}
-        >
-          {/* Prayer header card */}
-          <LinearGradient
-            colors={prayerGradients[selectedPrayer.id] || [colors.primary, colors.primaryLight]}
-            style={styles.prayerHeaderCard}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-          >
-            <View style={styles.prayerHeaderContent}>
-              <Text style={styles.prayerHeaderArabic}>{selectedPrayer.nameArabic}</Text>
-              <Text style={styles.prayerHeaderName}>{selectedPrayer.name} Prayer</Text>
-              <Text style={styles.prayerHeaderTime}>{selectedPrayer.time}</Text>
-
-              <View style={styles.prayerStats}>
-                <View style={styles.statItem}>
-                  <Text style={styles.statValue}>{selectedPrayer.rakaat}</Text>
-                  <Text style={styles.statLabel}>Rakaat</Text>
-                </View>
-                {selectedPrayer.sunnahBefore && (
-                  <View style={styles.statItem}>
-                    <Text style={styles.statValue}>{selectedPrayer.sunnahBefore}</Text>
-                    <Text style={styles.statLabel}>Sunnah Before</Text>
-                  </View>
-                )}
-                {selectedPrayer.sunnahAfter && (
-                  <View style={styles.statItem}>
-                    <Text style={styles.statValue}>{selectedPrayer.sunnahAfter}</Text>
-                    <Text style={styles.statLabel}>Sunnah After</Text>
-                  </View>
-                )}
-              </View>
-            </View>
-          </LinearGradient>
-
-          {/* Description */}
-          <Card style={styles.descriptionCard}>
-            <Text style={styles.descriptionTitle}>About this Prayer</Text>
-            <Text style={styles.descriptionText}>{selectedPrayer.description}</Text>
-            <Text style={styles.significanceTitle}>Significance</Text>
-            <Text style={styles.significanceText}>{selectedPrayer.significance}</Text>
-          </Card>
-
-          {/* Steps */}
-          <Text style={styles.stepsTitle}>Step-by-Step Guide</Text>
-          <View style={styles.stepsContainer}>
-            {selectedPrayer.steps.map((step, index) => (
-              <StepCard
-                key={step.order}
-                step={step}
-                index={index}
-                totalSteps={selectedPrayer.steps.length}
-                accentColor={accentColor}
-              />
-            ))}
-          </View>
-        </ScrollView>
-      </View>
-    );
-  }
 
   // Prayer list view
   return (
@@ -410,7 +372,7 @@ export const PrayerGuideScreen: React.FC = () => {
         </Card>
 
         {/* Wudu reminder */}
-        <TouchableOpacity style={styles.wuduCard} activeOpacity={0.9}>
+        <TouchableOpacity style={styles.wuduCard} activeOpacity={0.9} onPress={handleWuduPress}>
           <LinearGradient
             colors={[colors.accent, colors.accentLight]}
             style={styles.wuduGradient}
@@ -421,7 +383,7 @@ export const PrayerGuideScreen: React.FC = () => {
             <View style={styles.wuduContent}>
               <Text style={styles.wuduTitle}>Don't forget Wudu!</Text>
               <Text style={styles.wuduText}>
-                Perform ablution before praying to purify yourself
+                Tap to learn the step-by-step ablution guide
               </Text>
             </View>
             <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.7)" />
@@ -436,7 +398,7 @@ export const PrayerGuideScreen: React.FC = () => {
               key={prayer.id}
               prayer={prayer}
               index={index}
-              onPress={() => setSelectedPrayer(prayer)}
+              onPress={() => handlePrayerPress(prayer)}
             />
           ))}
         </View>
@@ -491,6 +453,46 @@ const styles = StyleSheet.create({
     ...typography.body,
     color: colors.text.secondary,
     textAlign: 'center',
+  },
+  restrictedIconContainer: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: `${colors.primary}15`,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.lg,
+  },
+  restrictedTitle: {
+    ...typography.h2,
+    color: colors.text.primary,
+    marginBottom: spacing.md,
+  },
+  restrictedText: {
+    ...typography.body,
+    color: colors.text.secondary,
+    textAlign: 'center',
+    lineHeight: 24,
+    marginBottom: spacing.md,
+    paddingHorizontal: spacing.lg,
+  },
+  restrictedSubtext: {
+    ...typography.caption,
+    color: colors.text.tertiary,
+    textAlign: 'center',
+    marginBottom: spacing.xl,
+    paddingHorizontal: spacing.lg,
+  },
+  restrictedButton: {
+    backgroundColor: colors.primary,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xl,
+    borderRadius: borderRadius.lg,
+  },
+  restrictedButtonText: {
+    ...typography.body,
+    color: colors.text.white,
+    fontWeight: '600',
   },
 
   // Introduction
