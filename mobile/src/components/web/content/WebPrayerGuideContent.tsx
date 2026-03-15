@@ -21,34 +21,19 @@ import { colors, spacing, typography, borderRadius } from '@/theme';
 import { prayerService } from '@/services/prayerService';
 import { useWebHover } from '@/hooks/useWebHover';
 import { useUserProfile } from '@/hooks/useUserProfile';
+import { getCompletePrayerSteps } from '@/data/prayerStepsGenerator';
 import type { Prayer, PrayerStep } from '@/types/prayer';
 
-// Steps to filter out (opening supplication and supplication before tasleem)
-const STEPS_TO_FILTER = [
-  'opening supplication',
-  'opening dua',
-  'dua al-istiftah',
-  'supplication before tasleem',
-  'dua before tasleem',
-  'supplication before salam',
-];
-
-// Steps that need special notes
-const shouldAddSunnahNote = (stepName: string): boolean => {
-  const lowerName = stepName.toLowerCase();
-  return lowerName.includes('additional surah') ||
-         lowerName.includes('recite another surah') ||
-         lowerName.includes('surah after fatiha');
-};
-
-const shouldAddProstrationNote = (stepName: string): boolean => {
+// Helper to detect special notes in step names
+const isProstrationStep = (stepName: string): boolean => {
   const lowerName = stepName.toLowerCase();
   return lowerName.includes('prostration') || lowerName.includes('sujud');
 };
 
-const SUNNAH_SURAH_NOTE = 'This is Sunnah (recommended) and optional. You may recite only Al-Fatiha and your prayer is still valid.';
-
-const PROSTRATION_NOTE = 'This is the closest a servant can be to Allah. This is the perfect time to ask Allah for literally anything - healing, guidance, knowledge, wealth, forgiveness, or anything your heart desires.';
+const isSunnahSurahStep = (stepName: string): boolean => {
+  const lowerName = stepName.toLowerCase();
+  return lowerName.includes('additional surah');
+};
 
 // Prayer gradient colors - matching mobile
 const prayerGradients: Record<string, [string, string]> = {
@@ -284,27 +269,21 @@ const StepCard: React.FC<StepCardProps> = ({ step, index, totalSteps, accentColo
               </View>
             )}
 
-            {/* Special notes for Sunnah emphasis */}
-            {shouldAddSunnahNote(step.name) && (
-              <View style={[styles.noteBox, styles.sunnahNoteBox]}>
-                <Ionicons name="information-circle" size={18} color={colors.primary} />
-                <Text style={styles.noteText}>{SUNNAH_SURAH_NOTE}</Text>
-              </View>
-            )}
-
-            {/* Special notes for Prostration */}
-            {shouldAddProstrationNote(step.name) && (
-              <View style={[styles.noteBox, styles.prostrationNoteBox]}>
-                <Ionicons name="heart" size={18} color={colors.error} />
-                <Text style={[styles.noteText, styles.prostrationNoteText]}>{PROSTRATION_NOTE}</Text>
-              </View>
-            )}
-
-            {/* Regular note */}
-            {step.note && !shouldAddSunnahNote(step.name) && !shouldAddProstrationNote(step.name) && (
-              <View style={styles.noteBox}>
-                <Ionicons name="information-circle" size={18} color={colors.accent} />
-                <Text style={styles.noteText}>{step.note}</Text>
+            {/* Note - special styling for prostration and sunnah notes */}
+            {step.note && (
+              <View style={[
+                styles.noteBox,
+                isSunnahSurahStep(step.name) && styles.sunnahNoteBox,
+                isProstrationStep(step.name) && styles.prostrationNoteBox,
+              ]}>
+                <Ionicons
+                  name={isProstrationStep(step.name) ? 'heart' : 'information-circle'}
+                  size={18}
+                  color={isProstrationStep(step.name) ? colors.error : isSunnahSurahStep(step.name) ? colors.primary : colors.accent}
+                />
+                <Text style={[styles.noteText, isProstrationStep(step.name) && styles.prostrationNoteText]}>
+                  {step.note}
+                </Text>
               </View>
             )}
           </View>
@@ -324,14 +303,12 @@ export const WebPrayerGuideContent: React.FC = () => {
     queryFn: prayerService.getPrayerGuide,
   });
 
-  // Filter steps for selected prayer (remove opening supplication and supplication before tasleem)
-  const filteredSteps = useMemo(() => {
-    if (!selectedPrayer?.steps) return [];
-    return selectedPrayer.steps.filter(step => {
-      const lowerName = step.name.toLowerCase();
-      return !STEPS_TO_FILTER.some(filter => lowerName.includes(filter));
-    });
-  }, [selectedPrayer?.steps]);
+  // Get complete standalone steps for this prayer (generated fresh, not from Firestore)
+  // This ensures each prayer has a full walkthrough from start to finish
+  const prayerSteps = useMemo(() => {
+    if (!selectedPrayer?.id) return [];
+    return getCompletePrayerSteps(selectedPrayer.id);
+  }, [selectedPrayer?.id]);
 
   const accentColor = selectedPrayer
     ? prayerGradients[selectedPrayer.id]?.[0] || colors.primary
@@ -565,12 +542,12 @@ export const WebPrayerGuideContent: React.FC = () => {
           </Text>
 
           <View style={styles.stepsList}>
-            {filteredSteps.map((step, index) => (
+            {prayerSteps.map((step, index) => (
               <StepCard
                 key={step.order}
                 step={step}
                 index={index}
-                totalSteps={filteredSteps.length}
+                totalSteps={prayerSteps.length}
                 accentColor={accentColor}
               />
             ))}

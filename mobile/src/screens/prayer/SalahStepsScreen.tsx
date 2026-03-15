@@ -17,6 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius } from '@/theme';
 import type { Prayer, PrayerStep } from '@/types/prayer';
 import type { RootStackParamList } from '@/navigation/AppNavigator';
+import { getCompletePrayerSteps } from '@/data/prayerStepsGenerator';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -38,32 +39,16 @@ const prayerGradients: Record<string, [string, string]> = {
   isha: ['#30cfd0', '#330867'],
 };
 
-// Steps to filter out (opening supplication and supplication before tasleem)
-const STEPS_TO_FILTER = [
-  'opening supplication',
-  'opening dua',
-  'dua al-istiftah',
-  'supplication before tasleem',
-  'dua before tasleem',
-  'supplication before salam',
-];
-
-// Steps that need special notes
-const shouldAddSunnahNote = (stepName: string): boolean => {
-  const lowerName = stepName.toLowerCase();
-  return lowerName.includes('additional surah') ||
-         lowerName.includes('recite another surah') ||
-         lowerName.includes('surah after fatiha');
-};
-
-const shouldAddProstrationNote = (stepName: string): boolean => {
+// Helper to detect special notes in step names
+const isProstrationStep = (stepName: string): boolean => {
   const lowerName = stepName.toLowerCase();
   return lowerName.includes('prostration') || lowerName.includes('sujud');
 };
 
-const SUNNAH_SURAH_NOTE = 'This is Sunnah (recommended) and optional. You may recite only Al-Fatiha and your prayer is still valid. Reciting an additional Surah is highly rewarded but not obligatory.';
-
-const PROSTRATION_NOTE = 'This is the closest a servant can be to Allah. This is the perfect time to make dua (supplication) and ask Allah for literally anything - healing for yourself or others, guidance, knowledge, wealth, forgiveness, or anything your heart desires. Pour your heart out to Allah in this blessed position.';
+const isSunnahSurahStep = (stepName: string): boolean => {
+  const lowerName = stepName.toLowerCase();
+  return lowerName.includes('additional surah');
+};
 
 type StepItemProps = {
   step: PrayerStep;
@@ -76,20 +61,8 @@ const StepItem: React.FC<StepItemProps> = ({ step, accentColor, isLast, prayerNa
   const insets = useSafeAreaInsets();
   const itemHeight = SCREEN_HEIGHT - insets.top - insets.bottom - 120;
 
-  // Determine if we need to add special notes
-  const hasSunnahNote = shouldAddSunnahNote(step.name);
-  const hasProstrationNote = shouldAddProstrationNote(step.name);
-
-  // Combine notes
-  let displayNote = step.note || '';
-  if (hasSunnahNote) {
-    displayNote = SUNNAH_SURAH_NOTE;
-  }
-  if (hasProstrationNote) {
-    displayNote = displayNote
-      ? `${displayNote}\n\n${PROSTRATION_NOTE}`
-      : PROSTRATION_NOTE;
-  }
+  const hasProstrationNote = isProstrationStep(step.name);
+  const hasSunnahNote = isSunnahSurahStep(step.name);
 
   return (
     <View style={[styles.stepContainer, { height: itemHeight, width: SCREEN_WIDTH }]}>
@@ -163,8 +136,8 @@ const StepItem: React.FC<StepItemProps> = ({ step, accentColor, isLast, prayerNa
           </View>
         )}
 
-        {/* Note or special notes */}
-        {displayNote && (
+        {/* Note */}
+        {step.note && (
           <View style={[styles.noteContainer, { backgroundColor: `${accentColor}10` }]}>
             <Ionicons
               name={hasProstrationNote ? 'heart' : hasSunnahNote ? 'information-circle' : 'information-circle-outline'}
@@ -172,7 +145,7 @@ const StepItem: React.FC<StepItemProps> = ({ step, accentColor, isLast, prayerNa
               color={hasProstrationNote ? colors.error : accentColor}
             />
             <Text style={[styles.noteText, hasProstrationNote && styles.noteTextHighlight]}>
-              {displayNote}
+              {step.note}
             </Text>
           </View>
         )}
@@ -231,16 +204,14 @@ export const SalahStepsScreen: React.FC = () => {
 
   const prayer = route.params?.prayer;
 
-  // Filter out unwanted steps
-  const filteredSteps = useMemo(() => {
-    if (!prayer?.steps) return [];
-    return prayer.steps.filter(step => {
-      const lowerName = step.name.toLowerCase();
-      return !STEPS_TO_FILTER.some(filter => lowerName.includes(filter));
-    });
-  }, [prayer?.steps]);
+  // Get complete standalone steps for this prayer (generated fresh, not from Firestore)
+  // This ensures each prayer has a full walkthrough from start to finish
+  const prayerSteps = useMemo(() => {
+    if (!prayer?.id) return [];
+    return getCompletePrayerSteps(prayer.id);
+  }, [prayer?.id]);
 
-  const totalItems = filteredSteps.length + 1; // Steps + completion screen
+  const totalItems = prayerSteps.length + 1; // Steps + completion screen
   const accentColor = prayerGradients[prayer?.id || 'fajr']?.[0] || colors.primary;
 
   const onViewableItemsChanged = useCallback(({ viewableItems }: { viewableItems: ViewToken[] }) => {
@@ -302,13 +273,13 @@ export const SalahStepsScreen: React.FC = () => {
       <StepItem
         step={item}
         accentColor={accentColor}
-        isLast={index === filteredSteps.length - 1}
+        isLast={index === prayerSteps.length - 1}
         prayerName={prayer.name}
       />
     );
   };
 
-  const data: (PrayerStep | 'completion')[] = [...filteredSteps, 'completion'];
+  const data: (PrayerStep | 'completion')[] = [...prayerSteps, 'completion'];
 
   // Calculate progress percentage
   const progressPercent = ((currentIndex + 1) / totalItems) * 100;
@@ -343,8 +314,8 @@ export const SalahStepsScreen: React.FC = () => {
           />
         </View>
         <Text style={styles.progressText}>
-          {currentIndex < filteredSteps.length
-            ? `Step ${currentIndex + 1} of ${filteredSteps.length}`
+          {currentIndex < prayerSteps.length
+            ? `Step ${currentIndex + 1} of ${prayerSteps.length}`
             : 'Complete'}
         </Text>
       </View>
