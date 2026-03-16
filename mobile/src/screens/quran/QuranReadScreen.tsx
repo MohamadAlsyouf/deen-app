@@ -8,13 +8,14 @@ import {
   TouchableOpacity,
   Platform,
   Animated,
+  Easing,
   ViewToken,
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import type { RouteProp } from "@react-navigation/native";
 import type { StackNavigationProp } from "@react-navigation/stack";
-import { useInfiniteQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { Ionicons } from "@expo/vector-icons";
 import { colors, spacing, typography, borderRadius } from "@/theme";
 import { quranService } from "@/services/quranService";
@@ -25,6 +26,8 @@ import type { RootStackParamList } from "@/navigation/AppNavigator";
 import type { ViewMode } from "@/components/quran/ViewModeToggle";
 import type { UserType } from "@/types/user";
 import { buildQuranReadPages, type QuranReadPage } from "@/utils/quranReadPagination";
+
+const PAGE_TURN_DURATION = 280;
 
 type QuranReadPageItem = QuranReadPage & {
   verse: QuranVerse;
@@ -104,9 +107,50 @@ export const QuranReadScreen: React.FC = () => {
   const navigation = useNavigation<QuranReadNavigationProp>();
   const route = useRoute<QuranReadRouteProp>();
   const insets = useSafeAreaInsets();
-  const { chapterId, chapterName, chapterArabicName, versesCount } = route.params;
+  const { chapterId: initialChapterId, chapterName: initialChapterName, chapterArabicName: initialChapterArabicName, versesCount: initialVersesCount } = route.params;
   const { userProfile } = useUserProfile();
   const { isVerseBookmarked, toggleVerseBookmark } = useBookmarks();
+
+  // Track current chapter ID internally for navigation
+  const [currentChapterId, setCurrentChapterId] = useState(initialChapterId);
+  const [isTransitioning, setIsTransitioning] = useState(false);
+
+  // Store chapter info separately to ensure it's always available during transitions
+  const [currentChapterName, setCurrentChapterName] = useState(initialChapterName || "Chapter");
+  const [currentChapterArabicName, setCurrentChapterArabicName] = useState(initialChapterArabicName || "");
+  const [currentChapterVersesCount, setCurrentChapterVersesCount] = useState(initialVersesCount || 0);
+
+  // Animation values for page turn effect
+  const pageTranslateX = useRef(new Animated.Value(0)).current;
+  const pageOpacity = useRef(new Animated.Value(1)).current;
+  const pageScale = useRef(new Animated.Value(1)).current;
+
+  // Fetch all chapters to get chapter info for navigation
+  const chaptersQuery = useQuery({
+    queryKey: ["quranChapters"],
+    queryFn: quranService.getChapters,
+    staleTime: Infinity, // Chapters don't change
+  });
+
+  // Helper to get chapter info from the cached chapters list
+  const getChapterInfo = useCallback((chapterId: number) => {
+    const chapter = chaptersQuery.data?.find((c) => c.id === chapterId);
+    if (chapter) {
+      return {
+        name: chapter.name_simple,
+        arabicName: chapter.name_arabic,
+        versesCount: chapter.verses_count,
+      };
+    }
+    return null;
+  }, [chaptersQuery.data]);
+
+  // Combined chapter info for use in components
+  const currentChapterInfo = useMemo(() => ({
+    name: currentChapterName,
+    arabicName: currentChapterArabicName,
+    versesCount: currentChapterVersesCount,
+  }), [currentChapterName, currentChapterArabicName, currentChapterVersesCount]);
 
   const userType = userProfile?.userType;
   const availableViewModes = useMemo(
@@ -123,13 +167,13 @@ export const QuranReadScreen: React.FC = () => {
   // Calculate item height for FlatList
   const ITEM_HEIGHT = SCREEN_HEIGHT - insets.top - insets.bottom - 100; // Reserve space for header + progress
 
-  // Fetch all verses
+  // Fetch all verses using currentChapterId
   const versesQuery = useInfiniteQuery({
-    queryKey: ["quranVersesByChapterRead", chapterId],
+    queryKey: ["quranVersesByChapterRead", currentChapterId],
     initialPageParam: 1,
     queryFn: ({ pageParam }) =>
       quranService.getVersesByChapter({
-        chapterId,
+        chapterId: currentChapterId,
         page: pageParam,
         perPage: PER_PAGE,
       }),
@@ -140,7 +184,7 @@ export const QuranReadScreen: React.FC = () => {
     return versesQuery.data?.pages.flatMap((page) => page.verses) ?? [];
   }, [versesQuery.data?.pages]);
 
-  const totalVerses = versesCount || verses.length;
+  const totalVerses = currentChapterInfo.versesCount || verses.length;
   const readPages = useMemo<QuranReadPageItem[]>(() => {
     return verses.flatMap((verse) => {
       const translationRaw = verse.translations?.[0]?.text || "";
@@ -215,21 +259,123 @@ export const QuranReadScreen: React.FC = () => {
     navigation.goBack();
   };
 
+  // Animate page turn for chapter transitions
+  const animatePageTurn = useCallback(
+    (direction: "next" | "previous", newChapterId: number) => {
+      if (isTransitioning) return;
+
+      // Get the new chapter info BEFORE starting animation
+      const newChapterInfo = getChapterInfo(newChapterId);
+      if (!newChapterInfo) {
+        // If chapters aren't loaded yet, just update the ID and let it show "Chapter"
+        setCurrentChapterId(newChapterId);
+        setCurrentChapterName("Chapter");
+        setCurrentChapterArabicName("");
+        setCurrentChapterVersesCount(0);
+        return;
+      }
+
+      setIsTransitioning(true);
+
+      const slideDirection = direction === "next" ? -1 : 1;
+
+      // Animate out current content
+      Animated.parallel([
+        Animated.timing(pageTranslateX, {
+          toValue: slideDirection * SCREEN_WIDTH * 0.5,
+          duration: PAGE_TURN_DURATION,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+        Animated.timing(pageOpacity, {
+          toValue: 0,
+          duration: PAGE_TURN_DURATION * 0.8,
+          easing: Easing.out(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(pageScale, {
+          toValue: 0.92,
+          duration: PAGE_TURN_DURATION,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+      ]).start(() => {
+        // Update chapter ID, name, and reset to first page
+        setCurrentChapterId(newChapterId);
+        setCurrentChapterName(newChapterInfo.name);
+        setCurrentChapterArabicName(newChapterInfo.arabicName);
+        setCurrentChapterVersesCount(newChapterInfo.versesCount);
+        setCurrentPageIndex(0);
+
+        // Reset scroll position
+        flatListRef.current?.scrollToOffset({ offset: 0, animated: false });
+
+        // Position for slide in from opposite direction and set opacity to 0
+        pageTranslateX.setValue(-slideDirection * SCREEN_WIDTH * 0.5);
+        pageScale.setValue(0.92);
+        pageOpacity.setValue(0);
+
+        // Animate in new content after brief delay for data to start loading
+        setTimeout(() => {
+          Animated.parallel([
+            Animated.timing(pageTranslateX, {
+              toValue: 0,
+              duration: PAGE_TURN_DURATION,
+              easing: Easing.out(Easing.cubic),
+              useNativeDriver: true,
+            }),
+            Animated.timing(pageOpacity, {
+              toValue: 1,
+              duration: PAGE_TURN_DURATION * 0.8,
+              easing: Easing.in(Easing.ease),
+              useNativeDriver: true,
+            }),
+            Animated.timing(pageScale, {
+              toValue: 1,
+              duration: PAGE_TURN_DURATION,
+              easing: Easing.out(Easing.cubic),
+              useNativeDriver: true,
+            }),
+          ]).start(() => {
+            setIsTransitioning(false);
+          });
+        }, 80);
+      });
+    },
+    [isTransitioning, pageTranslateX, pageOpacity, pageScale, getChapterInfo]
+  );
+
+  // Navigate to previous chapter
+  const handlePreviousChapter = useCallback(() => {
+    if (currentChapterId > 1 && !isTransitioning) {
+      triggerHaptic();
+      animatePageTurn("previous", currentChapterId - 1);
+    }
+  }, [currentChapterId, isTransitioning, triggerHaptic, animatePageTurn]);
+
+  // Navigate to next chapter
+  const handleNextChapter = useCallback(() => {
+    if (currentChapterId < 114 && !isTransitioning) {
+      triggerHaptic();
+      animatePageTurn("next", currentChapterId + 1);
+    }
+  }, [currentChapterId, isTransitioning, triggerHaptic, animatePageTurn]);
+
   const handleToggleVerseBookmark = useCallback(
     (verse: QuranVerse) => {
       const translationRaw = verse.translations?.[0]?.text || "";
       const preview = sanitizeTranslationText(translationRaw).slice(0, 120);
       toggleVerseBookmark({
         verseKey: verse.verse_key,
-        chapterId,
-        chapterName: chapterName || "Chapter",
-        chapterArabicName: chapterArabicName || "",
+        chapterId: currentChapterId,
+        chapterName: currentChapterInfo.name || "Chapter",
+        chapterArabicName: currentChapterInfo.arabicName || "",
         verseNumber: verse.verse_number,
         arabicText: verse.text_uthmani,
         translationPreview: preview,
       });
     },
-    [chapterId, chapterName, chapterArabicName, toggleVerseBookmark]
+    [currentChapterId, currentChapterInfo, toggleVerseBookmark]
   );
 
   // Render individual verse page
@@ -337,15 +483,40 @@ export const QuranReadScreen: React.FC = () => {
 
         <View style={styles.headerCenter}>
           <Text style={styles.headerTitle} numberOfLines={1}>
-            {chapterName}
+            {currentChapterInfo.name || "Loading..."}
           </Text>
           <Text style={styles.headerSubtitle}>
             {currentVerseProgress} of {Math.max(totalVerses, 1)}
           </Text>
         </View>
 
-        {/* Placeholder for symmetry */}
-        <View style={styles.headerRight} />
+        {/* Chapter Navigation Arrows */}
+        <View style={styles.headerRight}>
+          <TouchableOpacity
+            style={[styles.chapterNavButton, (currentChapterId <= 1 || isTransitioning) && styles.chapterNavButtonDisabled]}
+            onPress={handlePreviousChapter}
+            disabled={currentChapterId <= 1 || isTransitioning}
+            activeOpacity={0.7}
+          >
+            <Ionicons
+              name="chevron-back"
+              size={20}
+              color={currentChapterId <= 1 ? colors.text.disabled : colors.text.primary}
+            />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.chapterNavButton, (currentChapterId >= 114 || isTransitioning) && styles.chapterNavButtonDisabled]}
+            onPress={handleNextChapter}
+            disabled={currentChapterId >= 114 || isTransitioning}
+            activeOpacity={0.7}
+          >
+            <Ionicons
+              name="chevron-forward"
+              size={20}
+              color={currentChapterId >= 114 ? colors.text.disabled : colors.text.primary}
+            />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Progress Bar */}
@@ -389,27 +560,40 @@ export const QuranReadScreen: React.FC = () => {
         </View>
       )}
 
-      {/* Swipeable Verse List */}
-      <FlatList
-        ref={flatListRef}
-        data={readPages}
-        renderItem={renderVersePage}
-        keyExtractor={keyExtractor}
-        getItemLayout={getItemLayout}
-        pagingEnabled
-        showsVerticalScrollIndicator={false}
-        onViewableItemsChanged={onViewableItemsChanged}
-        viewabilityConfig={viewabilityConfig}
-        onEndReached={handleEndReached}
-        onEndReachedThreshold={0.5}
-        decelerationRate="fast"
-        snapToInterval={ITEM_HEIGHT}
-        snapToAlignment="start"
-        contentContainerStyle={styles.listContent}
-        initialNumToRender={3}
-        maxToRenderPerBatch={5}
-        windowSize={5}
-      />
+      {/* Swipeable Verse List with Page Turn Animation */}
+      <Animated.View
+        style={[
+          styles.animatedContentContainer,
+          {
+            opacity: pageOpacity,
+            transform: [
+              { translateX: pageTranslateX },
+              { scale: pageScale },
+            ],
+          },
+        ]}
+      >
+        <FlatList
+          ref={flatListRef}
+          data={readPages}
+          renderItem={renderVersePage}
+          keyExtractor={keyExtractor}
+          getItemLayout={getItemLayout}
+          pagingEnabled
+          showsVerticalScrollIndicator={false}
+          onViewableItemsChanged={onViewableItemsChanged}
+          viewabilityConfig={viewabilityConfig}
+          onEndReached={handleEndReached}
+          onEndReachedThreshold={0.5}
+          decelerationRate="fast"
+          snapToInterval={ITEM_HEIGHT}
+          snapToAlignment="start"
+          contentContainerStyle={styles.listContent}
+          initialNumToRender={3}
+          maxToRenderPerBatch={5}
+          windowSize={5}
+        />
+      </Animated.View>
 
       {/* Swipe Hint (shown briefly) */}
       <SwipeHint />
@@ -449,6 +633,9 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
+  animatedContentContainer: {
+    flex: 1,
+  },
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -481,7 +668,20 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   headerRight: {
-    width: 40,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  chapterNavButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.surface,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  chapterNavButtonDisabled: {
+    opacity: 0.4,
   },
   progressContainer: {
     paddingHorizontal: spacing.lg,

@@ -181,14 +181,14 @@ export const QuranChapterScreen: React.FC = () => {
   // Auto-scroll to highlighted verse
   useEffect(() => {
     const verseKey = highlightState.verseKey;
-    
+
     // Only scroll if we have a new verse to highlight
     if (!verseKey || verseKey === lastHighlightedVerseKey.current) {
       return;
     }
-    
+
     lastHighlightedVerseKey.current = verseKey;
-    
+
     const verseInfo = versePositions.current.get(verseKey);
     if (!verseInfo || !scrollViewRef.current || containerHeight === 0) {
       return;
@@ -197,12 +197,32 @@ export const QuranChapterScreen: React.FC = () => {
     // Calculate scroll position to center the verse
     const { y, height } = verseInfo;
     const scrollTo = y - (containerHeight / 2) + (height / 2);
-    
+
     scrollViewRef.current.scrollTo({
       y: Math.max(0, scrollTo),
       animated: true,
     });
   }, [highlightState.verseKey, containerHeight]);
+
+  // Auto-load more verses when playing audio and approaching the end of loaded verses
+  useEffect(() => {
+    if (playbackState !== 'playing') return;
+
+    const verseKey = highlightState.verseKey;
+    if (!verseKey) return;
+
+    // Extract verse number from verseKey (format: "chapterId:verseNumber")
+    const verseNumber = parseInt(verseKey.split(':')[1], 10);
+    if (isNaN(verseNumber)) return;
+
+    // Check if we're within 3 verses of the end of loaded verses
+    const loadedVersesCount = verses.length;
+    const threshold = loadedVersesCount - 3;
+
+    if (verseNumber >= threshold && versesQuery.hasNextPage && !versesQuery.isFetchingNextPage) {
+      versesQuery.fetchNextPage();
+    }
+  }, [highlightState.verseKey, playbackState, verses.length, versesQuery]);
 
   // Handler for tracking verse positions
   const handleVerseLayout = useCallback((verseKey: string, event: LayoutChangeEvent) => {
@@ -314,7 +334,8 @@ export const QuranChapterScreen: React.FC = () => {
     // Haptic feedback for chapter change
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-    // Reset audio before changing
+    // Pause and reset audio before changing chapter
+    pause();
     reset();
     resetPlaybackSettings();
 
@@ -384,7 +405,7 @@ export const QuranChapterScreen: React.FC = () => {
         });
       }, 50);
     });
-  }, [isTransitioning, reset, resetPlaybackSettings, pageTranslateX, pageOpacity, pageScale]);
+  }, [isTransitioning, pause, reset, resetPlaybackSettings, pageTranslateX, pageOpacity, pageScale]);
 
   // Navigate to previous chapter
   const handlePreviousChapter = useCallback(() => {

@@ -21,6 +21,7 @@ import {
   TextInput,
   Switch,
   Animated,
+  Easing,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
@@ -520,7 +521,13 @@ const WebAudioPlayerBar: React.FC<{
   onPreviousChapter: () => void;
   onNextChapter: () => void;
   isChapterTransitioning?: boolean;
-}> = ({ onSkipToStart, onSkipToEnd, onPreviousChapter, onNextChapter, isChapterTransitioning = false }) => {
+}> = ({
+  onSkipToStart,
+  onSkipToEnd,
+  onPreviousChapter,
+  onNextChapter,
+  isChapterTransitioning = false,
+}) => {
   const {
     playbackState,
     currentPosition,
@@ -1425,6 +1432,7 @@ export const WebQuranContent: React.FC<WebQuranContentProps> = ({
     reset,
     resetPlaybackSettings,
     seekTo,
+    pause,
   } = useAudioPlayer();
   const {
     isVerseBookmarked,
@@ -1606,6 +1614,36 @@ export const WebQuranContent: React.FC<WebQuranContentProps> = ({
     }
   }, [chapterMode, highlightState.verseKey, playbackState]);
 
+  // Auto-load more verses when playing audio and approaching the end of loaded verses
+  useEffect(() => {
+    if (chapterMode !== "listen" || playbackState !== "playing") return;
+
+    const verseKey = highlightState.verseKey;
+    if (!verseKey) return;
+
+    // Extract verse number from verseKey (format: "chapterId:verseNumber")
+    const verseNumber = parseInt(verseKey.split(":")[1], 10);
+    if (isNaN(verseNumber)) return;
+
+    // Check if we're within 3 verses of the end of loaded verses
+    const loadedVersesCount = verses.length;
+    const threshold = loadedVersesCount - 3;
+
+    if (
+      verseNumber >= threshold &&
+      versesQuery.hasNextPage &&
+      !versesQuery.isFetchingNextPage
+    ) {
+      versesQuery.fetchNextPage();
+    }
+  }, [
+    chapterMode,
+    highlightState.verseKey,
+    playbackState,
+    verses.length,
+    versesQuery,
+  ]);
+
   useEffect(() => {
     if (
       subScreen !== "chapter" ||
@@ -1707,71 +1745,82 @@ export const WebQuranContent: React.FC<WebQuranContentProps> = ({
       const screenWidth =
         typeof window !== "undefined" ? window.innerWidth : 800;
 
-      // Reset audio
+      // Pause and reset audio before changing chapter
+      pause();
       reset();
       resetPlaybackSettings();
 
-      // Animate out
+      // Animate out with smooth easing
       Animated.parallel([
         Animated.timing(chapterTranslateX, {
-          toValue: slideDirection * screenWidth * 0.4,
-          duration: 250,
+          toValue: slideDirection * screenWidth * 0.5,
+          duration: 280,
+          easing: Easing.out(Easing.cubic),
           useNativeDriver: true,
         }),
         Animated.timing(chapterOpacity, {
           toValue: 0,
-          duration: 200,
+          duration: 220,
+          easing: Easing.out(Easing.ease),
           useNativeDriver: true,
         }),
         Animated.timing(chapterScale, {
-          toValue: 0.95,
-          duration: 250,
+          toValue: 0.92,
+          duration: 280,
+          easing: Easing.out(Easing.cubic),
           useNativeDriver: true,
         }),
       ]).start(() => {
-        // Navigate to new chapter
+        // Navigate to new chapter, preserving the current mode (listen/read)
         onSubNavigate("chapter", {
           chapterId: chapter.id,
           chapterName: chapter.name_simple,
           chapterArabicName: chapter.name_arabic,
+          mode: chapterMode,
         });
 
-        // Position for slide in
-        chapterTranslateX.setValue(-slideDirection * screenWidth * 0.4);
-        chapterScale.setValue(0.95);
+        // Position for slide in and reset opacity to 0
+        chapterTranslateX.setValue(-slideDirection * screenWidth * 0.5);
+        chapterScale.setValue(0.92);
+        chapterOpacity.setValue(0);
 
-        // Animate in
+        // Animate in after brief delay for content to load
         setTimeout(() => {
           Animated.parallel([
             Animated.timing(chapterTranslateX, {
               toValue: 0,
-              duration: 250,
+              duration: 280,
+              easing: Easing.out(Easing.cubic),
               useNativeDriver: true,
             }),
             Animated.timing(chapterOpacity, {
               toValue: 1,
-              duration: 200,
+              duration: 220,
+              easing: Easing.in(Easing.ease),
               useNativeDriver: true,
             }),
             Animated.timing(chapterScale, {
               toValue: 1,
-              duration: 250,
+              duration: 280,
+              easing: Easing.out(Easing.cubic),
               useNativeDriver: true,
             }),
           ]).start(() => {
             setIsChapterTransitioning(false);
           });
-        }, 50);
+        }, 80);
       });
     },
     [
       isChapterTransitioning,
+      pause,
       reset,
       resetPlaybackSettings,
       onSubNavigate,
       chapterTranslateX,
       chapterOpacity,
       chapterScale,
+      chapterMode,
     ],
   );
 
@@ -2060,7 +2109,27 @@ export const WebQuranContent: React.FC<WebQuranContentProps> = ({
                   {subScreenData.chapterName}
                 </Text>
               </View>
-              <View style={styles.chapterHeaderSideSpacer} />
+              <View style={styles.chapterHeaderActionSlot}>
+                <TouchableOpacity
+                  onPress={handleToggleChapterBookmark}
+                  activeOpacity={0.85}
+                  style={styles.chapterBookmarkButton}
+                >
+                  <Ionicons
+                    name={
+                      isChapterBookmarked(subScreenData.chapterId)
+                        ? "bookmark"
+                        : "bookmark-outline"
+                    }
+                    size={21}
+                    color={
+                      isChapterBookmarked(subScreenData.chapterId)
+                        ? colors.accent
+                        : "rgba(255,255,255,0.9)"
+                    }
+                  />
+                </TouchableOpacity>
+              </View>
             </View>
             <View style={styles.chapterHeaderBismillahRow}>
               <Text style={styles.chapterHeaderBismillah}>
@@ -2069,26 +2138,6 @@ export const WebQuranContent: React.FC<WebQuranContentProps> = ({
                   : "بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ"}
               </Text>
             </View>
-            {/* Bookmark at bottom left of banner */}
-            <TouchableOpacity
-              onPress={handleToggleChapterBookmark}
-              activeOpacity={0.85}
-              style={styles.chapterBookmarkButtonBottomLeft}
-            >
-              <Ionicons
-                name={
-                  isChapterBookmarked(subScreenData.chapterId)
-                    ? "bookmark"
-                    : "bookmark-outline"
-                }
-                size={21}
-                color={
-                  isChapterBookmarked(subScreenData.chapterId)
-                    ? colors.accent
-                    : "rgba(255,255,255,0.9)"
-                }
-              />
-            </TouchableOpacity>
           </View>
         </View>
 
@@ -2308,127 +2357,214 @@ export const WebQuranContent: React.FC<WebQuranContentProps> = ({
                 />
 
                 <View style={styles.readProgressWrap}>
-                  <Text style={styles.readProgressLabel}>
-                    {currentReadVerseProgress} of {Math.max(totalVerses, 1)}
-                  </Text>
-                  <View style={styles.readProgressTrack}>
-                    <View
-                      style={[
-                        styles.readProgressFill,
-                        {
-                          width: `${(currentReadVerseProgress / Math.max(totalVerses, 1)) * 100}%`,
-                        },
-                      ]}
-                    />
+                  <View style={styles.readProgressRow}>
+                    <View style={styles.readProgressInfo}>
+                      <Text style={styles.readProgressLabel}>
+                        {currentReadVerseProgress} of {Math.max(totalVerses, 1)}
+                      </Text>
+                      <View style={styles.readProgressTrack}>
+                        <View
+                          style={[
+                            styles.readProgressFill,
+                            {
+                              width: `${(currentReadVerseProgress / Math.max(totalVerses, 1)) * 100}%`,
+                            },
+                          ]}
+                        />
+                      </View>
+                    </View>
+                    <View style={styles.readChapterNavButtons}>
+                      <TouchableOpacity
+                        onPress={handlePreviousChapter}
+                        disabled={
+                          !subScreenData?.chapterId ||
+                          subScreenData.chapterId <= 1
+                        }
+                        style={[
+                          styles.readChapterNavButton,
+                          (!subScreenData?.chapterId ||
+                            subScreenData.chapterId <= 1) &&
+                            styles.readChapterNavButtonDisabled,
+                        ]}
+                        activeOpacity={0.7}
+                      >
+                        <Ionicons
+                          name="chevron-back"
+                          size={16}
+                          color={
+                            !subScreenData?.chapterId ||
+                            subScreenData.chapterId <= 1
+                              ? colors.text.disabled
+                              : colors.primary
+                          }
+                        />
+                        <Text
+                          style={[
+                            styles.readChapterNavButtonText,
+                            (!subScreenData?.chapterId ||
+                              subScreenData.chapterId <= 1) &&
+                              styles.readChapterNavButtonTextDisabled,
+                          ]}
+                        >
+                          Prev
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={handleNextChapter}
+                        disabled={
+                          !subScreenData?.chapterId ||
+                          subScreenData.chapterId >= 114
+                        }
+                        style={[
+                          styles.readChapterNavButton,
+                          (!subScreenData?.chapterId ||
+                            subScreenData.chapterId >= 114) &&
+                            styles.readChapterNavButtonDisabled,
+                        ]}
+                        activeOpacity={0.7}
+                      >
+                        <Text
+                          style={[
+                            styles.readChapterNavButtonText,
+                            (!subScreenData?.chapterId ||
+                              subScreenData.chapterId >= 114) &&
+                              styles.readChapterNavButtonTextDisabled,
+                          ]}
+                        >
+                          Next
+                        </Text>
+                        <Ionicons
+                          name="chevron-forward"
+                          size={16}
+                          color={
+                            !subScreenData?.chapterId ||
+                            subScreenData.chapterId >= 114
+                              ? colors.text.disabled
+                              : colors.primary
+                          }
+                        />
+                      </TouchableOpacity>
+                    </View>
                   </View>
                 </View>
               </View>
 
-              <View style={styles.readModeShell}>
-                <View style={styles.readViewport}>
-                  {currentReadPage ? (
-                    <Animated.View
+              <Animated.View
+                style={{
+                  flex: 1,
+                  opacity: chapterOpacity,
+                  transform: [
+                    { translateX: chapterTranslateX },
+                    { scale: chapterScale },
+                  ],
+                }}
+              >
+                <View style={styles.readModeShell}>
+                  <View style={styles.readViewport}>
+                    {currentReadPage ? (
+                      <Animated.View
+                        style={[
+                          styles.readAnimatedPage,
+                          {
+                            opacity: readTransition,
+                            transform: [
+                              {
+                                translateY: readTransition.interpolate({
+                                  inputRange: [0, 1],
+                                  outputRange: [
+                                    readTransitionDirectionRef.current * 22,
+                                    0,
+                                  ],
+                                }),
+                              },
+                            ],
+                          },
+                        ]}
+                      >
+                        <ReadVerseCard
+                          page={currentReadPage}
+                          viewMode={viewMode}
+                          isBookmarked={isVerseBookmarked(
+                            currentReadPage.verseKey,
+                          )}
+                          onBookmarkPress={() =>
+                            handleToggleVerseBookmark(currentReadPage.verse)
+                          }
+                        />
+                      </Animated.View>
+                    ) : null}
+                  </View>
+
+                  <View style={styles.readControls}>
+                    <TouchableOpacity
+                      onPress={handleReadPrevious}
+                      disabled={currentReadVerseIndex === 0}
                       style={[
-                        styles.readAnimatedPage,
-                        {
-                          opacity: readTransition,
-                          transform: [
-                            {
-                              translateY: readTransition.interpolate({
-                                inputRange: [0, 1],
-                                outputRange: [
-                                  readTransitionDirectionRef.current * 22,
-                                  0,
-                                ],
-                              }),
-                            },
-                          ],
-                        },
+                        styles.readControlButton,
+                        currentReadVerseIndex === 0 &&
+                          styles.readControlButtonDisabled,
                       ]}
+                      activeOpacity={0.85}
                     >
-                      <ReadVerseCard
-                        page={currentReadPage}
-                        viewMode={viewMode}
-                        isBookmarked={isVerseBookmarked(
-                          currentReadPage.verseKey,
-                        )}
-                        onBookmarkPress={() =>
-                          handleToggleVerseBookmark(currentReadPage.verse)
+                      <Ionicons
+                        name="chevron-up"
+                        size={22}
+                        color={
+                          currentReadVerseIndex === 0
+                            ? colors.text.disabled
+                            : colors.primary
                         }
                       />
-                    </Animated.View>
-                  ) : null}
-                </View>
+                      <Text
+                        style={[
+                          styles.readControlButtonText,
+                          currentReadVerseIndex === 0 &&
+                            styles.readControlButtonTextDisabled,
+                        ]}
+                      >
+                        Previous
+                      </Text>
+                    </TouchableOpacity>
 
-                <View style={styles.readControls}>
-                  <TouchableOpacity
-                    onPress={handleReadPrevious}
-                    disabled={currentReadVerseIndex === 0}
-                    style={[
-                      styles.readControlButton,
-                      currentReadVerseIndex === 0 &&
-                        styles.readControlButtonDisabled,
-                    ]}
-                    activeOpacity={0.85}
-                  >
-                    <Ionicons
-                      name="chevron-up"
-                      size={22}
-                      color={
-                        currentReadVerseIndex === 0
-                          ? colors.text.disabled
-                          : colors.primary
+                    <TouchableOpacity
+                      onPress={() => {
+                        void handleReadNext();
+                      }}
+                      disabled={
+                        currentReadVerseIndex >= readPages.length - 1 &&
+                        !versesQuery.hasNextPage
                       }
-                    />
-                    <Text
                       style={[
-                        styles.readControlButtonText,
-                        currentReadVerseIndex === 0 &&
-                          styles.readControlButtonTextDisabled,
+                        styles.readControlButton,
+                        styles.readControlButtonPrimary,
+                        currentReadVerseIndex >= readPages.length - 1 &&
+                          !versesQuery.hasNextPage &&
+                          styles.readControlButtonDisabled,
                       ]}
+                      activeOpacity={0.85}
                     >
-                      Previous
-                    </Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    onPress={() => {
-                      void handleReadNext();
-                    }}
-                    disabled={
-                      currentReadVerseIndex >= readPages.length - 1 &&
-                      !versesQuery.hasNextPage
-                    }
-                    style={[
-                      styles.readControlButton,
-                      styles.readControlButtonPrimary,
-                      currentReadVerseIndex >= readPages.length - 1 &&
-                        !versesQuery.hasNextPage &&
-                        styles.readControlButtonDisabled,
-                    ]}
-                    activeOpacity={0.85}
-                  >
-                    {versesQuery.isFetchingNextPage ? (
-                      <ActivityIndicator
-                        size="small"
-                        color={colors.text.white}
-                      />
-                    ) : (
-                      <Ionicons
-                        name="chevron-down"
-                        size={24}
-                        color={colors.text.white}
-                      />
-                    )}
-                    <Text style={styles.readControlButtonTextPrimary}>
-                      {currentReadVerseIndex >= readPages.length - 1 &&
-                      !versesQuery.hasNextPage
-                        ? "End of Chapter"
-                        : "Next"}
-                    </Text>
-                  </TouchableOpacity>
+                      {versesQuery.isFetchingNextPage ? (
+                        <ActivityIndicator
+                          size="small"
+                          color={colors.text.white}
+                        />
+                      ) : (
+                        <Ionicons
+                          name="chevron-down"
+                          size={24}
+                          color={colors.text.white}
+                        />
+                      )}
+                      <Text style={styles.readControlButtonTextPrimary}>
+                        {currentReadVerseIndex >= readPages.length - 1 &&
+                        !versesQuery.hasNextPage
+                          ? "End of Chapter"
+                          : "Next"}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
-              </View>
+              </Animated.View>
             </Animated.View>
           </>
         )}
@@ -2439,7 +2575,11 @@ export const WebQuranContent: React.FC<WebQuranContentProps> = ({
             onPress={() => setShowVerseRangeSidebar(true)}
             style={styles.fixedSettingsButton}
           >
-            <Ionicons name="settings-outline" size={22} color={colors.primary} />
+            <Ionicons
+              name="settings-outline"
+              size={22}
+              color={colors.primary}
+            />
           </TouchableOpacity>
         )}
 
@@ -2805,10 +2945,8 @@ const styles = StyleSheet.create({
   },
   chapterHeaderContent: {
     paddingHorizontal: 18,
-    paddingVertical: 10,
-    paddingBottom: 60,
+    paddingVertical: 14,
     gap: 8,
-    position: "relative",
   },
   chapterHeaderTopRow: {
     width: "100%",
@@ -2855,21 +2993,6 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.12)",
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.18)",
-    // @ts-ignore
-    cursor: "pointer",
-  },
-  chapterBookmarkButtonBottomLeft: {
-    position: "absolute",
-    bottom: 16,
-    left: 24,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.15)",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.2)",
     // @ts-ignore
     cursor: "pointer",
   },
@@ -2948,11 +3071,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     marginBottom: 4,
   },
+  readProgressRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 16,
+  },
+  readProgressInfo: {
+    flex: 1,
+  },
   readProgressLabel: {
     fontSize: 12,
     fontWeight: "600",
     color: colors.text.secondary,
-    textAlign: "center",
+    textAlign: "start",
     marginBottom: 8,
     // @ts-ignore
     fontFamily: "'DM Sans', sans-serif",
@@ -2962,6 +3094,37 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderRadius: 999,
     overflow: "hidden",
+  },
+  readChapterNavButtons: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  readChapterNavButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 16,
+    backgroundColor: `${colors.primary}15`,
+    gap: 4,
+    // @ts-ignore
+    cursor: "pointer",
+  },
+  readChapterNavButtonDisabled: {
+    opacity: 0.4,
+    // @ts-ignore
+    cursor: "not-allowed",
+  },
+  readChapterNavButtonText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: colors.primary,
+    // @ts-ignore
+    fontFamily: "'DM Sans', sans-serif",
+  },
+  readChapterNavButtonTextDisabled: {
+    color: colors.text.disabled,
   },
   readProgressFill: {
     height: "100%",
