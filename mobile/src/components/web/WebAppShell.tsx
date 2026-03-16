@@ -518,15 +518,23 @@ export const WebAppShell: React.FC<WebAppShellProps> = ({ initialScreen = 'home'
           end={{ x: 0, y: 1 }}
         />
 
-        {/* Logo */}
+        {/* Logo with Pillars */}
         <View style={[styles.logoSection, isCollapsed && styles.logoSectionCollapsed]}>
           <View style={styles.logoMark}>
-            <Ionicons name="moon" size={24} color={colors.accent} />
+            <View style={styles.pillarsContainer}>
+              <View style={styles.pillarsRow}>
+                <View style={styles.pillar} />
+                <View style={styles.pillar} />
+                <View style={styles.pillar} />
+                <View style={styles.pillar} />
+                <View style={styles.pillar} />
+              </View>
+              <View style={styles.pillarsBase} />
+            </View>
           </View>
           {!isCollapsed && (
             <View style={styles.logoText}>
-              <Text style={styles.logoTitle}>Deen</Text>
-              <Text style={styles.logoSubtitle}>Learning</Text>
+              <Text style={styles.logoTitle}>Arkan</Text>
             </View>
           )}
         </View>
@@ -679,6 +687,28 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(212, 163, 115, 0.15)',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  pillarsContainer: {
+    alignItems: 'center',
+  },
+  pillarsRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 2,
+  },
+  pillar: {
+    width: 4,
+    height: 18,
+    backgroundColor: colors.accent,
+    borderTopLeftRadius: 2,
+    borderTopRightRadius: 2,
+  },
+  pillarsBase: {
+    width: 28,
+    height: 3,
+    backgroundColor: colors.accent,
+    borderRadius: 1.5,
+    marginTop: 1,
   },
   logoText: {
     marginLeft: 12,

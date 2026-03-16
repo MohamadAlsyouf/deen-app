@@ -95,6 +95,27 @@ export const AudioPlayerProvider: React.FC<AudioPlayerProviderProps> = ({
   const [selectedReciter, setSelectedReciter] = useState<NormalizedReciter | null>(null);
   const [audioFile, setAudioFile] = useState<ChapterAudioFile | null>(null);
   const [currentChapterId, setCurrentChapterId] = useState<number | null>(null);
+
+  // Store saved positions per chapter for audio persistence
+  const savedPositionsRef = useRef<Map<string, number>>(new Map());
+
+  // Refs to access current values in reset without triggering re-renders
+  const currentPositionRef = useRef(0);
+  const currentChapterIdRef2 = useRef<number | null>(null);
+  const selectedReciterRef = useRef<NormalizedReciter | null>(null);
+
+  // Keep refs in sync
+  useEffect(() => {
+    currentPositionRef.current = currentPosition;
+  }, [currentPosition]);
+
+  useEffect(() => {
+    currentChapterIdRef2.current = currentChapterId;
+  }, [currentChapterId]);
+
+  useEffect(() => {
+    selectedReciterRef.current = selectedReciter;
+  }, [selectedReciter]);
   const [highlightState, setHighlightState] = useState<HighlightState>({
     verseKey: null,
     wordPosition: null,
@@ -216,8 +237,19 @@ export const AudioPlayerProvider: React.FC<AudioPlayerProviderProps> = ({
     }
   }, []);
 
-  // Reset state
+  // Reset state - saves position before resetting for persistence
   const reset = useCallback(async () => {
+    // Save current position before resetting if we have a valid chapter
+    // Use refs to avoid dependency changes that would cause useFocusEffect cleanup to run
+    const chapterId = currentChapterIdRef2.current;
+    const reciter = selectedReciterRef.current;
+    const position = currentPositionRef.current;
+
+    if (chapterId !== null && reciter !== null && position > 0) {
+      const key = `${reciter.id}-${chapterId}`;
+      savedPositionsRef.current.set(key, position);
+    }
+
     await cleanup();
     setPlaybackState('idle');
     setCurrentPosition(0);
@@ -313,6 +345,20 @@ export const AudioPlayerProvider: React.FC<AudioPlayerProviderProps> = ({
         });
 
         listenerSubscriptionRef.current = subscription;
+
+        // Restore saved position if available (audio persistence per chapter)
+        const positionKey = `${selectedReciter.id}-${chapterId}`;
+        const savedPosition = savedPositionsRef.current.get(positionKey);
+        if (savedPosition && savedPosition > 0) {
+          try {
+            // Convert ms to seconds for expo-audio
+            await player.seekTo(savedPosition / 1000);
+            setCurrentPosition(savedPosition);
+          } catch (seekError) {
+            // Ignore seek errors - start from beginning if seek fails
+            console.warn('Failed to restore saved position:', seekError);
+          }
+        }
 
         setPlaybackState('paused');
       } catch (error) {

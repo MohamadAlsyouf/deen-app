@@ -32,11 +32,11 @@ const enhancedHtml = `<!DOCTYPE html>
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no, user-scalable=no, viewport-fit=cover" />
 
     <!-- Primary Meta Tags -->
-    <title>Deen Learning - Your Journey to Islamic Knowledge</title>
-    <meta name="title" content="Deen Learning - Your Journey to Islamic Knowledge" />
-    <meta name="description" content="A comprehensive platform to learn and deepen your understanding of Deen. Explore the Quran, learn the 99 Names of Allah, and understand the pillars of Islam and Iman." />
-    <meta name="keywords" content="Islam, Quran, Islamic learning, Pillars of Islam, Pillars of Iman, Asma ul Husna, 99 Names of Allah, Muslim education, Deen" />
-    <meta name="author" content="Deen Learning" />
+    <title>Arkan - Your Journey to Islamic Knowledge</title>
+    <meta name="title" content="Arkan - Your Journey to Islamic Knowledge" />
+    <meta name="description" content="A comprehensive platform to learn and deepen your understanding of Islam. Explore the Quran, learn the 99 Names of Allah, and understand the pillars of Islam and Iman." />
+    <meta name="keywords" content="Islam, Quran, Islamic learning, Pillars of Islam, Pillars of Iman, Asma ul Husna, 99 Names of Allah, Muslim education, Arkan" />
+    <meta name="author" content="Arkan" />
 
     <!-- Theme Color -->
     <meta name="theme-color" content="#1B4332" />
@@ -46,17 +46,17 @@ const enhancedHtml = `<!DOCTYPE html>
 
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://deenlearning.com/" />
-    <meta property="og:title" content="Deen Learning - Your Journey to Islamic Knowledge" />
-    <meta property="og:description" content="A comprehensive platform to learn and deepen your understanding of Deen. Explore the Quran, learn the 99 Names of Allah, and understand the pillars of Islam and Iman." />
+    <meta property="og:url" content="https://arkan.com/" />
+    <meta property="og:title" content="Arkan - Your Journey to Islamic Knowledge" />
+    <meta property="og:description" content="A comprehensive platform to learn and deepen your understanding of Islam. Explore the Quran, learn the 99 Names of Allah, and understand the pillars of Islam and Iman." />
     <meta property="og:image" content="/assets/og-image.png" />
-    <meta property="og:site_name" content="Deen Learning" />
+    <meta property="og:site_name" content="Arkan" />
 
     <!-- Twitter -->
     <meta property="twitter:card" content="summary_large_image" />
-    <meta property="twitter:url" content="https://deenlearning.com/" />
-    <meta property="twitter:title" content="Deen Learning - Your Journey to Islamic Knowledge" />
-    <meta property="twitter:description" content="A comprehensive platform to learn and deepen your understanding of Deen. Explore the Quran, learn the 99 Names of Allah, and understand the pillars of Islam and Iman." />
+    <meta property="twitter:url" content="https://arkan.com/" />
+    <meta property="twitter:title" content="Arkan - Your Journey to Islamic Knowledge" />
+    <meta property="twitter:description" content="A comprehensive platform to learn and deepen your understanding of Islam. Explore the Quran, learn the 99 Names of Allah, and understand the pillars of Islam and Iman." />
     <meta property="twitter:image" content="/assets/og-image.png" />
 
     <!-- Favicon -->
@@ -110,11 +110,37 @@ const enhancedHtml = `<!DOCTYPE html>
         opacity: 0;
         pointer-events: none;
       }
-      .loader-icon {
-        width: 80px;
-        height: 80px;
+      .loader-pillars {
         margin-bottom: 1.5rem;
         animation: pulse 2s ease-in-out infinite;
+      }
+      .pillars-row {
+        display: flex;
+        align-items: flex-end;
+        gap: 6px;
+        margin-bottom: 4px;
+      }
+      .pillar {
+        width: 10px;
+        height: 50px;
+        background-color: #D4A373;
+        border-radius: 4px 4px 0 0;
+        animation: pillar-glow 2s ease-in-out infinite;
+      }
+      .pillar:nth-child(1) { animation-delay: 0s; }
+      .pillar:nth-child(2) { animation-delay: 0.2s; }
+      .pillar:nth-child(3) { animation-delay: 0.4s; }
+      .pillar:nth-child(4) { animation-delay: 0.2s; }
+      .pillar:nth-child(5) { animation-delay: 0s; }
+      .pillars-base {
+        width: 80px;
+        height: 8px;
+        background-color: #D4A373;
+        border-radius: 4px;
+      }
+      @keyframes pillar-glow {
+        0%, 100% { opacity: 0.8; }
+        50% { opacity: 1; }
       }
       .loader-arabic {
         font-family: 'Amiri', serif;
@@ -164,15 +190,18 @@ const enhancedHtml = `<!DOCTYPE html>
   <body>
     <!-- Loading Screen -->
     <div id="loading-screen">
-      <svg class="loader-icon" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <circle cx="50" cy="50" r="45" stroke="#D4A373" stroke-width="2" opacity="0.3"/>
-        <path d="M50 10 L50 25 M50 75 L50 90 M10 50 L25 50 M75 50 L90 50" stroke="#D4A373" stroke-width="2" stroke-linecap="round"/>
-        <circle cx="50" cy="50" r="20" fill="#D4A373" opacity="0.2"/>
-        <path d="M50 35 C45 40 42 48 50 55 C58 48 55 40 50 35Z" fill="#D4A373"/>
-        <circle cx="50" cy="50" r="8" fill="#1B4332"/>
-      </svg>
-      <p class="loader-arabic">بِسْمِ اللَّهِ</p>
-      <h1 class="loader-title">Deen Learning</h1>
+      <div class="loader-pillars">
+        <div class="pillars-row">
+          <div class="pillar"></div>
+          <div class="pillar"></div>
+          <div class="pillar"></div>
+          <div class="pillar"></div>
+          <div class="pillar"></div>
+        </div>
+        <div class="pillars-base"></div>
+      </div>
+      <p class="loader-arabic">أركان</p>
+      <h1 class="loader-title">Arkan</h1>
       <p class="loader-subtitle">Your Journey to Islamic Knowledge</p>
       <div class="loader-spinner"></div>
     </div>

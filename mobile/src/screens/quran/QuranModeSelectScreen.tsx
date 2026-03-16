@@ -13,9 +13,7 @@ import type { StackNavigationProp } from "@react-navigation/stack";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { colors, spacing, typography, borderRadius } from "@/theme";
-import { useUserProfile } from "@/hooks/useUserProfile";
 import type { RootStackParamList } from "@/navigation/AppNavigator";
-import type { UserType } from "@/types/user";
 
 type QuranModeSelectRouteProp = RouteProp<RootStackParamList, "QuranModeSelect">;
 type QuranModeSelectNavigationProp = StackNavigationProp<
@@ -32,20 +30,8 @@ interface ModeOption {
   icon: keyof typeof Ionicons.glyphMap;
 }
 
-const getModeOptions = (userType: UserType | undefined): ModeOption[] => {
-  // Learners only see Read mode (no selector shown, direct navigation)
-  if (userType === "learner") {
-    return [
-      {
-        mode: "read",
-        title: "Read",
-        subtitle: "Full-screen swipeable reading",
-        icon: "book-outline",
-      },
-    ];
-  }
-
-  // Muslim and Revert users see both options
+const getModeOptions = (): ModeOption[] => {
+  // All users see both Listen and Read options
   return [
     {
       mode: "listen",
@@ -66,22 +52,8 @@ export const QuranModeSelectScreen: React.FC = () => {
   const navigation = useNavigation<QuranModeSelectNavigationProp>();
   const route = useRoute<QuranModeSelectRouteProp>();
   const { chapterId, chapterName, chapterArabicName, versesCount } = route.params;
-  const { userProfile } = useUserProfile();
 
-  const userType = userProfile?.userType;
-  const modeOptions = getModeOptions(userType);
-
-  // If learner, auto-navigate to Read mode
-  React.useEffect(() => {
-    if (userType === "learner") {
-      navigation.replace("QuranRead", {
-        chapterId,
-        chapterName,
-        chapterArabicName,
-        versesCount,
-      });
-    }
-  }, [userType, navigation, chapterId, chapterName, chapterArabicName, versesCount]);
+  const modeOptions = getModeOptions();
 
   const handleGoBack = () => {
     navigation.goBack();
@@ -103,11 +75,6 @@ export const QuranModeSelectScreen: React.FC = () => {
       });
     }
   };
-
-  // Don't render if learner (will auto-navigate)
-  if (userType === "learner") {
-    return null;
-  }
 
   return (
     <SafeAreaView style={styles.container} edges={["top", "bottom"]}>

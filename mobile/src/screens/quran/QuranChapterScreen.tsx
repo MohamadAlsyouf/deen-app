@@ -130,7 +130,7 @@ export const QuranChapterScreen: React.FC = () => {
   const versePositions = useRef<Map<string, { y: number; height: number }>>(new Map());
   const lastHighlightedVerseKey = useRef<string | null>(null);
 
-  const { loadChapter, reset, resetPlaybackSettings, highlightState, playbackState, selectedReciter } =
+  const { loadChapter, reset, resetPlaybackSettings, highlightState, playbackState, selectedReciter, pause } =
     useAudioPlayer();
   const { isVerseBookmarked, isChapterBookmarked, toggleVerseBookmark, toggleChapterBookmark } =
     useBookmarks();
@@ -165,14 +165,17 @@ export const QuranChapterScreen: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentChapterId, selectedReciter?.id]);
 
-  // Reset audio and playback settings when leaving screen
+  // Pause and reset audio when leaving screen to prevent audio stacking
   useFocusEffect(
     useCallback(() => {
       return () => {
+        // Pause first to immediately stop playback
+        pause();
+        // Then reset all audio state
         reset();
         resetPlaybackSettings();
       };
-    }, [reset, resetPlaybackSettings])
+    }, [pause, reset, resetPlaybackSettings])
   );
 
   // Auto-scroll to highlighted verse
@@ -440,7 +443,7 @@ export const QuranChapterScreen: React.FC = () => {
       case 'arabic':
         return 'Arabic text only.';
       case 'english':
-        return 'English translation only.';
+        return 'Translation with transliteration.';
       default:
         return 'Arabic verses with English transliteration.';
     }
@@ -500,7 +503,9 @@ export const QuranChapterScreen: React.FC = () => {
                   <View style={styles.headerInfoRow}>
                     {currentChapterInfo.arabicName && viewMode !== 'english' ? (
                       <Text style={styles.arabicName}>{currentChapterInfo.arabicName}</Text>
-                    ) : null}
+                    ) : (
+                      <View style={styles.headerInfoSpacer} />
+                    )}
                     <TouchableOpacity
                       onPress={handleToggleChapterBookmark}
                       style={styles.chapterBookmarkBtn}
@@ -616,14 +621,18 @@ const styles = StyleSheet.create({
   headerInfoRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-end',
     marginBottom: spacing.sm,
+    gap: spacing.md,
+  },
+  headerInfoSpacer: {
+    flex: 1,
   },
   arabicName: {
     fontSize: 28,
     color: colors.primary,
     flex: 1,
-    textAlign: "right",
+    textAlign: "left",
   },
   chapterBookmarkBtn: {
     width: 40,
@@ -632,7 +641,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: spacing.md,
   },
   subtitle: {
     ...typography.body,

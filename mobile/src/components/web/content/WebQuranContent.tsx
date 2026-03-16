@@ -2060,27 +2060,7 @@ export const WebQuranContent: React.FC<WebQuranContentProps> = ({
                   {subScreenData.chapterName}
                 </Text>
               </View>
-              <View style={styles.chapterHeaderActionSlot}>
-                <TouchableOpacity
-                  onPress={handleToggleChapterBookmark}
-                  activeOpacity={0.85}
-                  style={styles.chapterBookmarkButton}
-                >
-                  <Ionicons
-                    name={
-                      isChapterBookmarked(subScreenData.chapterId)
-                        ? "bookmark"
-                        : "bookmark-outline"
-                    }
-                    size={21}
-                    color={
-                      isChapterBookmarked(subScreenData.chapterId)
-                        ? colors.accent
-                        : "rgba(255,255,255,0.9)"
-                    }
-                  />
-                </TouchableOpacity>
-              </View>
+              <View style={styles.chapterHeaderSideSpacer} />
             </View>
             <View style={styles.chapterHeaderBismillahRow}>
               <Text style={styles.chapterHeaderBismillah}>
@@ -2089,6 +2069,26 @@ export const WebQuranContent: React.FC<WebQuranContentProps> = ({
                   : "بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ"}
               </Text>
             </View>
+            {/* Bookmark at bottom left of banner */}
+            <TouchableOpacity
+              onPress={handleToggleChapterBookmark}
+              activeOpacity={0.85}
+              style={styles.chapterBookmarkButtonBottomLeft}
+            >
+              <Ionicons
+                name={
+                  isChapterBookmarked(subScreenData.chapterId)
+                    ? "bookmark"
+                    : "bookmark-outline"
+                }
+                size={21}
+                color={
+                  isChapterBookmarked(subScreenData.chapterId)
+                    ? colors.accent
+                    : "rgba(255,255,255,0.9)"
+                }
+              />
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -2433,13 +2433,15 @@ export const WebQuranContent: React.FC<WebQuranContentProps> = ({
           </>
         )}
 
-        {/* Fixed Settings Button */}
-        <TouchableOpacity
-          onPress={() => setShowVerseRangeSidebar(true)}
-          style={styles.fixedSettingsButton}
-        >
-          <Ionicons name="settings-outline" size={22} color={colors.primary} />
-        </TouchableOpacity>
+        {/* Fixed Settings Button - Only show in Listen mode */}
+        {chapterMode === "listen" && (
+          <TouchableOpacity
+            onPress={() => setShowVerseRangeSidebar(true)}
+            style={styles.fixedSettingsButton}
+          >
+            <Ionicons name="settings-outline" size={22} color={colors.primary} />
+          </TouchableOpacity>
+        )}
 
         {chapterMode === "listen" ? (
           <WebAudioPlayerBar
@@ -2804,7 +2806,9 @@ const styles = StyleSheet.create({
   chapterHeaderContent: {
     paddingHorizontal: 18,
     paddingVertical: 10,
+    paddingBottom: 60,
     gap: 8,
+    position: "relative",
   },
   chapterHeaderTopRow: {
     width: "100%",
@@ -2851,6 +2855,21 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.12)",
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.18)",
+    // @ts-ignore
+    cursor: "pointer",
+  },
+  chapterBookmarkButtonBottomLeft: {
+    position: "absolute",
+    bottom: 16,
+    left: 24,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255,255,255,0.15)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.2)",
     // @ts-ignore
     cursor: "pointer",
   },
