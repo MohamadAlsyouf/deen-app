@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useRef, useCallback } from "react";
 import {
   View,
   Text,
@@ -7,9 +7,10 @@ import {
   ActivityIndicator,
   Platform,
   TouchableOpacity,
+  LayoutChangeEvent,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import type { StackNavigationProp } from "@react-navigation/stack";
 import { useQuery } from "@tanstack/react-query";
 import { LinearGradient } from "expo-linear-gradient";
@@ -32,16 +33,51 @@ export const QuranChaptersScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
   const { getChapterProgress, getOverallProgress } = useQuranProgress();
 
+  // Refs for auto-scroll functionality
+  const scrollViewRef = useRef<ScrollView>(null);
+  const chapterPositions = useRef<Map<number, number>>(new Map());
+  const lastOpenedChapterId = useRef<number | null>(null);
+  const shouldScrollOnFocus = useRef(false);
+
   const chaptersQuery = useQuery({
     queryKey: ["quranChapters"],
     queryFn: quranService.getChapters,
   });
+
+  // Auto-scroll to last opened chapter when returning to screen
+  useFocusEffect(
+    useCallback(() => {
+      if (shouldScrollOnFocus.current && lastOpenedChapterId.current !== null) {
+        const position = chapterPositions.current.get(lastOpenedChapterId.current);
+        if (position !== undefined && scrollViewRef.current) {
+          // Small delay to ensure layout is complete
+          setTimeout(() => {
+            scrollViewRef.current?.scrollTo({
+              y: Math.max(0, position - 100), // Offset to show some context above
+              animated: true,
+            });
+          }, 100);
+        }
+        shouldScrollOnFocus.current = false;
+      }
+    }, [])
+  );
+
+  // Track chapter card positions
+  const handleChapterLayout = useCallback((chapterId: number, event: LayoutChangeEvent) => {
+    const { y } = event.nativeEvent.layout;
+    chapterPositions.current.set(chapterId, y);
+  }, []);
 
   const handleGoBack = () => {
     navigation.goBack();
   };
 
   const handleOpenChapter = (chapter: QuranChapter) => {
+    // Track which chapter was opened for auto-scroll on return
+    lastOpenedChapterId.current = chapter.id;
+    shouldScrollOnFocus.current = true;
+
     navigation.navigate("QuranModeSelect", {
       chapterId: chapter.id,
       chapterName: chapter.name_simple,
@@ -135,6 +171,7 @@ export const QuranChaptersScreen: React.FC = () => {
 
       {/* Chapter List */}
       <ScrollView
+        ref={scrollViewRef}
         style={[
           styles.scrollView,
           Platform.OS === "web" && styles.webScrollView,
@@ -144,12 +181,16 @@ export const QuranChaptersScreen: React.FC = () => {
         scrollEventThrottle={16}
       >
         {chaptersQuery?.data?.map((chapter) => (
-          <QuranChapterCard
+          <View
             key={String(chapter.id)}
-            chapter={chapter}
-            onPress={handleOpenChapter}
-            progress={getChapterProgress(chapter.id).progress}
-          />
+            onLayout={(event) => handleChapterLayout(chapter.id, event)}
+          >
+            <QuranChapterCard
+              chapter={chapter}
+              onPress={handleOpenChapter}
+              progress={getChapterProgress(chapter.id).progress}
+            />
+          </View>
         ))}
       </ScrollView>
     </View>

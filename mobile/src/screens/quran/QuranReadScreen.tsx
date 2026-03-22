@@ -111,7 +111,7 @@ export const QuranReadScreen: React.FC = () => {
   const { chapterId: initialChapterId, chapterName: initialChapterName, chapterArabicName: initialChapterArabicName, versesCount: initialVersesCount } = route.params;
   const { userProfile } = useUserProfile();
   const { isVerseBookmarked, toggleVerseBookmark } = useBookmarks();
-  const { updateReadProgress, getChapterProgress } = useQuranProgress();
+  const { updateReadProgress, getChapterProgress, loading: progressLoading } = useQuranProgress();
 
   // Track current chapter ID internally for navigation
   const [currentChapterId, setCurrentChapterId] = useState(initialChapterId);
@@ -216,7 +216,8 @@ export const QuranReadScreen: React.FC = () => {
 
   // Restore last read position when entering the chapter
   useEffect(() => {
-    if (hasRestoredPosition || readPages.length === 0) return;
+    // Wait for progress context to finish loading before attempting restoration
+    if (progressLoading || hasRestoredPosition || readPages.length === 0) return;
 
     const savedProgress = getChapterProgress(currentChapterId);
     if (savedProgress.lastReadVerse > 1) {
@@ -236,7 +237,7 @@ export const QuranReadScreen: React.FC = () => {
       }
     }
     setHasRestoredPosition(true);
-  }, [currentChapterId, readPages, hasRestoredPosition, getChapterProgress]);
+  }, [currentChapterId, readPages, hasRestoredPosition, getChapterProgress, progressLoading]);
 
   // Track reading progress when page changes
   useEffect(() => {
