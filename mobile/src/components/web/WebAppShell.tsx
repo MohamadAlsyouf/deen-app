@@ -469,6 +469,7 @@ export const WebAppShell: React.FC<WebAppShellProps> = ({ initialScreen = 'home'
         return (
           <WebNamesContent
             subScreen={subScreen}
+            subScreenData={subScreenData}
             onSubNavigate={handleSubNavigate}
             onBack={handleBack}
           />

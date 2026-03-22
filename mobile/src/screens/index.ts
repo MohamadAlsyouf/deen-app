@@ -14,6 +14,7 @@ export { AsmaUlHusnaGamesScreen } from './asmaUlHusna/AsmaUlHusnaGamesScreen';
 export { AsmaUlHusnaFlashcardsScreen } from './asmaUlHusna/AsmaUlHusnaFlashcardsScreen';
 export { AsmaUlHusnaMultipleChoiceScreen } from './asmaUlHusna/AsmaUlHusnaMultipleChoiceScreen';
 export { AsmaUlHusnaMatchingScreen } from './asmaUlHusna/AsmaUlHusnaMatchingScreen';
+export { AsmaUlHusnaStudyGuideScreen } from './asmaUlHusna/AsmaUlHusnaStudyGuideScreen';
 export { PillarsScreen } from './pillars/PillarsScreen';
 export { PrayerGuideScreen } from './prayer/PrayerGuideScreen';
 export { WuduGuideScreen } from './prayer/WuduGuideScreen';

@@ -17,6 +17,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { createAudioPlayer, setAudioModeAsync, AudioPlayer } from 'expo-audio';
 import { Ionicons } from '@expo/vector-icons';
 import { Header } from '@/components';
+import { useAsmaStudyGuide } from '@/contexts/AsmaStudyGuideContext';
 import { colors, spacing, typography, borderRadius } from '@/theme';
 import { asmaUlHusnaService } from '@/services/asmaUlHusnaService';
 import type { AsmaUlHusnaName } from '@/types/asmaUlHusna';
@@ -181,6 +182,7 @@ const ConfettiOverlay: React.FC = React.memo(() => {
 export const AsmaUlHusnaMultipleChoiceScreen: React.FC = () => {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
+  const { recordCorrect, recordIncorrect } = useAsmaStudyGuide();
   const [hasStarted, setHasStarted] = useState(false);
   const [questionIndex, setQuestionIndex] = useState(0);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
@@ -336,7 +338,7 @@ export const AsmaUlHusnaMultipleChoiceScreen: React.FC = () => {
       setPlayingAudioId(name.number);
 
       player.addListener('playbackStatusUpdate', (status) => {
-        if (status.status === 'idle' && status.didJustFinish) {
+        if ('didJustFinish' in status && status.didJustFinish) {
           setPlayingAudioId(null);
           player.remove();
           playerRef.current = null;
@@ -377,16 +379,18 @@ export const AsmaUlHusnaMultipleChoiceScreen: React.FC = () => {
     if (isCorrect) {
       setScore((s) => s + 1);
       setFeedbackMessage(getRandomCorrectMessage());
+      recordCorrect(currentQuestion.correct.number);
     } else {
       setFeedbackMessage('');
+      recordIncorrect(currentQuestion.correct.number);
     }
-  }, [selectedIndex, currentQuestion, isSubmitted]);
+  }, [selectedIndex, currentQuestion, isSubmitted, recordCorrect, recordIncorrect]);
 
   const stopAudio = useCallback(() => {
-    if (soundRef.current) {
-      soundRef.current.stopAsync();
-      soundRef.current.unloadAsync();
-      soundRef.current = null;
+    if (playerRef.current) {
+      playerRef.current.pause();
+      playerRef.current.remove();
+      playerRef.current = null;
       setPlayingAudioId(null);
     }
   }, []);

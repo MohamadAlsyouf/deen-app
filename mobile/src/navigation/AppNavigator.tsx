@@ -14,6 +14,7 @@ import {
   AsmaUlHusnaFlashcardsScreen,
   AsmaUlHusnaMultipleChoiceScreen,
   AsmaUlHusnaMatchingScreen,
+  AsmaUlHusnaStudyGuideScreen,
   PillarsScreen,
   PrayerGuideScreen,
   WuduGuideScreen,
@@ -79,9 +80,13 @@ export type RootStackParamList = {
   AsmaUlHusnaMenu: undefined;
   AsmaUlHusnaList: undefined;
   AsmaUlHusnaGames: undefined;
-  AsmaUlHusnaFlashcards: undefined;
+  AsmaUlHusnaFlashcards: {
+    nameNumbers?: number[];
+    title?: string;
+  } | undefined;
   AsmaUlHusnaMultipleChoice: undefined;
   AsmaUlHusnaMatching: undefined;
+  AsmaUlHusnaStudyGuide: undefined;
   Pillars: undefined;
   PrayerGuide: undefined;
   WuduGuide: undefined;
@@ -155,6 +160,7 @@ export const AppNavigator: React.FC = () => {
             <Stack.Screen name="AsmaUlHusnaFlashcards" component={AsmaUlHusnaFlashcardsScreen} />
             <Stack.Screen name="AsmaUlHusnaMultipleChoice" component={AsmaUlHusnaMultipleChoiceScreen} />
             <Stack.Screen name="AsmaUlHusnaMatching" component={AsmaUlHusnaMatchingScreen} />
+            <Stack.Screen name="AsmaUlHusnaStudyGuide" component={AsmaUlHusnaStudyGuideScreen} />
             <Stack.Screen name="Pillars" component={PillarsScreen} />
             <Stack.Screen name="PrayerGuide" component={PrayerGuideScreen} />
             <Stack.Screen name="WuduGuide" component={WuduGuideScreen} />

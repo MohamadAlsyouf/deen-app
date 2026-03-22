@@ -16,6 +16,7 @@ import { useQuery } from '@tanstack/react-query';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { Header } from '@/components';
+import { useAsmaStudyGuide } from '@/contexts/AsmaStudyGuideContext';
 import { colors, spacing, typography, borderRadius } from '@/theme';
 import { asmaUlHusnaService } from '@/services/asmaUlHusnaService';
 import type { AsmaUlHusnaName } from '@/types/asmaUlHusna';
@@ -186,6 +187,7 @@ const ConfettiOverlay: React.FC = React.memo(() => {
 export const AsmaUlHusnaMatchingScreen: React.FC = () => {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
+  const { recordCorrect, recordIncorrect } = useAsmaStudyGuide();
 
   const dataQuery = useQuery({
     queryKey: ['asmaUlHusna'],
@@ -205,6 +207,7 @@ export const AsmaUlHusnaMatchingScreen: React.FC = () => {
   const [isFinished, setIsFinished] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [displayEfficiency, setDisplayEfficiency] = useState(0);
+  const mistakenThisRoundRef = useRef<Set<number>>(new Set());
 
   const introFade = useRef(new Animated.Value(0)).current;
   const introIconScale = useRef(new Animated.Value(0.3)).current;
@@ -328,6 +331,7 @@ export const AsmaUlHusnaMatchingScreen: React.FC = () => {
     setMoves(0);
     setElapsedSeconds(0);
     setIsFinished(false);
+    mistakenThisRoundRef.current = new Set();
   }, [names]);
 
   const handleReplaySame = useCallback(() => {
@@ -337,6 +341,7 @@ export const AsmaUlHusnaMatchingScreen: React.FC = () => {
     setMoves(0);
     setElapsedSeconds(0);
     setIsFinished(false);
+    mistakenThisRoundRef.current = new Set();
   }, []);
 
   useEffect(() => {
@@ -386,19 +391,25 @@ export const AsmaUlHusnaMatchingScreen: React.FC = () => {
       const newMatched = new Set(matchedPairs);
       newMatched.add(tile.nameNumber);
       setMatchedPairs(newMatched);
+      if (!mistakenThisRoundRef.current.has(tile.nameNumber)) {
+        recordCorrect(tile.nameNumber);
+      }
       setSelectedTile(null);
       if (newMatched.size === PAIRS_PER_ROUND) {
         setIsFinished(true);
         if (timerRef.current) clearInterval(timerRef.current);
       }
     } else {
+      mistakenThisRoundRef.current.add(firstTile.nameNumber);
+      mistakenThisRoundRef.current.add(tile.nameNumber);
+      recordIncorrect([firstTile.nameNumber, tile.nameNumber]);
       setWrongPair([selectedTile, tileId]);
       setTimeout(() => {
         setWrongPair(null);
         setSelectedTile(null);
       }, 800);
     }
-  }, [selectedTile, allTiles, matchedPairs, wrongPair]);
+  }, [selectedTile, allTiles, matchedPairs, wrongPair, recordCorrect, recordIncorrect]);
 
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60);

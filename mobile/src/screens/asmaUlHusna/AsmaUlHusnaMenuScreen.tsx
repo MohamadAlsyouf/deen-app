@@ -39,6 +39,14 @@ const MENU_OPTIONS: MenuOption[] = [
     accentColor: colors.accent,
     accentBg: '#FFF8E1',
   },
+  {
+    title: 'Study Guide',
+    subtitle: 'Review the names you miss most often and study a focused flashcard set built from your game performance',
+    icon: 'school-outline',
+    route: 'AsmaUlHusnaStudyGuide',
+    accentColor: colors.info,
+    accentBg: '#E8F2FF',
+  },
 ];
 
 export const AsmaUlHusnaMenuScreen: React.FC = () => {
@@ -67,7 +75,7 @@ export const AsmaUlHusnaMenuScreen: React.FC = () => {
         <View style={styles.introSection}>
           <Text style={styles.arabicTitle}>أسماء الله الحسنى</Text>
           <Text style={styles.introText}>
-            Explore the beautiful names of Allah — listen to their pronunciation or challenge yourself with interactive games.
+            Explore the beautiful names of Allah and challenge yourself with interactive games.
           </Text>
         </View>
 

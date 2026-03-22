@@ -15,6 +15,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 import { colors, borderRadius } from '@/theme';
+import { useAsmaStudyGuide } from '@/contexts/AsmaStudyGuideContext';
 import { useWebHover } from '@/hooks/useWebHover';
 import { asmaUlHusnaService } from '@/services/asmaUlHusnaService';
 import type { AsmaUlHusnaName } from '@/types/asmaUlHusna';
@@ -133,6 +134,7 @@ type WebNamesMatchingProps = {
 };
 
 export const WebNamesMatching: React.FC<WebNamesMatchingProps> = ({ onBack }) => {
+  const { recordCorrect, recordIncorrect } = useAsmaStudyGuide();
   const dataQuery = useQuery({
     queryKey: ['asmaUlHusna'],
     queryFn: () => asmaUlHusnaService.getData(),
@@ -151,6 +153,7 @@ export const WebNamesMatching: React.FC<WebNamesMatchingProps> = ({ onBack }) =>
   const [isFinished, setIsFinished] = useState(false);
   const [displayEfficiency, setDisplayEfficiency] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const mistakenThisRoundRef = useRef<Set<number>>(new Set());
 
   const allTiles = useMemo(() => [...arabicTiles, ...englishTiles], [arabicTiles, englishTiles]);
 
@@ -166,6 +169,7 @@ export const WebNamesMatching: React.FC<WebNamesMatchingProps> = ({ onBack }) =>
     setElapsedSeconds(0);
     setIsFinished(false);
     setDisplayEfficiency(0);
+    mistakenThisRoundRef.current = new Set();
   }, [names]);
 
   const handleReplaySame = useCallback(() => {
@@ -176,6 +180,7 @@ export const WebNamesMatching: React.FC<WebNamesMatchingProps> = ({ onBack }) =>
     setElapsedSeconds(0);
     setIsFinished(false);
     setDisplayEfficiency(0);
+    mistakenThisRoundRef.current = new Set();
   }, []);
 
   useEffect(() => {
@@ -238,19 +243,25 @@ export const WebNamesMatching: React.FC<WebNamesMatchingProps> = ({ onBack }) =>
       const newMatched = new Set(matchedPairs);
       newMatched.add(tile.nameNumber);
       setMatchedPairs(newMatched);
+      if (!mistakenThisRoundRef.current.has(tile.nameNumber)) {
+        recordCorrect(tile.nameNumber);
+      }
       setSelectedTile(null);
       if (newMatched.size === PAIRS_PER_ROUND) {
         setIsFinished(true);
         if (timerRef.current) clearInterval(timerRef.current);
       }
     } else {
+      mistakenThisRoundRef.current.add(firstTile.nameNumber);
+      mistakenThisRoundRef.current.add(tile.nameNumber);
+      recordIncorrect([firstTile.nameNumber, tile.nameNumber]);
       setWrongPair([selectedTile, tileId]);
       setTimeout(() => {
         setWrongPair(null);
         setSelectedTile(null);
       }, 800);
     }
-  }, [selectedTile, allTiles, matchedPairs, wrongPair]);
+  }, [selectedTile, allTiles, matchedPairs, wrongPair, recordCorrect, recordIncorrect]);
 
   const backHover = useWebHover({
     hoverStyle: { backgroundColor: `${colors.primary}15` },

@@ -16,6 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { createAudioPlayer, setAudioModeAsync, AudioPlayer } from 'expo-audio';
 import { useQuery } from '@tanstack/react-query';
 import { colors, borderRadius } from '@/theme';
+import { useAsmaStudyGuide } from '@/contexts/AsmaStudyGuideContext';
 import { useWebHover } from '@/hooks/useWebHover';
 import { asmaUlHusnaService } from '@/services/asmaUlHusnaService';
 import type { AsmaUlHusnaName } from '@/types/asmaUlHusna';
@@ -279,6 +280,7 @@ const OptionButton: React.FC<{
 };
 
 export const WebNamesMultipleChoice: React.FC<WebNamesMultipleChoiceProps> = ({ onBack }) => {
+  const { recordCorrect, recordIncorrect } = useAsmaStudyGuide();
   const [hasStarted, setHasStarted] = useState(false);
   const [questionIndex, setQuestionIndex] = useState(0);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
@@ -361,7 +363,7 @@ export const WebNamesMultipleChoice: React.FC<WebNamesMultipleChoiceProps> = ({ 
       setPlayingAudioId(name.number);
 
       player.addListener('playbackStatusUpdate', (status) => {
-        if (status.status === 'idle' && status.didJustFinish) {
+        if ('didJustFinish' in status && status.didJustFinish) {
           setPlayingAudioId(null);
           player.remove();
           playerRef.current = null;
@@ -387,10 +389,12 @@ export const WebNamesMultipleChoice: React.FC<WebNamesMultipleChoiceProps> = ({ 
     if (isCorrect) {
       setScore((s) => s + 1);
       setFeedbackMessage(getRandomCorrectMessage());
+      recordCorrect(currentQuestion.correct.number);
     } else {
       setFeedbackMessage('');
+      recordIncorrect(currentQuestion.correct.number);
     }
-  }, [selectedIndex, currentQuestion, isSubmitted]);
+  }, [selectedIndex, currentQuestion, isSubmitted, recordCorrect, recordIncorrect]);
 
   const handleNext = useCallback(() => {
     stopAudio();

@@ -2,7 +2,7 @@
  * WebNamesFlashcards - 3D flip card game for web with CSS animations
  */
 
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -23,9 +23,17 @@ const AUDIO_BASE_URL = 'https://islamicapi.com';
 
 type WebNamesFlashcardsProps = {
   onBack: () => void;
+  nameNumbers?: number[];
+  title?: string;
+  backLabel?: string;
 };
 
-export const WebNamesFlashcards: React.FC<WebNamesFlashcardsProps> = ({ onBack }) => {
+export const WebNamesFlashcards: React.FC<WebNamesFlashcardsProps> = ({
+  onBack,
+  nameNumbers = [],
+  title,
+  backLabel,
+}) => {
   const [hasStarted, setHasStarted] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
@@ -39,7 +47,27 @@ export const WebNamesFlashcards: React.FC<WebNamesFlashcardsProps> = ({ onBack }
     queryFn: () => asmaUlHusnaService.getData(),
   });
 
-  const names = isShuffled ? shuffledNames : (dataQuery.data?.names ?? []);
+  const requestedNameNumbers = useMemo(
+    () => Array.from(new Set(nameNumbers.filter((value) => Number.isFinite(value) && value > 0))),
+    [nameNumbers]
+  );
+  const isStudyDeck = requestedNameNumbers.length > 0;
+  const deckTitle = title ?? (isStudyDeck ? 'Study Flashcards' : 'Flashcards');
+  const backText = backLabel ?? (isStudyDeck ? 'Back to Study Guide' : 'Back to Games');
+
+  const baseNames = useMemo(() => {
+    const allNames = dataQuery.data?.names ?? [];
+    if (!requestedNameNumbers.length) {
+      return allNames;
+    }
+
+    const order = new Map(requestedNameNumbers.map((nameNumber, index) => [nameNumber, index]));
+    return allNames
+      .filter((name) => order.has(name.number))
+      .sort((a, b) => (order.get(a.number) ?? 0) - (order.get(b.number) ?? 0));
+  }, [dataQuery.data?.names, requestedNameNumbers]);
+
+  const names = isShuffled ? shuffledNames : baseNames;
   const currentName = names[currentIndex];
   const total = names.length;
   const progress = total > 0 ? ((currentIndex + 1) / total) * 100 : 0;
@@ -61,6 +89,13 @@ export const WebNamesFlashcards: React.FC<WebNamesFlashcardsProps> = ({ onBack }
     setIsFlipped(false);
   }, []);
 
+  useEffect(() => {
+    setCurrentIndex(0);
+    setIsShuffled(false);
+    setShuffledNames([]);
+    resetFlip();
+  }, [requestedNameNumbers, resetFlip]);
+
   const handleNext = useCallback(() => {
     if (currentIndex < total - 1) {
       setCurrentIndex(currentIndex + 1);
@@ -76,14 +111,14 @@ export const WebNamesFlashcards: React.FC<WebNamesFlashcardsProps> = ({ onBack }
   }, [currentIndex, resetFlip]);
 
   const handleShuffle = useCallback(() => {
-    if (!isShuffled && dataQuery.data?.names) {
-      const shuffled = [...dataQuery.data.names].sort(() => Math.random() - 0.5);
+    if (!isShuffled && baseNames.length > 0) {
+      const shuffled = [...baseNames].sort(() => Math.random() - 0.5);
       setShuffledNames(shuffled);
     }
     setIsShuffled(!isShuffled);
     setCurrentIndex(0);
     resetFlip();
-  }, [isShuffled, dataQuery.data?.names, resetFlip]);
+  }, [isShuffled, baseNames, resetFlip]);
 
   const handlePlayAudio = useCallback(async () => {
     if (!currentName?.audio) return;
@@ -96,7 +131,7 @@ export const WebNamesFlashcards: React.FC<WebNamesFlashcardsProps> = ({ onBack }
       const player = createAudioPlayer({ uri });
       playerRef.current = player;
       player.addListener('playbackStatusUpdate', (status) => {
-        if (status.status === 'idle' && status.didJustFinish) {
+        if ('didJustFinish' in status && status.didJustFinish) {
           setIsPlayingAudio(false);
           player.remove();
           playerRef.current = null;
@@ -157,7 +192,9 @@ export const WebNamesFlashcards: React.FC<WebNamesFlashcardsProps> = ({ onBack }
       <View style={styles.container}>
         <View style={styles.center}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Loading flashcards...</Text>
+          <Text style={styles.loadingText}>
+            {isStudyDeck ? 'Loading study cards...' : 'Loading flashcards...'}
+          </Text>
         </View>
       </View>
     );
@@ -174,10 +211,11 @@ export const WebNamesFlashcards: React.FC<WebNamesFlashcardsProps> = ({ onBack }
           <View style={styles.introIconCircle}>
             <Ionicons name="albums-outline" size={44} color={colors.islamic.gold} />
           </View>
-          <Text style={styles.introTitle}>Flashcards</Text>
+          <Text style={styles.introTitle}>{isStudyDeck ? 'Study Guide' : 'Flashcards'}</Text>
           <Text style={styles.introDesc}>
-            Flip through the 99 Names of Allah one by one, listen to pronunciation,
-            and review each meaning at your own pace.
+            {isStudyDeck
+              ? 'Review the names that have tripped you up in quiz and matching, and focus your memorization on that smaller set.'
+              : 'Flip through the 99 Names of Allah one by one, listen to pronunciation, and review each meaning at your own pace.'}
           </Text>
 
           <View style={styles.introCardPreview}>
@@ -200,11 +238,13 @@ export const WebNamesFlashcards: React.FC<WebNamesFlashcardsProps> = ({ onBack }
                 style={styles.introStartGradient}
               >
                 <Ionicons name="play" size={20} color={colors.islamic.midnight} />
-                <Text style={styles.introStartText}>Start Flashcards</Text>
+                <Text style={styles.introStartText}>
+                  {isStudyDeck ? 'Start Review' : 'Start Flashcards'}
+                </Text>
               </LinearGradient>
             </TouchableOpacity>
             <TouchableOpacity onPress={onBack} activeOpacity={0.8} style={styles.textButton}>
-              <Text style={styles.introBackText}>Back to Games</Text>
+              <Text style={styles.introBackText}>{backText}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -212,7 +252,19 @@ export const WebNamesFlashcards: React.FC<WebNamesFlashcardsProps> = ({ onBack }
     );
   }
 
-  if (!currentName) return null;
+  if (!currentName) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.center}>
+          <Ionicons name="albums-outline" size={42} color={colors.text.tertiary} />
+          <Text style={styles.loadingText}>No study cards available right now.</Text>
+          <TouchableOpacity onPress={onBack} activeOpacity={0.8} style={styles.textButton}>
+            <Text style={styles.introBackText}>{backText}</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -227,9 +279,9 @@ export const WebNamesFlashcards: React.FC<WebNamesFlashcardsProps> = ({ onBack }
           style={[styles.backButton, backHover.style]}
         >
           <Ionicons name="arrow-back" size={20} color={colors.primary} />
-          <Text style={styles.backText}>Back</Text>
+          <Text style={styles.backText}>{backText}</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Flashcards</Text>
+        <Text style={styles.headerTitle}>{deckTitle}</Text>
         <TouchableOpacity
           onPress={handleShuffle}
           activeOpacity={0.7}
@@ -275,6 +327,7 @@ export const WebNamesFlashcards: React.FC<WebNamesFlashcardsProps> = ({ onBack }
               {
                 // @ts-ignore
                 transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)',
+                // @ts-ignore
                 transition: 'transform 0.6s cubic-bezier(0.4, 0, 0.2, 1)',
               },
             ]}

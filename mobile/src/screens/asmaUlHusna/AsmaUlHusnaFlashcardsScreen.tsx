@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -11,12 +11,13 @@ import {
   Dimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import { useQuery } from '@tanstack/react-query';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { createAudioPlayer, setAudioModeAsync, AudioPlayer } from 'expo-audio';
 import { Header } from '@/components';
+import type { RootStackParamList } from '@/navigation/AppNavigator';
 import { colors, spacing, typography, borderRadius } from '@/theme';
 import { asmaUlHusnaService } from '@/services/asmaUlHusnaService';
 import type { AsmaUlHusnaName } from '@/types/asmaUlHusna';
@@ -27,6 +28,7 @@ const AUDIO_BASE_URL = 'https://islamicapi.com';
 
 export const AsmaUlHusnaFlashcardsScreen: React.FC = () => {
   const navigation = useNavigation();
+  const route = useRoute<RouteProp<RootStackParamList, 'AsmaUlHusnaFlashcards'>>();
   const insets = useSafeAreaInsets();
   const [hasStarted, setHasStarted] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -89,7 +91,29 @@ export const AsmaUlHusnaFlashcardsScreen: React.FC = () => {
     queryFn: () => asmaUlHusnaService.getData(),
   });
 
-  const names = isShuffled ? shuffledNames : (dataQuery.data?.names ?? []);
+  const requestedNameNumbers = useMemo(
+    () => Array.from(new Set((route.params?.nameNumbers ?? []).filter((value) => Number.isFinite(value) && value > 0))),
+    [route.params?.nameNumbers]
+  );
+  const isStudyDeck = requestedNameNumbers.length > 0;
+  const deckTitle = route.params?.title ?? (isStudyDeck ? 'Study Flashcards' : 'Flashcards');
+  const introTitle = isStudyDeck ? 'Study Guide' : 'Flashcards';
+  const startButtonLabel = isStudyDeck ? 'Start Review' : 'Start';
+  const backButtonLabel = isStudyDeck ? 'Back to Study Guide' : 'Back to Games';
+
+  const baseNames = useMemo(() => {
+    const allNames = dataQuery.data?.names ?? [];
+    if (!requestedNameNumbers.length) {
+      return allNames;
+    }
+
+    const order = new Map(requestedNameNumbers.map((nameNumber, index) => [nameNumber, index]));
+    return allNames
+      .filter((name) => order.has(name.number))
+      .sort((a, b) => (order.get(a.number) ?? 0) - (order.get(b.number) ?? 0));
+  }, [dataQuery.data?.names, requestedNameNumbers]);
+
+  const names = isShuffled ? shuffledNames : baseNames;
   const currentName = names[currentIndex];
   const total = names.length;
 
@@ -109,6 +133,13 @@ export const AsmaUlHusnaFlashcardsScreen: React.FC = () => {
     setIsFlipped(false);
   }, [flipAnim]);
 
+  useEffect(() => {
+    setCurrentIndex(0);
+    setIsShuffled(false);
+    setShuffledNames([]);
+    resetFlip();
+  }, [requestedNameNumbers, resetFlip]);
+
   const goNext = useCallback(() => {
     if (currentIndex < total - 1) {
       setCurrentIndex(currentIndex + 1);
@@ -124,14 +155,14 @@ export const AsmaUlHusnaFlashcardsScreen: React.FC = () => {
   }, [currentIndex, resetFlip]);
 
   const toggleShuffle = useCallback(() => {
-    if (!isShuffled && dataQuery.data?.names) {
-      const shuffled = [...dataQuery.data.names].sort(() => Math.random() - 0.5);
+    if (!isShuffled && baseNames.length > 0) {
+      const shuffled = [...baseNames].sort(() => Math.random() - 0.5);
       setShuffledNames(shuffled);
     }
     setIsShuffled(!isShuffled);
     setCurrentIndex(0);
     resetFlip();
-  }, [isShuffled, dataQuery.data?.names, resetFlip]);
+  }, [isShuffled, baseNames, resetFlip]);
 
   const playAudio = useCallback(async () => {
     if (!currentName?.audio) return;
@@ -167,7 +198,7 @@ export const AsmaUlHusnaFlashcardsScreen: React.FC = () => {
         />
         <View style={[styles.headerContainer, { paddingTop: insets.top, backgroundColor: 'transparent' }]}>
           <Header
-            title="Flashcards"
+            title={deckTitle}
             leftAction={{ iconName: 'arrow-back', onPress: () => navigation.goBack() }}
             dark
           />
@@ -181,11 +212,12 @@ export const AsmaUlHusnaFlashcardsScreen: React.FC = () => {
           </Animated.View>
 
           <Animated.Text style={[styles.introTitle, { opacity: introTitleFade }]}>
-            Flashcards
+            {introTitle}
           </Animated.Text>
           <Animated.Text style={[styles.introDesc, { opacity: introDescFade }]}>
-            Browse through all 99 Names of Allah with flip cards.{'\n'}
-            See the Arabic name, then tap to reveal the English meaning.
+            {isStudyDeck
+              ? `Review the names you have struggled with in the memorization games.${'\n'}Tap each card to reveal the meaning and reinforce recall.`
+              : `Browse through all 99 Names of Allah with flip cards.${'\n'}See the Arabic name, then tap to reveal the English meaning.`}
           </Animated.Text>
 
           <Animated.View style={[styles.introDiagram, { opacity: introDiagramFade, transform: [{ translateY: introDiagramSlide }] }]}>
@@ -208,12 +240,12 @@ export const AsmaUlHusnaFlashcardsScreen: React.FC = () => {
                 style={styles.introStartGradient}
               >
                 <Ionicons name="play" size={20} color={colors.islamic.midnight} />
-                <Text style={styles.introStartText}>Start</Text>
+                <Text style={styles.introStartText}>{startButtonLabel}</Text>
               </LinearGradient>
             </TouchableOpacity>
             <TouchableOpacity onPress={() => navigation.goBack()} activeOpacity={0.8} style={styles.introBackButton}>
               <Ionicons name="arrow-back" size={18} color="rgba(255,255,255,0.8)" />
-              <Text style={styles.introBackText}>Back to Games</Text>
+              <Text style={styles.introBackText}>{backButtonLabel}</Text>
             </TouchableOpacity>
           </Animated.View>
         </Animated.View>
@@ -226,7 +258,7 @@ export const AsmaUlHusnaFlashcardsScreen: React.FC = () => {
       <View style={styles.container}>
         <View style={[styles.headerContainer, { paddingTop: insets.top }]}>
           <Header
-            title="Flashcards"
+            title={deckTitle}
             leftAction={{ iconName: 'arrow-back', onPress: () => navigation.goBack() }}
           />
         </View>
@@ -237,13 +269,31 @@ export const AsmaUlHusnaFlashcardsScreen: React.FC = () => {
     );
   }
 
-  if (!currentName) return null;
+  if (!currentName) {
+    return (
+      <View style={styles.container}>
+        <View style={[styles.headerContainer, { paddingTop: insets.top }]}>
+          <Header
+            title={deckTitle}
+            leftAction={{ iconName: 'arrow-back', onPress: () => navigation.goBack() }}
+          />
+        </View>
+        <View style={styles.center}>
+          <Ionicons name="albums-outline" size={42} color={colors.text.tertiary} />
+          <Text style={styles.emptyTitle}>No study cards available</Text>
+          <Text style={styles.emptyText}>
+            Play a memorization game and miss a few names to build a focused review deck here.
+          </Text>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
       <View style={[styles.headerContainer, { paddingTop: insets.top }]}>
         <Header
-          title="Flashcards"
+          title={deckTitle}
           leftAction={{ iconName: 'arrow-back', onPress: () => navigation.goBack() }}
         />
       </View>
@@ -341,6 +391,21 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: spacing.xl,
+  },
+  emptyTitle: {
+    ...typography.h4,
+    color: colors.text.primary,
+    marginTop: spacing.md,
+    marginBottom: spacing.xs,
+    textAlign: 'center',
+  },
+  emptyText: {
+    ...typography.body,
+    color: colors.text.secondary,
+    textAlign: 'center',
+    lineHeight: 24,
+    maxWidth: 320,
   },
   content: {
     flex: 1,

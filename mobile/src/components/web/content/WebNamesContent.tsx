@@ -24,6 +24,7 @@ import type { AsmaUlHusnaName } from '@/types/asmaUlHusna';
 import { WebNamesFlashcards } from './WebNamesFlashcards';
 import { WebNamesMultipleChoice } from './WebNamesMultipleChoice';
 import { WebNamesMatching } from './WebNamesMatching';
+import { WebNamesStudyGuide } from './WebNamesStudyGuide';
 
 const AUDIO_BASE_URL = 'https://islamicapi.com';
 
@@ -220,7 +221,7 @@ const NameCard: React.FC<{
       setIsLoadingAudio(false);
 
       player.addListener('playbackStatusUpdate', (status) => {
-        if (status.status === 'idle' && status.didJustFinish) {
+        if ('didJustFinish' in status && status.didJustFinish) {
           setIsPlaying(false);
           player.remove();
           playerRef.current = null;
@@ -343,7 +344,7 @@ const NameCard: React.FC<{
 
 // ─── Menu View ──────────────────────────────────────────────────────────────
 const MenuView: React.FC<{
-  onNavigate: (screen: string) => void;
+  onNavigate: (screen: string, data?: any) => void;
 }> = ({ onNavigate }) => {
   return (
     <ScrollView
@@ -358,7 +359,7 @@ const MenuView: React.FC<{
         <Text style={menuStyles.title}>Asma ul Husna</Text>
         <Text style={menuStyles.arabicTitle}>أَسْمَاءُ اللَّهِ الْحُسْنَى</Text>
         <Text style={menuStyles.subtitle}>
-          Explore the beautiful names of Allah — listen to their pronunciation or challenge yourself with interactive games.
+          Explore the beautiful names of Allah, challenge yourself with interactive games, or review the names that still need extra attention.
         </Text>
       </View>
 
@@ -380,6 +381,15 @@ const MenuView: React.FC<{
           accentBg="#FFF8E1"
           onPress={() => onNavigate('games')}
           index={1}
+        />
+        <MenuCard
+          title="Study Guide"
+          subtitle="See which names need more work and open a focused flashcard deck built from your game performance"
+          icon="school-outline"
+          accentColor={colors.info}
+          accentBg="#E8F2FF"
+          onPress={() => onNavigate('study-guide')}
+          index={2}
         />
       </View>
     </ScrollView>
@@ -576,12 +586,14 @@ const BrowseView: React.FC<{
 // ─── Main Content Orchestrator ──────────────────────────────────────────────
 type WebNamesContentProps = {
   subScreen: string | null;
+  subScreenData?: any;
   onSubNavigate: (screen: string, data?: any) => void;
   onBack: () => void;
 };
 
 export const WebNamesContent: React.FC<WebNamesContentProps> = ({
   subScreen,
+  subScreenData,
   onSubNavigate,
   onBack,
 }) => {
@@ -609,8 +621,8 @@ export const WebNamesContent: React.FC<WebNamesContentProps> = ({
     ]).start();
   }, [subScreen, screenOpacity, screenTranslateY]);
 
-  const handleNavigate = useCallback((screen: string) => {
-    onSubNavigate(screen);
+  const handleNavigate = useCallback((screen: string, data?: any) => {
+    onSubNavigate(screen, data);
   }, [onSubNavigate]);
 
   const handleBackToMenu = useCallback(() => {
@@ -630,8 +642,18 @@ export const WebNamesContent: React.FC<WebNamesContentProps> = ({
     case 'games':
       renderedContent = <GamesMenuView onNavigate={handleNavigate} onBack={handleBackToMenu} />;
       break;
+    case 'study-guide':
+      renderedContent = <WebNamesStudyGuide onBack={handleBackToMenu} onNavigate={handleNavigate} />;
+      break;
     case 'flashcards':
-      renderedContent = <WebNamesFlashcards onBack={handleBackToGames} />;
+      renderedContent = (
+        <WebNamesFlashcards
+          onBack={subScreenData?.backTo === 'study-guide' ? () => onSubNavigate('study-guide') : handleBackToGames}
+          nameNumbers={subScreenData?.nameNumbers}
+          title={subScreenData?.title}
+          backLabel={subScreenData?.backTo === 'study-guide' ? 'Back to Study Guide' : 'Back to Games'}
+        />
+      );
       break;
     case 'multiple-choice':
       renderedContent = <WebNamesMultipleChoice onBack={handleBackToGames} />;
@@ -666,7 +688,7 @@ const menuStyles = StyleSheet.create({
     padding: 40,
     paddingBottom: 80,
     // @ts-ignore
-    maxWidth: 900,
+    maxWidth: 1120,
     marginHorizontal: 'auto',
     width: '100%',
   },
@@ -713,18 +735,20 @@ const menuStyles = StyleSheet.create({
     fontFamily: "'DM Sans', sans-serif",
   },
   cardsRow: {
-    // @ts-ignore
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+    flexDirection: 'row',
+    alignItems: 'stretch',
     gap: 24,
   },
   card: {
+    flex: 1,
     backgroundColor: colors.background,
     borderRadius: 20,
     padding: 32,
+    minHeight: 300,
     position: 'relative',
     // @ts-ignore
     boxShadow: '0 6px 24px rgba(0, 0, 0, 0.06)',
+    // @ts-ignore
     cursor: 'pointer',
     borderWidth: 1,
     borderColor: colors.border,
@@ -750,6 +774,7 @@ const menuStyles = StyleSheet.create({
     color: colors.text.secondary,
     lineHeight: 24,
     marginBottom: 20,
+    flex: 1,
     // @ts-ignore
     fontFamily: "'DM Sans', sans-serif",
   },
@@ -759,6 +784,7 @@ const menuStyles = StyleSheet.create({
     borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
+    marginTop: 'auto',
   },
 });
 
@@ -1131,6 +1157,7 @@ const browseStyles = StyleSheet.create({
     marginLeft: 12,
     // @ts-ignore
     cursor: 'pointer',
+    // @ts-ignore
     transition: 'all 0.2s ease-out',
   },
   audioButtonExpanded: {
