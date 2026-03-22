@@ -1,15 +1,16 @@
-import React, { useEffect } from 'react';
-import { View, StyleSheet, Platform } from 'react-native';
-import { StatusBar } from 'expo-status-bar';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { AuthProvider } from '@/contexts/AuthContext';
-import { AudioPlayerProvider } from '@/contexts/AudioPlayerContext';
-import { BookmarkProvider } from '@/contexts/BookmarkContext';
-import { AsmaStudyGuideProvider } from '@/contexts/AsmaStudyGuideContext';
-import { ToastProvider } from '@/components/common/Toast';
-import { AppNavigator } from '@/navigation/AppNavigator';
-import { keyframes } from '@/theme/web';
+import React, { useEffect } from "react";
+import { View, StyleSheet, Platform } from "react-native";
+import { StatusBar } from "expo-status-bar";
+import { SafeAreaProvider } from "react-native-safe-area-context";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { AuthProvider } from "@/contexts/AuthContext";
+import { AudioPlayerProvider } from "@/contexts/AudioPlayerContext";
+import { BookmarkProvider } from "@/contexts/BookmarkContext";
+import { AsmaStudyGuideProvider } from "@/contexts/AsmaStudyGuideContext";
+import { QuranProgressProvider } from "@/contexts/QuranProgressContext";
+import { ToastProvider } from "@/components/common/Toast";
+import { AppNavigator } from "@/navigation/AppNavigator";
+import { keyframes } from "@/theme/web";
 
 // Create a client
 const queryClient = new QueryClient({
@@ -24,18 +25,23 @@ const queryClient = new QueryClient({
 // Inject keyframes into document head (web only)
 let keyframesInjected = false;
 const injectKeyframes = () => {
-  if (Platform.OS !== 'web' || keyframesInjected || typeof document === 'undefined') return;
+  if (
+    Platform.OS !== "web" ||
+    keyframesInjected ||
+    typeof document === "undefined"
+  )
+    return;
 
-  const style = document.createElement('style');
-  style.textContent = Object.values(keyframes).join('\n');
-  style.setAttribute('data-deen-app-keyframes', 'true');
+  const style = document.createElement("style");
+  style.textContent = Object.values(keyframes).join("\n");
+  style.setAttribute("data-deen-app-keyframes", "true");
   document.head.appendChild(style);
   keyframesInjected = true;
 };
 
 const App: React.FC = () => {
   useEffect(() => {
-    if (Platform.OS === 'web') {
+    if (Platform.OS === "web") {
       injectKeyframes();
     }
   }, []);
@@ -49,8 +55,10 @@ const App: React.FC = () => {
               <ToastProvider>
                 <BookmarkProvider>
                   <AsmaStudyGuideProvider>
-                    <StatusBar style="auto" />
-                    <AppNavigator />
+                    <QuranProgressProvider>
+                      <StatusBar style="auto" />
+                      <AppNavigator />
+                    </QuranProgressProvider>
                   </AsmaStudyGuideProvider>
                 </BookmarkProvider>
               </ToastProvider>
@@ -66,9 +74,9 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     // Web-specific: ensure the root takes full viewport height
-    ...(Platform.OS === 'web' && {
-      height: '100%' as const,
-      overflow: 'hidden' as const,
+    ...(Platform.OS === "web" && {
+      height: "100%" as const,
+      overflow: "hidden" as const,
     }),
   },
   safeArea: {
@@ -77,4 +85,3 @@ const styles = StyleSheet.create({
 });
 
 export default App;
-

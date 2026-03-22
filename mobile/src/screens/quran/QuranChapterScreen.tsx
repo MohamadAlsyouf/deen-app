@@ -33,6 +33,7 @@ import { VerseRangeSidebar } from "@/components/quran/VerseRangeSidebar";
 import { ViewModeToggle, type ViewMode } from "@/components/quran/ViewModeToggle";
 import { useAudioPlayer } from "@/contexts/AudioPlayerContext";
 import { useBookmarks } from "@/contexts/BookmarkContext";
+import { useQuranProgress } from "@/contexts/QuranProgressContext";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import type { RootStackParamList } from "@/navigation/AppNavigator";
 import type { UserType } from "@/types/user";
@@ -130,8 +131,9 @@ export const QuranChapterScreen: React.FC = () => {
   const versePositions = useRef<Map<string, { y: number; height: number }>>(new Map());
   const lastHighlightedVerseKey = useRef<string | null>(null);
 
-  const { loadChapter, reset, resetPlaybackSettings, highlightState, playbackState, selectedReciter, pause } =
+  const { loadChapter, reset, resetPlaybackSettings, highlightState, playbackState, selectedReciter, pause, currentPosition, duration } =
     useAudioPlayer();
+  const { updateListenProgress } = useQuranProgress();
   const { isVerseBookmarked, isChapterBookmarked, toggleVerseBookmark, toggleChapterBookmark } =
     useBookmarks();
 
@@ -164,6 +166,13 @@ export const QuranChapterScreen: React.FC = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentChapterId, selectedReciter?.id]);
+
+  // Track listening progress when audio is playing
+  useEffect(() => {
+    if (playbackState === 'playing' && currentPosition > 0 && duration > 0) {
+      updateListenProgress(currentChapterId, currentPosition, duration);
+    }
+  }, [currentChapterId, currentPosition, duration, playbackState, updateListenProgress]);
 
   // Pause and reset audio when leaving screen to prevent audio stacking
   useFocusEffect(
@@ -475,7 +484,7 @@ export const QuranChapterScreen: React.FC = () => {
       <View style={styles.container}>
         <Header
           title={title}
-          leftAction={{ iconName: "arrow-back", onPress: handleGoBack }}
+          leftAction={{ iconName: "arrow-back", label: "Back to Chapters", onPress: handleGoBack }}
           rightAction={{ iconName: "settings-outline", onPress: handleOpenVerseRangeSidebar }}
         />
         <ViewModeToggle

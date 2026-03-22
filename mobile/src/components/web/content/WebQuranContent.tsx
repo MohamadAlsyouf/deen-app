@@ -30,6 +30,8 @@ import { colors } from "@/theme";
 import { useWebHover } from "@/hooks/useWebHover";
 import { useAudioPlayer } from "@/contexts/AudioPlayerContext";
 import { useBookmarks } from "@/contexts/BookmarkContext";
+import { useQuranProgress } from "@/contexts/QuranProgressContext";
+import { OverallProgressCircle } from "@/components/quran/OverallProgressCircle";
 import { quranService } from "@/services/quranService";
 import type {
   QuranChapter,
@@ -95,11 +97,30 @@ type WebQuranContentProps = {
   onBack: () => void;
 };
 
+// Position thresholds for when each element starts and ends being covered (web)
+// start: when progress bar starts touching the element (partial coverage)
+// end: when progress bar fully covers the element (full coverage)
+const CHAPTER_CARD_THRESHOLDS = {
+  number: { start: 5, end: 15 },
+  info: { start: 15, end: 60 },
+  arabic: { start: 60, end: 85 },
+  chevron: { start: 85, end: 98 },
+};
+
+type CoverageState = 'none' | 'partial' | 'full';
+
+const getCoverageState = (progress: number, start: number, end: number): CoverageState => {
+  if (progress < start) return 'none';
+  if (progress >= end) return 'full';
+  return 'partial';
+};
+
 const ChapterCard: React.FC<{
   chapter: QuranChapter;
   onPress: () => void;
   index: number;
-}> = ({ chapter, onPress, index }) => {
+  progress?: number;
+}> = ({ chapter, onPress, index, progress = 0 }) => {
   const hover = useWebHover({
     hoverStyle: {
       transform: "translateY(-4px)",
@@ -107,6 +128,14 @@ const ChapterCard: React.FC<{
     },
     transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
   });
+
+  const clampedProgress = Math.min(100, Math.max(0, progress));
+
+  // Determine coverage state for each element
+  const numberCoverage = getCoverageState(clampedProgress, CHAPTER_CARD_THRESHOLDS.number.start, CHAPTER_CARD_THRESHOLDS.number.end);
+  const infoCoverage = getCoverageState(clampedProgress, CHAPTER_CARD_THRESHOLDS.info.start, CHAPTER_CARD_THRESHOLDS.info.end);
+  const arabicCoverage = getCoverageState(clampedProgress, CHAPTER_CARD_THRESHOLDS.arabic.start, CHAPTER_CARD_THRESHOLDS.arabic.end);
+  const chevronCoverage = getCoverageState(clampedProgress, CHAPTER_CARD_THRESHOLDS.chevron.start, CHAPTER_CARD_THRESHOLDS.chevron.end);
 
   return (
     <TouchableOpacity
@@ -125,22 +154,38 @@ const ChapterCard: React.FC<{
         },
       ]}
     >
-      <View style={styles.chapterNumber}>
-        <Text style={styles.chapterNumberText}>{chapter.id}</Text>
+      {/* Progress fill background */}
+      {clampedProgress > 0 && (
+        <View
+          style={[
+            styles.chapterProgressFill,
+            { width: `${clampedProgress}%` as any },
+            clampedProgress >= 100 && styles.chapterProgressFillComplete,
+          ]}
+        />
+      )}
+      <View style={[styles.chapterNumber, numberCoverage === 'full' && styles.chapterNumberWithProgress]}>
+        <Text style={[styles.chapterNumberText, numberCoverage === 'full' && styles.chapterNumberTextWithProgress]}>{chapter.id}</Text>
       </View>
       <View style={styles.chapterInfo}>
-        <Text style={styles.chapterName}>{chapter.name_simple}</Text>
-        <Text style={styles.chapterMeaning}>
-          {chapter.translated_name?.name}
-        </Text>
-        <Text style={styles.chapterMeta}>
-          {chapter.verses_count} verses • {chapter.revelation_place}
-        </Text>
+        <View style={[styles.chapterTextPill, infoCoverage === 'partial' && styles.chapterTextPillVisible]}>
+          <Text style={[styles.chapterName, infoCoverage === 'full' && styles.chapterTextWithProgress]}>{chapter.name_simple}</Text>
+        </View>
+        <View style={[styles.chapterTextPill, infoCoverage === 'partial' && styles.chapterTextPillVisible]}>
+          <Text style={[styles.chapterMeaning, infoCoverage === 'full' && styles.chapterMetaWithProgress]}>
+            {chapter.translated_name?.name}
+          </Text>
+        </View>
+        <View style={[styles.chapterTextPill, infoCoverage === 'partial' && styles.chapterTextPillVisible]}>
+          <Text style={[styles.chapterMeta, infoCoverage === 'full' && styles.chapterMetaWithProgress]}>
+            {chapter.verses_count} verses • {chapter.revelation_place}
+          </Text>
+        </View>
       </View>
-      <View style={styles.chapterArabic}>
-        <Text style={styles.chapterArabicText}>{chapter.name_arabic}</Text>
+      <View style={[styles.chapterArabic, arabicCoverage === 'partial' && styles.chapterArabicPillVisible]}>
+        <Text style={[styles.chapterArabicText, arabicCoverage === 'full' && styles.chapterTextWithProgress]}>{chapter.name_arabic}</Text>
       </View>
-      <Ionicons name="chevron-forward" size={20} color={colors.text.tertiary} />
+      <Ionicons name="chevron-forward" size={20} color={chevronCoverage === 'full' ? colors.text.white : colors.text.tertiary} />
     </TouchableOpacity>
   );
 };
@@ -1433,6 +1478,8 @@ export const WebQuranContent: React.FC<WebQuranContentProps> = ({
     resetPlaybackSettings,
     seekTo,
     pause,
+    currentPosition,
+    duration,
   } = useAudioPlayer();
   const {
     isVerseBookmarked,
@@ -1440,6 +1487,7 @@ export const WebQuranContent: React.FC<WebQuranContentProps> = ({
     toggleVerseBookmark,
     toggleChapterBookmark,
   } = useBookmarks();
+  const { getChapterProgress, getOverallProgress, updateListenProgress, updateReadProgress } = useQuranProgress();
 
   const chaptersQuery = useQuery({
     queryKey: ["quranChapters"],
@@ -1545,6 +1593,36 @@ export const WebQuranContent: React.FC<WebQuranContentProps> = ({
       resetPlaybackSettings();
     }
   }, [subScreen, reset, resetPlaybackSettings]);
+
+  // Track listening progress when audio is playing
+  useEffect(() => {
+    if (
+      subScreen === "chapter" &&
+      chapterMode === "listen" &&
+      subScreenData?.chapterId &&
+      playbackState === "playing" &&
+      currentPosition > 0 &&
+      duration > 0
+    ) {
+      updateListenProgress(subScreenData.chapterId, currentPosition, duration);
+    }
+  }, [subScreen, chapterMode, subScreenData?.chapterId, currentPosition, duration, playbackState, updateListenProgress]);
+
+  // Track reading progress when page changes in read mode
+  useEffect(() => {
+    if (
+      subScreen === "chapter" &&
+      chapterMode === "read" &&
+      subScreenData?.chapterId &&
+      currentReadVerseIndex >= 0 &&
+      readPages.length > 0
+    ) {
+      const currentPage = readPages[currentReadVerseIndex];
+      if (currentPage) {
+        updateReadProgress(subScreenData.chapterId, currentPage.verseNumber, totalVerses);
+      }
+    }
+  }, [subScreen, chapterMode, subScreenData?.chapterId, currentReadVerseIndex, readPages, totalVerses, updateReadProgress]);
 
   // Scroll to top when chapter changes (for next/previous chapter navigation)
   useEffect(() => {
@@ -2608,6 +2686,13 @@ export const WebQuranContent: React.FC<WebQuranContentProps> = ({
     );
   }
 
+  // Calculate overall progress for chapter list header
+  const overallProgress = chaptersQuery.data
+    ? getOverallProgress(
+        chaptersQuery.data.map((c) => ({ id: c.id, verses_count: c.verses_count }))
+      )
+    : 0;
+
   // Render chapters list
   return (
     <ScrollView
@@ -2616,14 +2701,26 @@ export const WebQuranContent: React.FC<WebQuranContentProps> = ({
       showsVerticalScrollIndicator={false}
     >
       <View style={styles.pageHeader}>
-        <View style={styles.pageHeaderIcon}>
-          <Ionicons name="book" size={32} color={colors.accent} />
+        <View style={styles.pageHeaderRow}>
+          <View style={styles.pageHeaderLeft}>
+            <View style={styles.pageHeaderIcon}>
+              <Ionicons name="book" size={32} color={colors.accent} />
+            </View>
+            <View>
+              <Text style={styles.pageTitle}>The Holy Quran</Text>
+              <Text style={styles.pageSubtitle}>
+                Explore all 114 surahs with Arabic text, transliteration, and
+                translations
+              </Text>
+            </View>
+          </View>
+          {overallProgress > 0 && (
+            <View style={styles.progressCircleContainer}>
+              <OverallProgressCircle progress={overallProgress} size={100} />
+              <Text style={styles.progressCircleLabel}>Progress</Text>
+            </View>
+          )}
         </View>
-        <Text style={styles.pageTitle}>The Holy Quran</Text>
-        <Text style={styles.pageSubtitle}>
-          Explore all 114 surahs with Arabic text, transliteration, and
-          translations
-        </Text>
       </View>
 
       {chaptersQuery.isLoading ? (
@@ -2648,6 +2745,7 @@ export const WebQuranContent: React.FC<WebQuranContentProps> = ({
               key={chapter.id}
               chapter={chapter}
               index={index}
+              progress={getChapterProgress(chapter.id).progress}
               onPress={() =>
                 onSubNavigate("mode-select", {
                   chapterId: chapter.id,
@@ -2672,8 +2770,20 @@ const styles = StyleSheet.create({
     paddingBottom: 60,
   },
   pageHeader: {
-    alignItems: "center",
     marginBottom: 40,
+  },
+  pageHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 40,
+    // @ts-ignore
+    flexWrap: "wrap",
+  },
+  pageHeaderLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 20,
   },
   pageHeaderIcon: {
     width: 80,
@@ -2682,24 +2792,31 @@ const styles = StyleSheet.create({
     backgroundColor: `${colors.primary}15`,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 20,
   },
   pageTitle: {
     fontSize: 36,
     fontWeight: "600",
     color: colors.text.primary,
     letterSpacing: -0.5,
-    marginBottom: 12,
-    textAlign: "center",
+    marginBottom: 8,
     // @ts-ignore
     fontFamily: "'Cormorant Garamond', Georgia, serif",
   },
   pageSubtitle: {
     fontSize: 16,
     color: colors.text.secondary,
-    textAlign: "center",
-    maxWidth: 500,
+    maxWidth: 400,
     lineHeight: 26,
+    // @ts-ignore
+    fontFamily: "'DM Sans', sans-serif",
+  },
+  progressCircleContainer: {
+    alignItems: "center",
+  },
+  progressCircleLabel: {
+    fontSize: 13,
+    color: colors.text.secondary,
+    marginTop: 8,
     // @ts-ignore
     fontFamily: "'DM Sans', sans-serif",
   },
@@ -2725,6 +2842,24 @@ const styles = StyleSheet.create({
     // @ts-ignore
     transition: "all 0.2s ease-out",
     minHeight: 100,
+    // @ts-ignore
+    position: "relative",
+    overflow: "hidden",
+  },
+  chapterProgressFill: {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    bottom: 0,
+    backgroundColor: colors.primary,
+    borderTopLeftRadius: 16,
+    borderBottomLeftRadius: 16,
+    // @ts-ignore
+    zIndex: 0,
+  },
+  chapterProgressFillComplete: {
+    borderTopRightRadius: 16,
+    borderBottomRightRadius: 16,
   },
   chapterNumber: {
     width: 36,
@@ -2735,6 +2870,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginRight: 16,
     flexShrink: 0,
+    // @ts-ignore
+    zIndex: 1,
+  },
+  chapterNumberWithProgress: {
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
   },
   chapterNumberText: {
     fontSize: 16,
@@ -2743,10 +2883,15 @@ const styles = StyleSheet.create({
     // @ts-ignore
     fontFamily: "'Cormorant Garamond', Georgia, serif",
   },
+  chapterNumberTextWithProgress: {
+    color: colors.text.white,
+  },
   chapterInfo: {
     flex: 1,
     minWidth: 0, // Allows flex item to shrink below content size
     marginRight: 16,
+    // @ts-ignore
+    zIndex: 1,
   },
   chapterName: {
     fontSize: 17,
@@ -2772,9 +2917,33 @@ const styles = StyleSheet.create({
     // @ts-ignore
     fontFamily: "'DM Sans', sans-serif",
   },
+  chapterTextWithProgress: {
+    color: colors.text.white,
+  },
+  chapterMetaWithProgress: {
+    color: "rgba(255, 255, 255, 0.85)",
+  },
+  chapterTextPill: {
+    alignSelf: "flex-start",
+    borderRadius: 4,
+  },
+  chapterTextPillVisible: {
+    backgroundColor: colors.background,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    marginLeft: -6,
+  },
   chapterArabic: {
     marginRight: 16,
     flexShrink: 0,
+    // @ts-ignore
+    zIndex: 1,
+    borderRadius: 4,
+  },
+  chapterArabicPillVisible: {
+    backgroundColor: colors.background,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
   },
   chapterArabicText: {
     fontSize: 24,

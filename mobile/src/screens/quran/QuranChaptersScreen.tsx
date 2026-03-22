@@ -14,10 +14,12 @@ import type { StackNavigationProp } from "@react-navigation/stack";
 import { useQuery } from "@tanstack/react-query";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
-import { colors, spacing, typography, borderRadius } from "@/theme";
+import { colors, spacing, typography } from "@/theme";
 import { quranService } from "@/services/quranService";
 import type { QuranChapter } from "@/types/quran";
 import { QuranChapterCard } from "@/components/quran/QuranChapterCard";
+import { OverallProgressCircle } from "@/components/quran/OverallProgressCircle";
+import { useQuranProgress } from "@/contexts/QuranProgressContext";
 import type { RootStackParamList } from "@/navigation/AppNavigator";
 
 type QuranChaptersNavigationProp = StackNavigationProp<
@@ -28,6 +30,7 @@ type QuranChaptersNavigationProp = StackNavigationProp<
 export const QuranChaptersScreen: React.FC = () => {
   const navigation = useNavigation<QuranChaptersNavigationProp>();
   const insets = useSafeAreaInsets();
+  const { getChapterProgress, getOverallProgress } = useQuranProgress();
 
   const chaptersQuery = useQuery({
     queryKey: ["quranChapters"],
@@ -48,6 +51,11 @@ export const QuranChaptersScreen: React.FC = () => {
   };
 
   const totalChapters = chaptersQuery.data?.length ?? 0;
+  const overallProgress = chaptersQuery.data
+    ? getOverallProgress(
+        chaptersQuery.data.map((c) => ({ id: c.id, verses_count: c.verses_count }))
+      )
+    : 0;
 
   if (chaptersQuery.isLoading) {
     return (
@@ -64,7 +72,7 @@ export const QuranChaptersScreen: React.FC = () => {
         </LinearGradient>
         <View style={styles.center}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Loading chapters…</Text>
+          <Text style={styles.loadingText}>Loading chapters...</Text>
         </View>
       </View>
     );
@@ -107,10 +115,19 @@ export const QuranChaptersScreen: React.FC = () => {
           <Ionicons name="arrow-back" size={22} color={colors.text.white} />
         </TouchableOpacity>
 
-        <View style={styles.headerTextWrap}>
-          <Text style={styles.headerArabic}>القرآن الكريم</Text>
-          <Text style={styles.headerTitle}>The Noble Quran</Text>
-          <Text style={styles.headerChapterCount}>{totalChapters} surahs</Text>
+        <View style={styles.headerContent}>
+          <View style={styles.headerTextWrap}>
+            <Text style={styles.headerArabic}>القرآن الكريم</Text>
+            <Text style={styles.headerTitle}>The Noble Quran</Text>
+            <Text style={styles.headerChapterCount}>{totalChapters} surahs</Text>
+          </View>
+
+          {overallProgress > 0 && (
+            <View style={styles.progressCircleWrap}>
+              <OverallProgressCircle progress={overallProgress} size={80} />
+              <Text style={styles.progressLabel}>Progress</Text>
+            </View>
+          )}
         </View>
 
         <Text style={styles.headerHint}>Select a chapter to begin reading</Text>
@@ -131,6 +148,7 @@ export const QuranChaptersScreen: React.FC = () => {
             key={String(chapter.id)}
             chapter={chapter}
             onPress={handleOpenChapter}
+            progress={getChapterProgress(chapter.id).progress}
           />
         ))}
       </ScrollView>
@@ -158,9 +176,15 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginBottom: spacing.xs,
   },
+  headerContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: spacing.md,
+  },
   headerTextWrap: {
     alignItems: "center",
-    marginBottom: spacing.lg,
+    flex: 1,
   },
   headerArabic: {
     fontSize: 24,
@@ -176,6 +200,15 @@ const styles = StyleSheet.create({
   headerChapterCount: {
     fontSize: 13,
     color: "rgba(255, 255, 255, 0.65)",
+  },
+  progressCircleWrap: {
+    alignItems: "center",
+    marginLeft: spacing.md,
+  },
+  progressLabel: {
+    fontSize: 11,
+    color: "rgba(255, 255, 255, 0.7)",
+    marginTop: 4,
   },
   headerHint: {
     fontSize: 13,

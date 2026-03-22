@@ -21,6 +21,7 @@ import { colors, spacing, typography, borderRadius } from "@/theme";
 import { quranService } from "@/services/quranService";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { useBookmarks } from "@/contexts/BookmarkContext";
+import { useQuranProgress } from "@/contexts/QuranProgressContext";
 import type { QuranVerse } from "@/types/quran";
 import type { RootStackParamList } from "@/navigation/AppNavigator";
 import type { ViewMode } from "@/components/quran/ViewModeToggle";
@@ -110,6 +111,7 @@ export const QuranReadScreen: React.FC = () => {
   const { chapterId: initialChapterId, chapterName: initialChapterName, chapterArabicName: initialChapterArabicName, versesCount: initialVersesCount } = route.params;
   const { userProfile } = useUserProfile();
   const { isVerseBookmarked, toggleVerseBookmark } = useBookmarks();
+  const { updateReadProgress, getChapterProgress } = useQuranProgress();
 
   // Track current chapter ID internally for navigation
   const [currentChapterId, setCurrentChapterId] = useState(initialChapterId);
@@ -161,6 +163,7 @@ export const QuranReadScreen: React.FC = () => {
 
   const [viewMode, setViewMode] = useState<ViewMode>(defaultViewMode);
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
+  const [hasRestoredPosition, setHasRestoredPosition] = useState(false);
   const progressAnim = useRef(new Animated.Value(0)).current;
   const flatListRef = useRef<FlatList>(null);
 
@@ -210,6 +213,37 @@ export const QuranReadScreen: React.FC = () => {
   useEffect(() => {
     setCurrentPageIndex((prev) => Math.min(prev, Math.max(readPages.length - 1, 0)));
   }, [readPages.length]);
+
+  // Restore last read position when entering the chapter
+  useEffect(() => {
+    if (hasRestoredPosition || readPages.length === 0) return;
+
+    const savedProgress = getChapterProgress(currentChapterId);
+    if (savedProgress.lastReadVerse > 1) {
+      // Find the page index for the saved verse
+      const targetPageIndex = readPages.findIndex(
+        (page) => page.verseNumber >= savedProgress.lastReadVerse
+      );
+      if (targetPageIndex > 0) {
+        // Delay scroll to ensure FlatList is ready
+        setTimeout(() => {
+          flatListRef.current?.scrollToIndex({
+            index: targetPageIndex,
+            animated: false,
+          });
+          setCurrentPageIndex(targetPageIndex);
+        }, 100);
+      }
+    }
+    setHasRestoredPosition(true);
+  }, [currentChapterId, readPages, hasRestoredPosition, getChapterProgress]);
+
+  // Track reading progress when page changes
+  useEffect(() => {
+    if (currentVerseProgress > 0 && totalVerses > 0) {
+      updateReadProgress(currentChapterId, currentVerseProgress, totalVerses);
+    }
+  }, [currentChapterId, currentVerseProgress, totalVerses, updateReadProgress]);
 
   // Update progress bar animation
   useEffect(() => {
@@ -306,6 +340,7 @@ export const QuranReadScreen: React.FC = () => {
         setCurrentChapterArabicName(newChapterInfo.arabicName);
         setCurrentChapterVersesCount(newChapterInfo.versesCount);
         setCurrentPageIndex(0);
+        setHasRestoredPosition(true); // Don't restore position when navigating between chapters
 
         // Reset scroll position
         flatListRef.current?.scrollToOffset({ offset: 0, animated: false });
@@ -478,7 +513,8 @@ export const QuranReadScreen: React.FC = () => {
           onPress={handleGoBack}
           activeOpacity={0.7}
         >
-          <Ionicons name="arrow-back" size={22} color={colors.text.primary} />
+          <Ionicons name="arrow-back" size={22} color={colors.primary} />
+          <Text style={styles.backButtonText}>Back to Chapters</Text>
         </TouchableOpacity>
 
         <View style={styles.headerCenter}>
@@ -646,12 +682,15 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.border,
   },
   backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.surface,
+    flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
+    paddingVertical: spacing.xs,
+  },
+  backButtonText: {
+    ...typography.body,
+    color: colors.primary,
+    fontWeight: "600",
+    marginLeft: spacing.xs,
   },
   headerCenter: {
     flex: 1,
