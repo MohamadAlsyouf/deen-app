@@ -1457,6 +1457,7 @@ export const WebQuranContent: React.FC<WebQuranContentProps> = ({
   const readTransition = useRef(new Animated.Value(1)).current;
   const readScreenEntrance = useRef(new Animated.Value(1)).current;
   const readTransitionDirectionRef = useRef<1 | -1>(1);
+  const hasRestoredReadPosition = useRef<number | null>(null); // Track which chapter we restored for
 
   // Chapter transition animation
   const chapterTranslateX = useRef(new Animated.Value(0)).current;
@@ -1487,7 +1488,7 @@ export const WebQuranContent: React.FC<WebQuranContentProps> = ({
     toggleVerseBookmark,
     toggleChapterBookmark,
   } = useBookmarks();
-  const { getChapterProgress, getOverallProgress, updateListenProgress, updateReadProgress } = useQuranProgress();
+  const { getChapterProgress, getOverallProgress, updateListenProgress, updateReadProgress, loading: progressLoading } = useQuranProgress();
 
   const chaptersQuery = useQuery({
     queryKey: ["quranChapters"],
@@ -1655,12 +1656,58 @@ export const WebQuranContent: React.FC<WebQuranContentProps> = ({
     }
   }, [subScreen, subScreenData?.chapterId, subScreenData?.scrollToVerse]);
 
+  // Reset read state when chapter changes (but don't set index yet - let restoration effect handle it)
   useEffect(() => {
-    setCurrentReadVerseIndex(0);
     setIsReadTransitioning(false);
     readTransition.setValue(1);
     lastHighlightedVerseKey.current = null;
+    // Reset restoration tracking for new chapter
+    if (subScreenData?.chapterId !== hasRestoredReadPosition.current) {
+      hasRestoredReadPosition.current = null;
+    }
   }, [subScreenData?.chapterId, readTransition]);
+
+  // Restore last read position when entering read mode
+  useEffect(() => {
+    // Skip if not in read mode or no chapter selected
+    if (subScreen !== "chapter" || chapterMode !== "read" || !subScreenData?.chapterId) {
+      return;
+    }
+
+    // Skip if progress is still loading
+    if (progressLoading) {
+      return;
+    }
+
+    // Skip if we already restored for this chapter
+    if (hasRestoredReadPosition.current === subScreenData.chapterId) {
+      return;
+    }
+
+    // Skip if pages aren't loaded yet
+    if (readPages.length === 0) {
+      return;
+    }
+
+    // Mark as restored for this chapter
+    hasRestoredReadPosition.current = subScreenData.chapterId;
+
+    // Get saved progress
+    const savedProgress = getChapterProgress(subScreenData.chapterId);
+    if (savedProgress.lastReadVerse > 1) {
+      // Find the page index for the saved verse
+      const targetPageIndex = readPages.findIndex(
+        (page) => page.verseNumber >= savedProgress.lastReadVerse
+      );
+      if (targetPageIndex > 0) {
+        setCurrentReadVerseIndex(targetPageIndex);
+      } else {
+        setCurrentReadVerseIndex(0);
+      }
+    } else {
+      setCurrentReadVerseIndex(0);
+    }
+  }, [subScreen, chapterMode, subScreenData?.chapterId, progressLoading, readPages, getChapterProgress]);
 
   // Auto-scroll to highlighted verse
   useEffect(() => {

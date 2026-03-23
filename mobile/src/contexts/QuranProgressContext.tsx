@@ -304,14 +304,13 @@ export const QuranProgressProvider: React.FC<{ children: ReactNode }> = ({ child
 
       const existingChapter = current.chapters[chapterId] || createEmptyChapterProgress(chapterId);
 
-      // Only update if progress increased or verse changed
-      if (
-        readProgress <= existingChapter.readProgress &&
-        currentVerse === existingChapter.lastReadVerse
-      ) {
+      // Skip if verse hasn't changed (avoid unnecessary updates)
+      if (currentVerse === existingChapter.lastReadVerse) {
         return;
       }
 
+      // Always update lastReadVerse to track current position for restoration
+      // Keep the max progress achieved (don't decrease if user scrolls back)
       const updatedChapter: ChapterProgress = {
         ...existingChapter,
         readProgress: Math.max(readProgress, existingChapter.readProgress),
