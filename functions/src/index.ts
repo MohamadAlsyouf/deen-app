@@ -2,6 +2,8 @@ import { onRequest } from "firebase-functions/v2/https";
 import { defineSecret } from "firebase-functions/params";
 import { initializeApp } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
+import { readFileSync } from "fs";
+import * as path from "path";
 
 // Initialize Firebase Admin SDK
 initializeApp();
@@ -15,6 +17,33 @@ const QURAN_OAUTH_TOKEN_URL =
 const islamicApiKey = defineSecret("ISLAMIC_API_KEY");
 const quranClientId = defineSecret("QURAN_CLIENT_ID");
 const quranClientSecret = defineSecret("QURAN_CLIENT_SECRET");
+
+type SeedDua = {
+  title: string;
+  arabic: string;
+  latin: string;
+  translation: string;
+  notes: string | null;
+  benefits?: string | null;
+  fawaid?: string | null;
+  source: string | null;
+};
+
+type SeedCategoryMeta = {
+  id: string;
+  title: string;
+  titleArabic: string;
+  description: string;
+  icon: string;
+  gradientColors: [string, string];
+  featured?: boolean;
+  order?: number;
+};
+
+const readRepoJson = <T>(relativePath: string): T => {
+  const absolutePath = path.resolve(__dirname, "..", "..", relativePath);
+  return JSON.parse(readFileSync(absolutePath, "utf8")) as T;
+};
 
 /**
  * Proxy function for Asma ul Husna (99 Names of Allah) API
@@ -1240,5 +1269,69 @@ export const seedDuaData = onRequest({ cors: true }, async (req, res) => {
   } catch (error) {
     console.error("Error seeding dua data:", error);
     res.status(500).json({ error: "Failed to seed dua data" });
+  }
+});
+
+/**
+ * Curated dua seed function for the redesigned category-first experience.
+ * Reads the shared JSON datasets used by the app so Firestore can be reseeded
+ * with the expanded taxonomy whenever needed.
+ */
+export const seedCuratedDuaData = onRequest({ cors: true }, async (req, res) => {
+  if (req.method !== "POST") {
+    res.status(405).json({ error: "Method not allowed. Use POST request." });
+    return;
+  }
+
+  try {
+    const morningDuas = readRepoJson<SeedDua[]>("mobile/src/assets/data/dhikr-morning.json");
+    const eveningDuas = readRepoJson<SeedDua[]>("mobile/src/assets/data/dhikr-evening.json");
+    const dailyDuas = readRepoJson<SeedDua[]>("mobile/src/assets/data/dhikr-daily.json");
+    const afterSalahDuas = readRepoJson<SeedDua[]>("mobile/src/assets/data/dhikr-after-salah.json");
+    const curatedCategories = readRepoJson<SeedCategoryMeta[]>("mobile/src/assets/data/dua-categories.json");
+    const curatedExtra = readRepoJson<Record<string, SeedDua[]>>("mobile/src/assets/data/dua-curated-extra.json");
+
+    const duasByCategory: Record<string, SeedDua[]> = {
+      morning: morningDuas,
+      evening: eveningDuas,
+      daily: dailyDuas,
+      "after-salah": afterSalahDuas,
+      ...curatedExtra,
+    };
+
+    const categories = [...curatedCategories]
+      .sort((a, b) => (a.order ?? 999) - (b.order ?? 999))
+      .map((category) => ({
+        ...category,
+        count: duasByCategory[category.id]?.length ?? 0,
+      }));
+
+    const batch = db.batch();
+    const duaDataCollection = db.collection("duaData");
+
+    batch.set(duaDataCollection.doc("categories"), { items: categories });
+
+    Object.entries(duasByCategory).forEach(([categoryId, items]) => {
+      batch.set(duaDataCollection.doc(categoryId), { items });
+    });
+
+    await batch.commit();
+
+    const counts = Object.fromEntries(
+      Object.entries(duasByCategory).map(([categoryId, items]) => [categoryId, items.length])
+    );
+
+    res.status(200).json({
+      success: true,
+      message: "Curated dua data seeded successfully",
+      data: {
+        categories: categories.length,
+        ...counts,
+        total: Object.values(duasByCategory).reduce((sum, items) => sum + items.length, 0),
+      },
+    });
+  } catch (error) {
+    console.error("Error seeding curated dua data:", error);
+    res.status(500).json({ error: "Failed to seed curated dua data" });
   }
 });

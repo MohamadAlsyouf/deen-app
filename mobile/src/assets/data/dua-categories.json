@@ -1,0 +1,142 @@
+[
+  {
+    "id": "morning",
+    "title": "Morning",
+    "titleArabic": "أذكار الصباح",
+    "description": "Begin the day with adhkar and supplications traditionally read after Fajr until sunrise.",
+    "icon": "sunny-outline",
+    "gradientColors": ["#667eea", "#764ba2"],
+    "featured": true,
+    "order": 1
+  },
+  {
+    "id": "evening",
+    "title": "Evening",
+    "titleArabic": "أذكار المساء",
+    "description": "End the day with remembrance, protection, and gratitude as the evening sets in.",
+    "icon": "moon-outline",
+    "gradientColors": ["#30cfd0", "#330867"],
+    "featured": true,
+    "order": 2
+  },
+  {
+    "id": "daily",
+    "title": "Daily",
+    "titleArabic": "أدعية يومية",
+    "description": "Everyday duas for sleep, travel, eating, entering the home, and ordinary life moments.",
+    "icon": "calendar-outline",
+    "gradientColors": ["#11998e", "#38ef7d"],
+    "featured": true,
+    "order": 3
+  },
+  {
+    "id": "after-salah",
+    "title": "After Salah",
+    "titleArabic": "أذكار بعد الصلاة",
+    "description": "Post-prayer adhkar and Quranic recitations to continue remembrance after each salah.",
+    "icon": "hand-left-outline",
+    "gradientColors": ["#fa709a", "#fee140"],
+    "featured": true,
+    "order": 4
+  },
+  {
+    "id": "success-achievement",
+    "title": "Success & Achievement",
+    "titleArabic": "النجاح والتوفيق",
+    "description": "Duas for confidence, useful knowledge, accepted effort, and success in what you pursue.",
+    "icon": "trophy-outline",
+    "gradientColors": ["#2D9CDB", "#56CCF2"],
+    "featured": false,
+    "order": 5
+  },
+  {
+    "id": "rizq-barakah",
+    "title": "Rizq & Barakah",
+    "titleArabic": "الرزق والبركة",
+    "description": "Supplications for halal provision, blessing in wealth, and relief from financial strain.",
+    "icon": "wallet-outline",
+    "gradientColors": ["#11998e", "#6DD5A3"],
+    "featured": false,
+    "order": 6
+  },
+  {
+    "id": "guidance-clarity",
+    "title": "Guidance & Clarity",
+    "titleArabic": "الهداية والبصيرة",
+    "description": "Ask Allah for right judgment, steadfast hearts, clearer choices, and sound direction.",
+    "icon": "compass-outline",
+    "gradientColors": ["#7F5AF0", "#2CB67D"],
+    "featured": false,
+    "order": 7
+  },
+  {
+    "id": "protection-trials",
+    "title": "Protection & Trials",
+    "titleArabic": "الحفظ والابتلاء",
+    "description": "Supplications for safety from harm, evil, fear, hardship, and the unseen.",
+    "icon": "shield-checkmark-outline",
+    "gradientColors": ["#4C669F", "#3B5998"],
+    "featured": false,
+    "order": 8
+  },
+  {
+    "id": "calm-healing",
+    "title": "Calm & Healing",
+    "titleArabic": "السكينة والشفاء",
+    "description": "Duas for emotional calm, healing, hope, and relief from sadness or distress.",
+    "icon": "medkit-outline",
+    "gradientColors": ["#43C6AC", "#5B86E5"],
+    "featured": false,
+    "order": 9
+  },
+  {
+    "id": "ease-relief",
+    "title": "Ease & Relief",
+    "titleArabic": "اليسر والفرج",
+    "description": "Turn to Allah when matters feel heavy and ask for openings, ease, and patient relief.",
+    "icon": "partly-sunny-outline",
+    "gradientColors": ["#F2994A", "#F2C94C"],
+    "featured": false,
+    "order": 10
+  },
+  {
+    "id": "family-relationships",
+    "title": "Family & Relationships",
+    "titleArabic": "الأسرة والعلاقات",
+    "description": "Duas for spouses, parents, children, unity, mercy, and healthy relationships.",
+    "icon": "people-outline",
+    "gradientColors": ["#E96443", "#904E95"],
+    "featured": false,
+    "order": 11
+  },
+  {
+    "id": "forgiveness-hereafter",
+    "title": "Forgiveness & Hereafter",
+    "titleArabic": "المغفرة والآخرة",
+    "description": "Supplications for repentance, mercy, Jannah, a good ending, and protection from the Fire.",
+    "icon": "sparkles-outline",
+    "gradientColors": ["#614385", "#516395"],
+    "featured": false,
+    "order": 12
+  },
+  {
+    "id": "wellbeing-gratitude",
+    "title": "Well-Being & Gratitude",
+    "titleArabic": "العافية والشكر",
+    "description": "Supplications for gratitude, wholesome living, inner contentment, and lasting well-being.",
+    "icon": "heart-outline",
+    "gradientColors": ["#2F80ED", "#56CCF2"],
+    "featured": false,
+    "order": 13
+  },
+  {
+    "id": "general-blessings",
+    "title": "General Blessings",
+    "titleArabic": "الخيرات الجامعة",
+    "description": "Comprehensive duas for well-being, gratitude, mercy, and goodness in this life and the next.",
+    "icon": "gift-outline",
+    "gradientColors": ["#0F9B8E", "#38EF7D"],
+    "featured": false,
+    "order": 14
+  }
+]

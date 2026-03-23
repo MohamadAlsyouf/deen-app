@@ -1,8 +1,4 @@
-/**
- * WebDuaContent - Dua/Supplication with beautiful UI
- */
-
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -12,301 +8,271 @@ import {
   ActivityIndicator,
   useWindowDimensions,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 import { colors, borderRadius } from '@/theme';
 import { useWebHover } from '@/hooks/useWebHover';
 import { duaService } from '@/services/duaService';
-import type { Dua, DuaCategory, DuaCategoryInfo } from '@/types/dua';
+import type { Dua, DuaCategoryInfo } from '@/types/dua';
 
-// Category card component
-interface CategoryCardProps {
+const CategoryCard: React.FC<{
   category: DuaCategoryInfo;
-  isActive: boolean;
   onPress: () => void;
-}
-
-const CategoryCard: React.FC<CategoryCardProps> = ({ category, isActive, onPress }) => {
+}> = ({ category, onPress }) => {
   const hover = useWebHover({
-    hoverStyle: isActive ? {} : {
-      transform: 'translateY(-4px) scale(1.02)',
-      boxShadow: '0 16px 32px rgba(0, 0, 0, 0.15)',
+    hoverStyle: {
+      transform: 'translateY(-4px)',
+      boxShadow: '0 16px 36px rgba(0, 0, 0, 0.12)',
     },
-    transition: 'all 0.3s ease-out',
+    transition: 'all 0.25s ease-out',
   });
 
   return (
     <TouchableOpacity
       onPress={onPress}
-      activeOpacity={0.9}
+      activeOpacity={0.92}
       // @ts-ignore
       onMouseEnter={hover.handlers.onMouseEnter}
       onMouseLeave={hover.handlers.onMouseLeave}
       style={[styles.categoryCard, hover.style]}
     >
-      <LinearGradient
-        colors={isActive ? category.gradientColors : ['#F8F9FA', '#E9ECEF']}
-        style={styles.categoryCardGradient}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-      >
-        <View style={[
-          styles.categoryIconWrap,
-          { backgroundColor: isActive ? 'rgba(255,255,255,0.2)' : `${category.gradientColors[0]}15` }
-        ]}>
-          <Ionicons
-            name={category.icon as any}
-            size={28}
-            color={isActive ? 'rgba(255,255,255,0.95)' : category.gradientColors[0]}
-          />
+      <View style={styles.categoryTopRow}>
+        <View style={[styles.categoryIconWrap, { backgroundColor: `${category.gradientColors[0]}14` }]}>
+          <Ionicons name={category.icon as any} size={24} color={category.gradientColors[0]} />
         </View>
-        <Text style={[styles.categoryArabic, isActive && styles.categoryArabicActive]}>
-          {category.titleArabic}
-        </Text>
-        <Text style={[styles.categoryTitle, isActive && styles.categoryTitleActive]}>
-          {category.title}
-        </Text>
-        <Text style={[styles.categoryDescription, isActive && styles.categoryDescriptionActive]}>
-          {category.description}
-        </Text>
-        <View style={[
-          styles.categoryCount,
-          { backgroundColor: isActive ? 'rgba(255,255,255,0.2)' : `${category.gradientColors[0]}15` }
-        ]}>
-          <Text style={[styles.categoryCountText, isActive && styles.categoryCountTextActive]}>
+        <View style={[styles.categoryCountBadge, { backgroundColor: `${category.gradientColors[0]}14` }]}>
+          <Text style={[styles.categoryCountBadgeText, { color: category.gradientColors[0] }]}>
             {category.count} duas
           </Text>
         </View>
-        {isActive && (
-          <View style={styles.activeCheck}>
-            <Ionicons name="checkmark-circle" size={24} color="rgba(255,255,255,0.9)" />
-          </View>
-        )}
-      </LinearGradient>
+      </View>
+      <Text style={styles.categoryTitle}>{category.title}</Text>
+      <Text style={styles.categoryArabic}>{category.titleArabic}</Text>
+      <Text style={styles.categoryDescription}>{category.description}</Text>
     </TouchableOpacity>
   );
 };
 
-// Dua card component
-interface DuaCardProps {
+const DuaListItem: React.FC<{
   dua: Dua;
   index: number;
-  gradientColors: [string, string];
-}
-
-const DuaCard: React.FC<DuaCardProps> = ({ dua, index, gradientColors }) => {
+  accentColor: string;
+}> = ({ dua, index, accentColor }) => {
   const [expanded, setExpanded] = useState(false);
-
   const hover = useWebHover({
     hoverStyle: {
-      transform: 'translateY(-4px)',
-      boxShadow: '0 16px 40px rgba(0, 0, 0, 0.12)',
+      transform: 'translateY(-2px)',
+      boxShadow: '0 10px 28px rgba(0, 0, 0, 0.08)',
     },
-    transition: 'all 0.3s ease-out',
+    transition: 'all 0.2s ease-out',
   });
-
   const benefits = dua.benefits || dua.fawaid;
 
   return (
     <TouchableOpacity
-      onPress={() => setExpanded(!expanded)}
-      activeOpacity={0.95}
+      onPress={() => setExpanded((value) => !value)}
+      activeOpacity={0.94}
       // @ts-ignore
       onMouseEnter={hover.handlers.onMouseEnter}
       onMouseLeave={hover.handlers.onMouseLeave}
-      style={[
-        styles.duaCard,
-        hover.style,
-        {
-          // @ts-ignore
-          animationName: 'fadeInUp',
-          animationDuration: '0.5s',
-          animationTimingFunction: 'ease-out',
-          animationFillMode: 'forwards',
-          animationDelay: `${index * 0.05}s`,
-          opacity: 0,
-        },
-      ]}
+      style={[styles.duaItem, hover.style]}
     >
-      {/* Header with gradient accent */}
-      <View style={[styles.duaAccent, { backgroundColor: gradientColors[0] }]} />
-
-      <View style={styles.duaContent}>
-        {/* Title and notes */}
-        <View style={styles.duaHeader}>
-          <View style={[styles.duaIndex, { backgroundColor: `${gradientColors[0]}15` }]}>
-            <Text style={[styles.duaIndexText, { color: gradientColors[0] }]}>{index + 1}</Text>
+      <View style={styles.duaItemTop}>
+        <View style={styles.duaTitleSection}>
+          <View style={[styles.duaIndexBadge, { backgroundColor: `${accentColor}14` }]}>
+            <Text style={[styles.duaIndexText, { color: accentColor }]}>{index + 1}</Text>
           </View>
           <View style={styles.duaTitleWrap}>
             <Text style={styles.duaTitle}>{dua.title}</Text>
-            {dua.notes && (
-              <View style={[styles.duaNoteBadge, { backgroundColor: `${gradientColors[0]}15` }]}>
-                <Text style={[styles.duaNoteText, { color: gradientColors[0] }]}>{dua.notes}</Text>
+            {dua.notes ? (
+              <View style={[styles.noteBadge, { backgroundColor: `${accentColor}14` }]}>
+                <Text style={[styles.noteBadgeText, { color: accentColor }]}>{dua.notes}</Text>
               </View>
-            )}
+            ) : null}
           </View>
         </View>
 
-        {/* Arabic text */}
-        <View style={styles.duaArabicContainer}>
-          <Text style={styles.duaArabic}>{dua.arabic}</Text>
-        </View>
-
-        {/* Transliteration */}
-        <Text style={styles.duaLatin}>{dua.latin}</Text>
-
-        {/* Translation */}
-        <Text style={styles.duaTranslation}>{dua.translation}</Text>
-
-        {/* Expanded content */}
-        {expanded && (benefits || dua.source) && (
-          <View style={styles.duaExpanded}>
-            <View style={[styles.duaDivider, { backgroundColor: `${gradientColors[0]}30` }]} />
-
-            {benefits && (
-              <View style={styles.duaSection}>
-                <View style={styles.duaSectionHeader}>
-                  <Ionicons name="sparkles" size={16} color={gradientColors[0]} />
-                  <Text style={[styles.duaSectionTitle, { color: gradientColors[0] }]}>Benefits</Text>
-                </View>
-                <Text style={styles.duaSectionText}>{benefits}</Text>
-              </View>
-            )}
-
-            {dua.source && (
-              <View style={styles.duaSection}>
-                <View style={styles.duaSectionHeader}>
-                  <Ionicons name="book-outline" size={16} color={gradientColors[0]} />
-                  <Text style={[styles.duaSectionTitle, { color: gradientColors[0] }]}>Source</Text>
-                </View>
-                <Text style={styles.duaSourceText}>{dua.source}</Text>
-              </View>
-            )}
-          </View>
-        )}
-
-        {/* Expand hint */}
-        {(benefits || dua.source) && (
-          <View style={styles.duaExpandHint}>
-            <Text style={styles.duaExpandText}>
-              {expanded ? 'Tap to collapse' : 'Tap for benefits & source'}
-            </Text>
-            <Ionicons
-              name={expanded ? 'chevron-up' : 'chevron-down'}
-              size={16}
-              color={colors.text.tertiary}
-            />
-          </View>
-        )}
+        <Ionicons
+          name={expanded ? 'chevron-up-outline' : 'chevron-down-outline'}
+          size={20}
+          color={colors.text.tertiary}
+        />
       </View>
+
+      {expanded ? (
+        <View style={styles.duaExpanded}>
+          <View style={[styles.inlineDivider, { backgroundColor: `${accentColor}22` }]} />
+          <Text style={styles.duaArabicText}>{dua.arabic}</Text>
+          <Text style={styles.duaLatinText}>{dua.latin}</Text>
+          <Text style={styles.duaTranslationText}>{dua.translation}</Text>
+
+          {benefits ? (
+            <View style={styles.metaBlock}>
+              <Text style={[styles.metaLabel, { color: accentColor }]}>Benefits</Text>
+              <Text style={styles.metaText}>{benefits}</Text>
+            </View>
+          ) : null}
+
+          {dua.source ? (
+            <View style={styles.metaBlock}>
+              <Text style={[styles.metaLabel, { color: accentColor }]}>Source</Text>
+              <Text style={styles.metaText}>{dua.source}</Text>
+            </View>
+          ) : null}
+        </View>
+      ) : null}
     </TouchableOpacity>
   );
 };
 
 export const WebDuaContent: React.FC = () => {
-  const [activeCategory, setActiveCategory] = useState<DuaCategory>('morning');
   const { width } = useWindowDimensions();
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
 
-  const isCompact = width < 600;
-  const isMedium = width >= 600 && width < 900;
-  const isWide = width >= 900;
-
-  // Fetch categories
   const categoriesQuery = useQuery({
     queryKey: ['dua-categories'],
     queryFn: duaService.getCategories,
   });
 
-  // Fetch duas for active category
+  const categories = categoriesQuery.data ?? [];
+  const featuredCategories = useMemo(
+    () => categories.filter((category) => category.featured),
+    [categories]
+  );
+  const allCategories = useMemo(
+    () => categories.filter((category) => !category.featured),
+    [categories]
+  );
+
+  const selectedCategory = categories.find((category) => category.id === selectedCategoryId) ?? null;
+  const activeCategory = selectedCategoryId ? selectedCategory : null;
+
   const duasQuery = useQuery({
-    queryKey: ['duas', activeCategory],
-    queryFn: () => duaService.getDuasByCategory(activeCategory),
+    queryKey: ['duas', selectedCategoryId],
+    queryFn: () => duaService.getDuasByCategory(selectedCategoryId ?? ''),
+    enabled: Boolean(selectedCategoryId),
   });
 
-  const activeGradient: [string, string] = categoriesQuery.data?.find(c => c.id === activeCategory)?.gradientColors || ['#667eea', '#764ba2'];
+  const currentAccent = activeCategory?.gradientColors[0] ?? colors.primary;
+  const featuredColumns = width < 900 ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)';
+  const allColumns = width < 780 ? 'repeat(2, 1fr)' : width < 1120 ? 'repeat(3, 1fr)' : 'repeat(4, 1fr)';
 
   return (
     <ScrollView
       style={styles.scrollView}
-      contentContainerStyle={[
-        styles.scrollContent,
-        isCompact && styles.scrollContentCompact,
-      ]}
+      contentContainerStyle={styles.scrollContent}
       showsVerticalScrollIndicator={false}
     >
-      {/* Header */}
-      <View style={styles.pageHeader}>
-        <View style={[styles.pageHeaderIcon, { backgroundColor: `${activeGradient[0]}12` }]}>
-          <Ionicons name="hand-left" size={36} color={activeGradient[0]} />
-        </View>
-        <Text style={styles.pageTitle}>Dua & Dhikr</Text>
-        <Text style={styles.pageArabic}>الدعاء والذكر</Text>
-        <Text style={styles.pageSubtitle}>
-          Strengthen your connection with Allah through daily supplications and remembrance
-        </Text>
-      </View>
-
-      {/* Categories */}
-      {categoriesQuery.isLoading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={activeGradient[0]} />
-        </View>
-      ) : categoriesQuery.data && (
+      {!selectedCategoryId ? (
         <>
-          <Text style={styles.sectionTitle}>Select a Category</Text>
-          <View style={[
-            styles.categoriesGrid,
-            isMedium && styles.categoriesGridMedium,
-            isWide && styles.categoriesGridWide,
-          ]}>
-            {categoriesQuery.data.map((category) => (
-              <CategoryCard
-                key={category.id}
-                category={category}
-                isActive={activeCategory === category.id}
-                onPress={() => setActiveCategory(category.id as DuaCategory)}
-              />
-            ))}
+          <View style={styles.hero}>
+            <View style={styles.heroIcon}>
+              <Ionicons name="hand-left-outline" size={34} color={colors.primary} />
+            </View>
+            <Text style={styles.heroTitle}>Dua & Dhikr</Text>
+            <Text style={styles.heroArabic}>الدعاء والذكر</Text>
+            <Text style={styles.heroSubtitle}>
+              Start from categories, then open only the supplications that fit that moment in your day.
+            </Text>
           </View>
+
+          {categoriesQuery.isLoading ? (
+            <View style={styles.loadingState}>
+              <ActivityIndicator size="large" color={colors.primary} />
+              <Text style={styles.loadingText}>Loading categories...</Text>
+            </View>
+          ) : categoriesQuery.isError ? (
+            <View style={styles.errorState}>
+              <Ionicons name="alert-circle-outline" size={56} color={colors.error} />
+              <Text style={styles.errorTitle}>Failed to load categories</Text>
+              <Text style={styles.errorText}>Please try again later.</Text>
+            </View>
+          ) : (
+            <>
+              <View style={styles.sectionBlock}>
+                <Text style={styles.sectionLabel}>Main Categories</Text>
+                <View
+                  style={[
+                    styles.categoryGrid,
+                    // @ts-ignore
+                    { gridTemplateColumns: featuredColumns },
+                  ]}
+                >
+                  {featuredCategories.map((category) => (
+                    <CategoryCard
+                      key={category.id}
+                      category={category}
+                      onPress={() => setSelectedCategoryId(category.id)}
+                    />
+                  ))}
+                </View>
+              </View>
+
+              <View style={[styles.sectionBlock, styles.allCategoriesSection]}>
+                <Text style={styles.sectionLabel}>All Categories</Text>
+                <View
+                  style={[
+                    styles.categoryGrid,
+                    // @ts-ignore
+                    { gridTemplateColumns: allColumns },
+                  ]}
+                >
+                  {allCategories.map((category) => (
+                    <CategoryCard
+                      key={category.id}
+                      category={category}
+                      onPress={() => setSelectedCategoryId(category.id)}
+                    />
+                  ))}
+                </View>
+              </View>
+            </>
+          )}
         </>
-      )}
+      ) : activeCategory ? (
+        <>
+          <TouchableOpacity onPress={() => setSelectedCategoryId(null)} activeOpacity={0.75} style={styles.backButton}>
+            <Ionicons name="arrow-back-outline" size={18} color={currentAccent} />
+            <Text style={[styles.backButtonText, { color: currentAccent }]}>Back to Categories</Text>
+          </TouchableOpacity>
 
-      {/* Duas List */}
-      {duasQuery.isLoading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={activeGradient[0]} />
-          <Text style={styles.loadingText}>Loading duas...</Text>
-        </View>
-      ) : duasQuery.isError ? (
-        <View style={styles.errorContainer}>
-          <Ionicons name="alert-circle-outline" size={64} color={colors.error} />
-          <Text style={styles.errorTitle}>Failed to load duas</Text>
-          <Text style={styles.errorText}>Please try again later</Text>
-        </View>
-      ) : duasQuery.data && (
-        <View style={styles.duasSection}>
-          <View style={styles.duasSectionHeader}>
-            <Text style={[styles.duasSectionTitle, { color: activeGradient[0] }]}>
-              {categoriesQuery.data?.find(c => c.id === activeCategory)?.title || 'Duas'}
-            </Text>
-            <Text style={styles.duasSectionSubtitle}>
-              {duasQuery.data.length} supplications
+          <View style={styles.detailHero}>
+            <View style={[styles.detailHeroIcon, { backgroundColor: `${currentAccent}14` }]}>
+              <Ionicons name={activeCategory.icon as any} size={24} color={currentAccent} />
+            </View>
+            <Text style={styles.detailHeroTitle}>{activeCategory.title}</Text>
+            <Text style={styles.detailHeroArabic}>{activeCategory.titleArabic}</Text>
+            <Text style={styles.detailHeroDescription}>{activeCategory.description}</Text>
+            <Text style={[styles.detailHeroCount, { color: currentAccent }]}>
+              {activeCategory.count} supplications
             </Text>
           </View>
 
-          <View style={styles.duasList}>
-            {duasQuery.data.map((dua, index) => (
-              <DuaCard
-                key={`${activeCategory}-${index}`}
-                dua={dua}
-                index={index}
-                gradientColors={activeGradient}
-              />
-            ))}
-          </View>
-        </View>
-      )}
+          {duasQuery.isLoading ? (
+            <View style={styles.loadingState}>
+              <ActivityIndicator size="large" color={currentAccent} />
+              <Text style={styles.loadingText}>Loading duas...</Text>
+            </View>
+          ) : duasQuery.isError ? (
+            <View style={styles.errorState}>
+              <Ionicons name="alert-circle-outline" size={56} color={colors.error} />
+              <Text style={styles.errorTitle}>Failed to load duas</Text>
+              <Text style={styles.errorText}>Please try again or select another category.</Text>
+            </View>
+          ) : (
+            <View style={styles.duaList}>
+              {(duasQuery.data ?? []).map((dua, index) => (
+                <DuaListItem
+                  key={`${activeCategory.id}-${index}-${dua.title}`}
+                  dua={dua}
+                  index={index}
+                  accentColor={currentAccent}
+                />
+              ))}
+            </View>
+          )}
+        </>
+      ) : null}
     </ScrollView>
   );
 };
@@ -319,212 +285,219 @@ const styles = StyleSheet.create({
     padding: 32,
     paddingBottom: 80,
     // @ts-ignore
-    maxWidth: 1200,
+    maxWidth: 1240,
     marginHorizontal: 'auto',
     width: '100%',
   },
-  scrollContentCompact: {
-    padding: 20,
-  },
-
-  // Page header
-  pageHeader: {
+  hero: {
     alignItems: 'center',
-    marginBottom: 48,
+    marginBottom: 36,
   },
-  pageHeaderIcon: {
-    width: 88,
-    height: 88,
-    borderRadius: 24,
+  heroIcon: {
+    width: 84,
+    height: 84,
+    borderRadius: 26,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 24,
+    backgroundColor: `${colors.primary}12`,
+    marginBottom: 20,
   },
-  pageTitle: {
-    fontSize: 40,
-    fontWeight: '700',
+  heroTitle: {
+    fontSize: 42,
+    fontWeight: '600',
     color: colors.text.primary,
-    marginBottom: 8,
+    marginBottom: 6,
     // @ts-ignore
     fontFamily: "'Cormorant Garamond', Georgia, serif",
   },
-  pageArabic: {
-    fontSize: 32,
+  heroArabic: {
+    fontSize: 30,
     color: colors.primary,
-    marginBottom: 16,
+    marginBottom: 14,
     // @ts-ignore
     fontFamily: "'Amiri', serif",
   },
-  pageSubtitle: {
+  heroSubtitle: {
     fontSize: 17,
+    lineHeight: 28,
     color: colors.text.secondary,
     textAlign: 'center',
-    maxWidth: 600,
-    lineHeight: 28,
+    maxWidth: 720,
     // @ts-ignore
     fontFamily: "'DM Sans', sans-serif",
   },
-
-  // Section title
-  sectionTitle: {
-    fontSize: 14,
-    fontWeight: '600',
+  sectionBlock: {
+    marginBottom: 40,
+  },
+  allCategoriesSection: {
+    marginTop: 26,
+    paddingTop: 28,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  sectionLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 1,
     color: colors.text.tertiary,
     textTransform: 'uppercase',
-    letterSpacing: 1.5,
-    marginBottom: 20,
-    textAlign: 'center',
+    marginBottom: 16,
     // @ts-ignore
     fontFamily: "'DM Sans', sans-serif",
   },
-
-  // Categories grid
-  categoriesGrid: {
-    gap: 20,
-    marginBottom: 48,
+  categoryGrid: {
     // @ts-ignore
     display: 'grid',
-    gridTemplateColumns: '1fr',
+    gap: 18,
   },
-  categoriesGridMedium: {
-    // @ts-ignore
-    gridTemplateColumns: 'repeat(2, 1fr)',
-  },
-  categoriesGridWide: {
-    // @ts-ignore
-    gridTemplateColumns: 'repeat(4, 1fr)',
-  },
-
-  // Category card
   categoryCard: {
-    borderRadius: borderRadius.xl,
-    overflow: 'hidden',
-    // @ts-ignore
-    boxShadow: '0 8px 24px rgba(0, 0, 0, 0.1)',
-    cursor: 'pointer',
-  },
-  categoryCardGradient: {
+    backgroundColor: colors.surface,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: colors.border,
     padding: 24,
-    position: 'relative',
+    height: 292,
+  },
+  categoryTopRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    marginBottom: 14,
   },
   categoryIconWrap: {
-    width: 56,
-    height: 56,
+    width: 48,
+    height: 48,
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 16,
   },
-  categoryArabic: {
-    fontSize: 22,
-    color: colors.text.primary,
-    marginBottom: 4,
+  categoryCountBadge: {
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  categoryCountBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
     // @ts-ignore
-    fontFamily: "'Amiri', serif",
-  },
-  categoryArabicActive: {
-    color: 'rgba(255, 255, 255, 0.9)',
+    fontFamily: "'DM Sans', sans-serif",
   },
   categoryTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.text.primary,
-    marginBottom: 8,
-    // @ts-ignore
-    fontFamily: "'DM Sans', sans-serif",
-  },
-  categoryTitleActive: {
-    color: colors.text.white,
-  },
-  categoryDescription: {
-    fontSize: 14,
-    color: colors.text.secondary,
-    lineHeight: 20,
-    marginBottom: 16,
-    // @ts-ignore
-    fontFamily: "'DM Sans', sans-serif",
-  },
-  categoryDescriptionActive: {
-    color: 'rgba(255, 255, 255, 0.8)',
-  },
-  categoryCount: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-  },
-  categoryCountText: {
-    fontSize: 13,
+    fontSize: 23,
     fontWeight: '600',
-    // @ts-ignore
-    fontFamily: "'DM Sans', sans-serif",
-  },
-  categoryCountTextActive: {
-    color: colors.text.white,
-  },
-  activeCheck: {
-    position: 'absolute',
-    top: 16,
-    right: 16,
-  },
-
-  // Duas section
-  duasSection: {
-    marginTop: 16,
-  },
-  duasSectionHeader: {
-    marginBottom: 24,
-  },
-  duasSectionTitle: {
-    fontSize: 28,
-    fontWeight: '700',
-    marginBottom: 8,
+    color: colors.text.primary,
+    marginBottom: 4,
+    minHeight: 62,
     // @ts-ignore
     fontFamily: "'Cormorant Garamond', Georgia, serif",
   },
-  duasSectionSubtitle: {
-    fontSize: 15,
+  categoryArabic: {
+    fontSize: 18,
+    color: colors.primary,
+    marginBottom: 10,
+    // @ts-ignore
+    fontFamily: "'Amiri', serif",
+  },
+  categoryDescription: {
+    fontSize: 14,
+    lineHeight: 23,
     color: colors.text.secondary,
+    flex: 1,
+    marginBottom: 18,
     // @ts-ignore
     fontFamily: "'DM Sans', sans-serif",
   },
-
-  // Duas list
-  duasList: {
-    gap: 20,
-  },
-
-  // Dua card
-  duaCard: {
-    backgroundColor: colors.background,
-    borderRadius: borderRadius.xl,
-    overflow: 'hidden',
-    // @ts-ignore
-    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08)',
-    cursor: 'pointer',
-  },
-  duaAccent: {
-    height: 4,
-    width: '100%',
-  },
-  duaContent: {
-    padding: 24,
-  },
-  duaHeader: {
+  backButton: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
+    gap: 8,
+    alignSelf: 'flex-start',
+    marginBottom: 18,
+  },
+  backButtonText: {
+    fontSize: 15,
+    fontWeight: '700',
+    // @ts-ignore
+    fontFamily: "'DM Sans', sans-serif",
+  },
+  detailHero: {
+    backgroundColor: colors.surface,
+    borderRadius: 28,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 28,
     marginBottom: 20,
   },
-  duaIndex: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
+  detailHeroIcon: {
+    width: 52,
+    height: 52,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 16,
+    marginBottom: 16,
+  },
+  detailHeroTitle: {
+    fontSize: 34,
+    fontWeight: '600',
+    color: colors.text.primary,
+    marginBottom: 4,
+    // @ts-ignore
+    fontFamily: "'Cormorant Garamond', Georgia, serif",
+  },
+  detailHeroArabic: {
+    fontSize: 24,
+    color: colors.primary,
+    marginBottom: 12,
+    // @ts-ignore
+    fontFamily: "'Amiri', serif",
+  },
+  detailHeroDescription: {
+    fontSize: 15,
+    lineHeight: 25,
+    color: colors.text.secondary,
+    marginBottom: 10,
+    maxWidth: 720,
+    // @ts-ignore
+    fontFamily: "'DM Sans', sans-serif",
+  },
+  detailHeroCount: {
+    fontSize: 13,
+    fontWeight: '700',
+    // @ts-ignore
+    fontFamily: "'DM Sans', sans-serif",
+  },
+  duaList: {
+    gap: 14,
+  },
+  duaItem: {
+    backgroundColor: colors.surface,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 24,
+  },
+  duaItemTop: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  duaTitleSection: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    flex: 1,
+  },
+  duaIndexBadge: {
+    width: 32,
+    height: 32,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+    marginTop: 2,
   },
   duaIndexText: {
-    fontSize: 16,
+    fontSize: 13,
     fontWeight: '700',
     // @ts-ignore
     fontFamily: "'DM Sans', sans-serif",
@@ -533,143 +506,106 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   duaTitle: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: 21,
+    fontWeight: '700',
     color: colors.text.primary,
     marginBottom: 8,
     // @ts-ignore
-    fontFamily: "'DM Sans', sans-serif",
-  },
-  duaNoteBadge: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-  duaNoteText: {
-    fontSize: 12,
-    fontWeight: '600',
-    // @ts-ignore
-    fontFamily: "'DM Sans', sans-serif",
-  },
-  duaArabicContainer: {
-    backgroundColor: '#FAFAFA',
-    borderRadius: 12,
-    padding: 20,
-    marginBottom: 16,
-  },
-  duaArabic: {
-    fontSize: 26,
-    color: colors.text.primary,
-    textAlign: 'right',
-    lineHeight: 48,
-    // @ts-ignore
-    fontFamily: "'Amiri', serif",
-    direction: 'rtl',
-  },
-  duaLatin: {
-    fontSize: 15,
-    color: colors.text.secondary,
-    fontStyle: 'italic',
-    marginBottom: 12,
-    lineHeight: 24,
-    // @ts-ignore
     fontFamily: "'Cormorant Garamond', Georgia, serif",
   },
-  duaTranslation: {
-    fontSize: 15,
-    color: colors.text.primary,
-    lineHeight: 26,
+  noteBadge: {
+    alignSelf: 'flex-start',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  noteBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
     // @ts-ignore
     fontFamily: "'DM Sans', sans-serif",
   },
   duaExpanded: {
-    marginTop: 20,
+    marginTop: 18,
   },
-  duaDivider: {
+  inlineDivider: {
     height: 1,
-    marginBottom: 20,
+    marginBottom: 18,
   },
-  duaSection: {
-    marginBottom: 16,
-  },
-  duaSectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  duaSectionTitle: {
-    fontSize: 13,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    marginLeft: 8,
-    // @ts-ignore
-    fontFamily: "'DM Sans', sans-serif",
-  },
-  duaSectionText: {
-    fontSize: 14,
+  duaArabicText: {
+    fontSize: 34,
+    lineHeight: 56,
+    textAlign: 'right',
     color: colors.text.primary,
-    lineHeight: 24,
+    marginBottom: 16,
     // @ts-ignore
-    fontFamily: "'DM Sans', sans-serif",
+    fontFamily: "'Amiri', serif",
   },
-  duaSourceText: {
-    fontSize: 13,
+  duaLatinText: {
+    fontSize: 15,
+    lineHeight: 25,
     color: colors.text.secondary,
     fontStyle: 'italic',
-    // @ts-ignore
-    fontFamily: "'Cormorant Garamond', Georgia, serif",
-  },
-  duaExpandHint: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 16,
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    gap: 4,
-  },
-  duaExpandText: {
-    fontSize: 13,
-    color: colors.text.tertiary,
+    marginBottom: 14,
     // @ts-ignore
     fontFamily: "'DM Sans', sans-serif",
   },
-
-  // Loading
-  loadingContainer: {
+  duaTranslationText: {
+    fontSize: 16,
+    lineHeight: 27,
+    color: colors.text.primary,
+    // @ts-ignore
+    fontFamily: "'DM Sans', sans-serif",
+  },
+  metaBlock: {
+    marginTop: 16,
+  },
+  metaLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    marginBottom: 6,
+    // @ts-ignore
+    fontFamily: "'DM Sans', sans-serif",
+  },
+  metaText: {
+    fontSize: 14,
+    lineHeight: 24,
+    color: colors.text.secondary,
+    // @ts-ignore
+    fontFamily: "'DM Sans', sans-serif",
+  },
+  loadingState: {
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 60,
+    paddingVertical: 80,
+    gap: 10,
   },
   loadingText: {
-    fontSize: 16,
+    fontSize: 15,
     color: colors.text.secondary,
-    marginTop: 16,
     // @ts-ignore
     fontFamily: "'DM Sans', sans-serif",
   },
-
-  // Error
-  errorContainer: {
+  errorState: {
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 60,
+    paddingVertical: 80,
   },
   errorTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: colors.error,
-    marginTop: 16,
-    marginBottom: 8,
+    fontSize: 24,
+    fontWeight: '700',
+    color: colors.text.primary,
+    marginTop: 14,
+    marginBottom: 6,
     // @ts-ignore
-    fontFamily: "'DM Sans', sans-serif",
+    fontFamily: "'Cormorant Garamond', Georgia, serif",
   },
   errorText: {
     fontSize: 15,
     color: colors.text.secondary,
+    textAlign: 'center',
     // @ts-ignore
     fontFamily: "'DM Sans', sans-serif",
   },

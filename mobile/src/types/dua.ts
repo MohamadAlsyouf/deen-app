@@ -13,7 +13,7 @@ export interface Dua {
   source: string | null;
 }
 
-export type DuaCategory = 'morning' | 'evening' | 'daily' | 'after-salah';
+export type DuaCategory = string;
 
 export interface DuaCategoryInfo {
   id: DuaCategory;
@@ -22,6 +22,8 @@ export interface DuaCategoryInfo {
   description: string;
   icon: string;
   gradientColors: [string, string];
+  featured?: boolean;
+  order?: number;
   count: number;
 }
 
