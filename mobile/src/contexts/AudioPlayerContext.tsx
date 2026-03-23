@@ -45,6 +45,7 @@ type AudioPlayerContextValue = {
   duration: number;
   highlightState: HighlightState;
   errorMessage: string | null;
+  didJustComplete: boolean; // True when playback finished without more loops
 
   // Reciter state
   reciters: NormalizedReciter[];
@@ -92,6 +93,7 @@ export const AudioPlayerProvider: React.FC<AudioPlayerProviderProps> = ({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [currentPosition, setCurrentPosition] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [didJustComplete, setDidJustComplete] = useState(false);
   const [selectedReciter, setSelectedReciter] = useState<NormalizedReciter | null>(null);
   const [audioFile, setAudioFile] = useState<ChapterAudioFile | null>(null);
   const [currentChapterId, setCurrentChapterId] = useState<number | null>(null);
@@ -272,6 +274,9 @@ export const AudioPlayerProvider: React.FC<AudioPlayerProviderProps> = ({
       if (!selectedReciter) {
         return;
       }
+
+      // Reset completion flag when loading new chapter
+      setDidJustComplete(false);
 
       // Prevent concurrent loads
       if (isLoadingRef.current) {
@@ -532,6 +537,9 @@ export const AudioPlayerProvider: React.FC<AudioPlayerProviderProps> = ({
       setCurrentPosition(resetPositionMs);
       setPlaybackState('paused');
 
+      // Signal that playback just completed (for completion overlay)
+      setDidJustComplete(true);
+
       // Reset highlight state
       setHighlightState({
         verseKey: null,
@@ -600,6 +608,9 @@ export const AudioPlayerProvider: React.FC<AudioPlayerProviderProps> = ({
     if (!playerRef.current || !audioFile) {
       return;
     }
+
+    // Reset completion flag when starting playback
+    setDidJustComplete(false);
 
     try {
       // If we have a start verse in the range, calculate the start position
@@ -808,6 +819,7 @@ export const AudioPlayerProvider: React.FC<AudioPlayerProviderProps> = ({
       duration,
       highlightState,
       errorMessage,
+      didJustComplete,
       reciters,
       selectedReciter,
       isLoadingReciters: recitersQuery.isLoading,
@@ -833,6 +845,7 @@ export const AudioPlayerProvider: React.FC<AudioPlayerProviderProps> = ({
       duration,
       highlightState,
       errorMessage,
+      didJustComplete,
       reciters,
       selectedReciter,
       recitersQuery.isLoading,

@@ -42,6 +42,7 @@ import {
   buildQuranReadPages,
   type QuranReadPage,
 } from "@/utils/quranReadPagination";
+import { ChapterCompletionOverlay } from "@/components/quran/ChapterCompletionOverlay";
 
 const PER_PAGE = 50;
 
@@ -107,12 +108,16 @@ const CHAPTER_CARD_THRESHOLDS = {
   chevron: { start: 85, end: 98 },
 };
 
-type CoverageState = 'none' | 'partial' | 'full';
+type CoverageState = "none" | "partial" | "full";
 
-const getCoverageState = (progress: number, start: number, end: number): CoverageState => {
-  if (progress < start) return 'none';
-  if (progress >= end) return 'full';
-  return 'partial';
+const getCoverageState = (
+  progress: number,
+  start: number,
+  end: number,
+): CoverageState => {
+  if (progress < start) return "none";
+  if (progress >= end) return "full";
+  return "partial";
 };
 
 const ChapterCard: React.FC<{
@@ -132,10 +137,26 @@ const ChapterCard: React.FC<{
   const clampedProgress = Math.min(100, Math.max(0, progress));
 
   // Determine coverage state for each element
-  const numberCoverage = getCoverageState(clampedProgress, CHAPTER_CARD_THRESHOLDS.number.start, CHAPTER_CARD_THRESHOLDS.number.end);
-  const infoCoverage = getCoverageState(clampedProgress, CHAPTER_CARD_THRESHOLDS.info.start, CHAPTER_CARD_THRESHOLDS.info.end);
-  const arabicCoverage = getCoverageState(clampedProgress, CHAPTER_CARD_THRESHOLDS.arabic.start, CHAPTER_CARD_THRESHOLDS.arabic.end);
-  const chevronCoverage = getCoverageState(clampedProgress, CHAPTER_CARD_THRESHOLDS.chevron.start, CHAPTER_CARD_THRESHOLDS.chevron.end);
+  const numberCoverage = getCoverageState(
+    clampedProgress,
+    CHAPTER_CARD_THRESHOLDS.number.start,
+    CHAPTER_CARD_THRESHOLDS.number.end,
+  );
+  const infoCoverage = getCoverageState(
+    clampedProgress,
+    CHAPTER_CARD_THRESHOLDS.info.start,
+    CHAPTER_CARD_THRESHOLDS.info.end,
+  );
+  const arabicCoverage = getCoverageState(
+    clampedProgress,
+    CHAPTER_CARD_THRESHOLDS.arabic.start,
+    CHAPTER_CARD_THRESHOLDS.arabic.end,
+  );
+  const chevronCoverage = getCoverageState(
+    clampedProgress,
+    CHAPTER_CARD_THRESHOLDS.chevron.start,
+    CHAPTER_CARD_THRESHOLDS.chevron.end,
+  );
 
   return (
     <TouchableOpacity
@@ -164,28 +185,90 @@ const ChapterCard: React.FC<{
           ]}
         />
       )}
-      <View style={[styles.chapterNumber, numberCoverage === 'full' && styles.chapterNumberWithProgress]}>
-        <Text style={[styles.chapterNumberText, numberCoverage === 'full' && styles.chapterNumberTextWithProgress]}>{chapter.id}</Text>
+      <View
+        style={[
+          styles.chapterNumber,
+          numberCoverage === "full" && styles.chapterNumberWithProgress,
+        ]}
+      >
+        <Text
+          style={[
+            styles.chapterNumberText,
+            numberCoverage === "full" && styles.chapterNumberTextWithProgress,
+          ]}
+        >
+          {chapter.id}
+        </Text>
       </View>
       <View style={styles.chapterInfo}>
-        <View style={[styles.chapterTextPill, infoCoverage === 'partial' && styles.chapterTextPillVisible]}>
-          <Text style={[styles.chapterName, infoCoverage === 'full' && styles.chapterTextWithProgress]}>{chapter.name_simple}</Text>
+        <View
+          style={[
+            styles.chapterTextPill,
+            infoCoverage === "partial" && styles.chapterTextPillVisible,
+          ]}
+        >
+          <Text
+            style={[
+              styles.chapterName,
+              infoCoverage === "full" && styles.chapterTextWithProgress,
+            ]}
+          >
+            {chapter.name_simple}
+          </Text>
         </View>
-        <View style={[styles.chapterTextPill, infoCoverage === 'partial' && styles.chapterTextPillVisible]}>
-          <Text style={[styles.chapterMeaning, infoCoverage === 'full' && styles.chapterMetaWithProgress]}>
+        <View
+          style={[
+            styles.chapterTextPill,
+            infoCoverage === "partial" && styles.chapterTextPillVisible,
+          ]}
+        >
+          <Text
+            style={[
+              styles.chapterMeaning,
+              infoCoverage === "full" && styles.chapterMetaWithProgress,
+            ]}
+          >
             {chapter.translated_name?.name}
           </Text>
         </View>
-        <View style={[styles.chapterTextPill, infoCoverage === 'partial' && styles.chapterTextPillVisible]}>
-          <Text style={[styles.chapterMeta, infoCoverage === 'full' && styles.chapterMetaWithProgress]}>
+        <View
+          style={[
+            styles.chapterTextPill,
+            infoCoverage === "partial" && styles.chapterTextPillVisible,
+          ]}
+        >
+          <Text
+            style={[
+              styles.chapterMeta,
+              infoCoverage === "full" && styles.chapterMetaWithProgress,
+            ]}
+          >
             {chapter.verses_count} verses • {chapter.revelation_place}
           </Text>
         </View>
       </View>
-      <View style={[styles.chapterArabic, arabicCoverage === 'partial' && styles.chapterArabicPillVisible]}>
-        <Text style={[styles.chapterArabicText, arabicCoverage === 'full' && styles.chapterTextWithProgress]}>{chapter.name_arabic}</Text>
+      <View
+        style={[
+          styles.chapterArabic,
+          arabicCoverage === "partial" && styles.chapterArabicPillVisible,
+        ]}
+      >
+        <Text
+          style={[
+            styles.chapterArabicText,
+            arabicCoverage === "full" && styles.chapterTextWithProgress,
+          ]}
+        >
+          {chapter.name_arabic}
+        </Text>
       </View>
-      <Ionicons name="chevron-forward" size={20} color={chevronCoverage === 'full' ? colors.text.white : colors.text.tertiary} />
+      <Ionicons
+        name="chevron-forward"
+        size={20}
+        color={
+          chevronCoverage === "full" ? colors.text.white : colors.text.tertiary
+        }
+      />
     </TouchableOpacity>
   );
 };
@@ -1445,12 +1528,14 @@ export const WebQuranContent: React.FC<WebQuranContentProps> = ({
   const [currentReadVerseIndex, setCurrentReadVerseIndex] = useState(0);
   const [isReadTransitioning, setIsReadTransitioning] = useState(false);
   const [isChapterTransitioning, setIsChapterTransitioning] = useState(false);
+  const [showCompletionOverlay, setShowCompletionOverlay] = useState(false);
   const [targetScrollVerse, setTargetScrollVerse] = useState<number | null>(
     subScreenData?.scrollToVerse ?? null,
   );
 
   // Refs for auto-scrolling
   const scrollViewRef = useRef<ScrollView>(null);
+  const chapterListScrollRef = useRef<ScrollView>(null);
   const verseRefs = useRef<Map<string, View>>(new Map());
   const lastHighlightedVerseKey = useRef<string | null>(null);
   const modeSelectEntrance = useRef(new Animated.Value(1)).current;
@@ -1458,6 +1543,11 @@ export const WebQuranContent: React.FC<WebQuranContentProps> = ({
   const readScreenEntrance = useRef(new Animated.Value(1)).current;
   const readTransitionDirectionRef = useRef<1 | -1>(1);
   const hasRestoredReadPosition = useRef<number | null>(null); // Track which chapter we restored for
+
+  // Refs for chapter list scroll position restoration
+  const chapterPositions = useRef<Map<number, number>>(new Map());
+  const lastOpenedChapterId = useRef<number | null>(null);
+  const shouldScrollToChapter = useRef(false);
 
   // Chapter transition animation
   const chapterTranslateX = useRef(new Animated.Value(0)).current;
@@ -1481,6 +1571,7 @@ export const WebQuranContent: React.FC<WebQuranContentProps> = ({
     pause,
     currentPosition,
     duration,
+    didJustComplete,
   } = useAudioPlayer();
   const {
     isVerseBookmarked,
@@ -1488,7 +1579,13 @@ export const WebQuranContent: React.FC<WebQuranContentProps> = ({
     toggleVerseBookmark,
     toggleChapterBookmark,
   } = useBookmarks();
-  const { getChapterProgress, getOverallProgress, updateListenProgress, updateReadProgress, loading: progressLoading } = useQuranProgress();
+  const {
+    getChapterProgress,
+    getOverallProgress,
+    updateListenProgress,
+    updateReadProgress,
+    loading: progressLoading,
+  } = useQuranProgress();
 
   const chaptersQuery = useQuery({
     queryKey: ["quranChapters"],
@@ -1607,7 +1704,15 @@ export const WebQuranContent: React.FC<WebQuranContentProps> = ({
     ) {
       updateListenProgress(subScreenData.chapterId, currentPosition, duration);
     }
-  }, [subScreen, chapterMode, subScreenData?.chapterId, currentPosition, duration, playbackState, updateListenProgress]);
+  }, [
+    subScreen,
+    chapterMode,
+    subScreenData?.chapterId,
+    currentPosition,
+    duration,
+    playbackState,
+    updateListenProgress,
+  ]);
 
   // Track reading progress when page changes in read mode
   useEffect(() => {
@@ -1620,10 +1725,29 @@ export const WebQuranContent: React.FC<WebQuranContentProps> = ({
     ) {
       const currentPage = readPages[currentReadVerseIndex];
       if (currentPage) {
-        updateReadProgress(subScreenData.chapterId, currentPage.verseNumber, totalVerses);
+        updateReadProgress(
+          subScreenData.chapterId,
+          currentPage.verseNumber,
+          totalVerses,
+        );
       }
     }
-  }, [subScreen, chapterMode, subScreenData?.chapterId, currentReadVerseIndex, readPages, totalVerses, updateReadProgress]);
+  }, [
+    subScreen,
+    chapterMode,
+    subScreenData?.chapterId,
+    currentReadVerseIndex,
+    readPages,
+    totalVerses,
+    updateReadProgress,
+  ]);
+
+  // Show completion overlay when audio playback finishes (listen mode)
+  useEffect(() => {
+    if (subScreen === "chapter" && chapterMode === "listen" && didJustComplete) {
+      setShowCompletionOverlay(true);
+    }
+  }, [subScreen, chapterMode, didJustComplete]);
 
   // Scroll to top when chapter changes (for next/previous chapter navigation)
   useEffect(() => {
@@ -1648,6 +1772,27 @@ export const WebQuranContent: React.FC<WebQuranContentProps> = ({
     }
   }, [subScreen, subScreenData?.chapterId]);
 
+  // Scroll to last opened chapter when returning to chapter list
+  useEffect(() => {
+    if (
+      subScreen === null &&
+      shouldScrollToChapter.current &&
+      lastOpenedChapterId.current !== null
+    ) {
+      shouldScrollToChapter.current = false;
+      const yPosition = chapterPositions.current.get(lastOpenedChapterId.current);
+      if (yPosition !== undefined && chapterListScrollRef.current) {
+        // Small delay to ensure layout is complete
+        setTimeout(() => {
+          chapterListScrollRef.current?.scrollTo({
+            y: yPosition - 100, // Offset to show some context above
+            animated: true,
+          });
+        }, 50);
+      }
+    }
+  }, [subScreen]);
+
   useEffect(() => {
     if (subScreen === "chapter") {
       setTargetScrollVerse(subScreenData?.scrollToVerse ?? null);
@@ -1670,7 +1815,11 @@ export const WebQuranContent: React.FC<WebQuranContentProps> = ({
   // Restore last read position when entering read mode
   useEffect(() => {
     // Skip if not in read mode or no chapter selected
-    if (subScreen !== "chapter" || chapterMode !== "read" || !subScreenData?.chapterId) {
+    if (
+      subScreen !== "chapter" ||
+      chapterMode !== "read" ||
+      !subScreenData?.chapterId
+    ) {
       return;
     }
 
@@ -1697,7 +1846,7 @@ export const WebQuranContent: React.FC<WebQuranContentProps> = ({
     if (savedProgress.lastReadVerse > 1) {
       // Find the page index for the saved verse
       const targetPageIndex = readPages.findIndex(
-        (page) => page.verseNumber >= savedProgress.lastReadVerse
+        (page) => page.verseNumber >= savedProgress.lastReadVerse,
       );
       if (targetPageIndex > 0) {
         setCurrentReadVerseIndex(targetPageIndex);
@@ -1707,7 +1856,14 @@ export const WebQuranContent: React.FC<WebQuranContentProps> = ({
     } else {
       setCurrentReadVerseIndex(0);
     }
-  }, [subScreen, chapterMode, subScreenData?.chapterId, progressLoading, readPages, getChapterProgress]);
+  }, [
+    subScreen,
+    chapterMode,
+    subScreenData?.chapterId,
+    progressLoading,
+    readPages,
+    getChapterProgress,
+  ]);
 
   // Auto-scroll to highlighted verse
   useEffect(() => {
@@ -1841,10 +1997,15 @@ export const WebQuranContent: React.FC<WebQuranContentProps> = ({
 
   // Handle back with audio cleanup
   const handleBack = useCallback(() => {
+    // In read mode, check if user finished reading the last verse
+    if (chapterMode === "read" && currentReadPage?.verseNumber === totalVerses && totalVerses > 0) {
+      setShowCompletionOverlay(true);
+      return;
+    }
     reset();
     resetPlaybackSettings();
     onBack();
-  }, [reset, resetPlaybackSettings, onBack]);
+  }, [reset, resetPlaybackSettings, onBack, chapterMode, currentReadPage?.verseNumber, totalVerses]);
   const backButtonLabel =
     subScreenData?.backTab === "bookmarks"
       ? "Back to Bookmarks"
@@ -1968,6 +2129,11 @@ export const WebQuranContent: React.FC<WebQuranContentProps> = ({
   const handleNextChapter = useCallback(() => {
     const currentChapterId = subScreenData?.chapterId;
     if (currentChapterId && currentChapterId < 114 && !isChapterTransitioning) {
+      // In read mode, check if user finished reading the last verse
+      if (chapterMode === "read" && currentReadPage?.verseNumber === totalVerses && totalVerses > 0) {
+        setShowCompletionOverlay(true);
+        return;
+      }
       const nextChapterId = currentChapterId + 1;
       const chapter = chaptersQuery.data?.find((c) => c.id === nextChapterId);
       if (chapter) {
@@ -1979,7 +2145,28 @@ export const WebQuranContent: React.FC<WebQuranContentProps> = ({
     chaptersQuery.data,
     isChapterTransitioning,
     animateChapterTransition,
+    chapterMode,
+    currentReadPage?.verseNumber,
+    totalVerses,
   ]);
+
+  // Completion overlay handlers
+  const handleCompletionDismiss = useCallback(() => {
+    setShowCompletionOverlay(false);
+    onBack();
+  }, [onBack]);
+
+  const handleCompletionNextChapter = useCallback(() => {
+    setShowCompletionOverlay(false);
+    const currentChapterId = subScreenData?.chapterId;
+    if (currentChapterId && currentChapterId < 114) {
+      const nextChapterId = currentChapterId + 1;
+      const chapter = chaptersQuery.data?.find((c) => c.id === nextChapterId);
+      if (chapter) {
+        animateChapterTransition("next", chapter);
+      }
+    }
+  }, [subScreenData?.chapterId, chaptersQuery.data, animateChapterTransition]);
 
   const handleToggleChapterBookmark = useCallback(() => {
     if (!subScreenData?.chapterId) {
@@ -2170,26 +2357,23 @@ export const WebQuranContent: React.FC<WebQuranContentProps> = ({
                 // @ts-ignore
                 onMouseLeave={readModeHover.handlers.onMouseLeave}
               >
-                <LinearGradient
-                  colors={["#C9A227", "#D6B54D"]}
+                <View
                   // @ts-ignore
-                  style={[styles.modeSelectCardGradient, readModeHover.style]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
+                  style={[styles.modeSelectCardGradient, styles.readModeCard, readModeHover.style]}
                 >
-                  <View style={styles.modeSelectIconWrap}>
+                  <View style={styles.readModeIconWrap}>
                     <Ionicons
                       name="book-outline"
                       size={34}
-                      color={colors.text.white}
+                      color={colors.primary}
                     />
                   </View>
-                  <Text style={styles.modeSelectCardTitle}>Read</Text>
-                  <Text style={styles.modeSelectCardSubtitle}>
+                  <Text style={styles.readModeCardTitle}>Read</Text>
+                  <Text style={styles.readModeCardSubtitle}>
                     Move verse by verse in a focused reading flow, with long
                     ayat continuing onto follow-up pages when needed.
                   </Text>
-                </LinearGradient>
+                </View>
               </TouchableOpacity>
             </View>
           </View>
@@ -2203,13 +2387,6 @@ export const WebQuranContent: React.FC<WebQuranContentProps> = ({
     // Render the full chapter header (used for both loading and loaded states)
     const renderChapterHeader = () => (
       <View style={styles.chapterHeaderShell}>
-        <View style={styles.chapterTopBar}>
-          <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={20} color={colors.primary} />
-            <Text style={styles.backButtonText}>{backButtonLabel}</Text>
-          </TouchableOpacity>
-        </View>
-
         <View style={styles.chapterHeader}>
           <LinearGradient
             colors={["#1B4332", "#2D6A4F"]}
@@ -2272,6 +2449,15 @@ export const WebQuranContent: React.FC<WebQuranContentProps> = ({
 
     return (
       <View style={styles.chapterContainer}>
+        {/* Fixed Back Button - Always visible */}
+        <TouchableOpacity
+          onPress={handleBack}
+          style={styles.fixedBackButton}
+        >
+          <Ionicons name="arrow-back" size={20} color={colors.primary} />
+          <Text style={styles.fixedBackButtonText}>{backButtonLabel}</Text>
+        </TouchableOpacity>
+
         {versesQuery.isLoading ? (
           <ScrollView
             style={styles.scrollView}
@@ -2428,17 +2614,6 @@ export const WebQuranContent: React.FC<WebQuranContentProps> = ({
                   />
                   <View style={styles.chapterHeaderPattern} />
                   <View style={styles.readHeaderActions}>
-                    <TouchableOpacity
-                      onPress={handleBack}
-                      style={styles.readHeaderActionButton}
-                      activeOpacity={0.85}
-                    >
-                      <Ionicons
-                        name="arrow-back"
-                        size={20}
-                        color={colors.text.white}
-                      />
-                    </TouchableOpacity>
                     <TouchableOpacity
                       onPress={handleToggleChapterBookmark}
                       activeOpacity={0.85}
@@ -2729,6 +2904,17 @@ export const WebQuranContent: React.FC<WebQuranContentProps> = ({
           onSelectReciter={selectReciter}
           isLoadingReciters={isLoadingReciters}
         />
+
+        {/* Chapter Completion Overlay */}
+        <ChapterCompletionOverlay
+          visible={showCompletionOverlay}
+          chapterName={subScreenData.chapterName || "Chapter"}
+          chapterArabicName={subScreenData.chapterArabicName}
+          mode={chapterMode}
+          onDismiss={handleCompletionDismiss}
+          onNextChapter={handleCompletionNextChapter}
+          hasNextChapter={(subScreenData.chapterId || 0) < 114}
+        />
       </View>
     );
   }
@@ -2736,13 +2922,17 @@ export const WebQuranContent: React.FC<WebQuranContentProps> = ({
   // Calculate overall progress for chapter list header
   const overallProgress = chaptersQuery.data
     ? getOverallProgress(
-        chaptersQuery.data.map((c) => ({ id: c.id, verses_count: c.verses_count }))
+        chaptersQuery.data.map((c) => ({
+          id: c.id,
+          verses_count: c.verses_count,
+        })),
       )
     : 0;
 
   // Render chapters list
   return (
     <ScrollView
+      ref={chapterListScrollRef}
       style={styles.scrollView}
       contentContainerStyle={styles.scrollContent}
       showsVerticalScrollIndicator={false}
@@ -2788,19 +2978,28 @@ export const WebQuranContent: React.FC<WebQuranContentProps> = ({
       ) : (
         <View style={styles.chaptersGrid}>
           {chaptersQuery.data?.map((chapter, index) => (
-            <ChapterCard
+            <View
               key={chapter.id}
-              chapter={chapter}
-              index={index}
-              progress={getChapterProgress(chapter.id).progress}
-              onPress={() =>
-                onSubNavigate("mode-select", {
-                  chapterId: chapter.id,
-                  chapterName: chapter.name_simple,
-                  chapterArabicName: chapter.name_arabic,
-                })
-              }
-            />
+              onLayout={(event) => {
+                const { y } = event.nativeEvent.layout;
+                chapterPositions.current.set(chapter.id, y);
+              }}
+            >
+              <ChapterCard
+                chapter={chapter}
+                index={index}
+                progress={getChapterProgress(chapter.id).progress}
+                onPress={() => {
+                  lastOpenedChapterId.current = chapter.id;
+                  shouldScrollToChapter.current = true;
+                  onSubNavigate("mode-select", {
+                    chapterId: chapter.id,
+                    chapterName: chapter.name_simple,
+                    chapterArabicName: chapter.name_arabic,
+                  });
+                }}
+              />
+            </View>
           ))}
         </View>
       )}
@@ -2998,25 +3197,6 @@ const styles = StyleSheet.create({
     // @ts-ignore
     fontFamily: "'Amiri', serif",
   },
-  backButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    alignSelf: "flex-start",
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 100,
-    backgroundColor: `${colors.primary}10`,
-    gap: 8,
-    // @ts-ignore
-    cursor: "pointer",
-  },
-  backButtonText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: colors.primary,
-    // @ts-ignore
-    fontFamily: "'DM Sans', sans-serif",
-  },
   modeSelectScrollContent: {
     padding: 32,
     paddingBottom: 40,
@@ -3080,13 +3260,13 @@ const styles = StyleSheet.create({
   modeSelectOptions: {
     width: "100%",
     flex: 1,
-    gap: 4,
+    flexDirection: "row",
+    gap: 16,
     justifyContent: "center",
   },
   modeSelectCard: {
     borderRadius: 24,
     overflow: "hidden",
-    width: "100%",
     flex: 1,
     // @ts-ignore
     cursor: "pointer",
@@ -3126,13 +3306,42 @@ const styles = StyleSheet.create({
     // @ts-ignore
     fontFamily: "'DM Sans', sans-serif",
   },
+  readModeCard: {
+    backgroundColor: "#f6ede4",
+  },
+  readModeIconWrap: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    backgroundColor: "rgba(27, 67, 50, 0.15)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 14,
+  },
+  readModeCardTitle: {
+    fontSize: 24,
+    fontWeight: "700",
+    color: colors.primary,
+    marginBottom: 6,
+    // @ts-ignore
+    fontFamily: "'Cormorant Garamond', Georgia, serif",
+  },
+  readModeCardSubtitle: {
+    fontSize: 14,
+    lineHeight: 22,
+    color: "rgba(27, 67, 50, 0.8)",
+    textAlign: "left",
+    maxWidth: 560,
+    // @ts-ignore
+    fontFamily: "'DM Sans', sans-serif",
+  },
   chapterHeaderShell: {
-    paddingTop: 40,
+    paddingTop: 16,
     paddingHorizontal: 40,
     paddingBottom: 16,
   },
   readHeaderShell: {
-    paddingTop: 18,
+    paddingTop: 8,
     paddingHorizontal: 28,
     paddingBottom: 10,
   },
@@ -3235,10 +3444,9 @@ const styles = StyleSheet.create({
   readHeaderActions: {
     position: "absolute",
     top: 12,
-    left: 12,
     right: 12,
     flexDirection: "row",
-    justifyContent: "space-between",
+    justifyContent: "flex-end",
     zIndex: 1,
   },
   readHeaderActionButton: {
@@ -3935,17 +4143,6 @@ const styles = StyleSheet.create({
     // @ts-ignore
     fontFamily: "'Amiri', serif",
   },
-  // Top bar with back button
-  chapterTopBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "flex-start",
-    marginBottom: 24,
-  },
-  settingsButtonPlaceholder: {
-    width: 44,
-    height: 44,
-  },
   // Enhanced verse highlighting - brighter and more obvious
   highlightedWord: {
     backgroundColor: "#10B981",
@@ -4254,6 +4451,33 @@ const styles = StyleSheet.create({
     fontFamily: "'DM Sans', sans-serif",
   },
   // Fixed settings button
+  fixedBackButton: {
+    position: "absolute",
+    top: 24,
+    left: 24,
+    height: 48,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 16,
+    borderRadius: 24,
+    backgroundColor: "#FFFFFF",
+    // @ts-ignore
+    boxShadow: "0 4px 20px rgba(0, 0, 0, 0.12)",
+    // @ts-ignore
+    cursor: "pointer",
+    zIndex: 1000,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  fixedBackButtonText: {
+    fontSize: 14,
+    color: colors.primary,
+    fontWeight: "600",
+    marginLeft: 6,
+    // @ts-ignore
+    fontFamily: "'DM Sans', sans-serif",
+  },
   fixedSettingsButton: {
     // @ts-ignore - position fixed for web
     position: "fixed",

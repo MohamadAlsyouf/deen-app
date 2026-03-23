@@ -19,9 +19,14 @@ interface HeaderProps {
     label?: string;
     onPress: () => void;
   };
+  titleAction?: {
+    iconName: IoniconName;
+    iconColor?: string;
+    onPress: () => void;
+  };
 }
 
-export const Header: React.FC<HeaderProps> = ({ title, titleNumberOfLines = 1, dark, leftAction, rightAction }) => {
+export const Header: React.FC<HeaderProps> = ({ title, titleNumberOfLines = 1, dark, leftAction, rightAction, titleAction }) => {
   const iconColor = dark ? colors.text.white : colors.primary;
   const textColor = dark ? colors.text.white : colors.text.primary;
   const labelColor = dark ? colors.text.white : colors.primary;
@@ -49,13 +54,29 @@ export const Header: React.FC<HeaderProps> = ({ title, titleNumberOfLines = 1, d
       </View>
 
       <View style={styles.titleWrap}>
-        <Text
-          style={[styles.title, { color: textColor }]}
-          numberOfLines={titleNumberOfLines || undefined}
-          ellipsizeMode={titleNumberOfLines ? "tail" : undefined}
-        >
-          {title}
-        </Text>
+        <View style={styles.titleRow}>
+          <Text
+            style={[styles.title, { color: textColor }]}
+            numberOfLines={titleNumberOfLines || undefined}
+            ellipsizeMode={titleNumberOfLines ? "tail" : undefined}
+          >
+            {title}
+          </Text>
+          {titleAction && (
+            <TouchableOpacity
+              onPress={titleAction.onPress}
+              activeOpacity={0.7}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              style={styles.titleActionButton}
+            >
+              <Ionicons
+                name={titleAction.iconName}
+                size={20}
+                color={titleAction.iconColor || colors.text.tertiary}
+              />
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
       <View style={[styles.sideRight, rightAction?.label && styles.sideRightWide]}>
@@ -120,10 +141,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   title: {
     ...typography.h3,
     color: colors.text.primary,
     textAlign: 'center',
+  },
+  titleActionButton: {
+    marginLeft: spacing.sm,
+    padding: spacing.xs,
   },
   actionText: {
     ...typography.body,

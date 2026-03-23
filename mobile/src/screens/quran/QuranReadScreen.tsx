@@ -1,4 +1,10 @@
-import React, { useCallback, useMemo, useRef, useState, useEffect } from "react";
+import React, {
+  useCallback,
+  useMemo,
+  useRef,
+  useState,
+  useEffect,
+} from "react";
 import {
   View,
   Text,
@@ -11,7 +17,10 @@ import {
   Easing,
   ViewToken,
 } from "react-native";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import type { RouteProp } from "@react-navigation/native";
 import type { StackNavigationProp } from "@react-navigation/stack";
@@ -26,7 +35,11 @@ import type { QuranVerse } from "@/types/quran";
 import type { RootStackParamList } from "@/navigation/AppNavigator";
 import type { ViewMode } from "@/components/quran/ViewModeToggle";
 import type { UserType } from "@/types/user";
-import { buildQuranReadPages, type QuranReadPage } from "@/utils/quranReadPagination";
+import {
+  buildQuranReadPages,
+  type QuranReadPage,
+} from "@/utils/quranReadPagination";
+import { ChapterCompletionOverlay } from "@/components/quran/ChapterCompletionOverlay";
 
 const PAGE_TURN_DURATION = 280;
 
@@ -38,14 +51,17 @@ type QuranReadPageItem = QuranReadPage & {
 import * as Haptics from "expo-haptics";
 
 type QuranReadRouteProp = RouteProp<RootStackParamList, "QuranRead">;
-type QuranReadNavigationProp = StackNavigationProp<RootStackParamList, "QuranRead">;
+type QuranReadNavigationProp = StackNavigationProp<
+  RootStackParamList,
+  "QuranRead"
+>;
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get("window");
 const PER_PAGE = 50; // Load more verses at once for reading mode
 
 // Get available view modes based on user type
 const getAvailableViewModes = (
-  userType: UserType | undefined
+  userType: UserType | undefined,
 ): { key: ViewMode; label: string }[] => {
   if (userType === "learner") {
     // Learner: English only (no toggle visible)
@@ -108,19 +124,34 @@ export const QuranReadScreen: React.FC = () => {
   const navigation = useNavigation<QuranReadNavigationProp>();
   const route = useRoute<QuranReadRouteProp>();
   const insets = useSafeAreaInsets();
-  const { chapterId: initialChapterId, chapterName: initialChapterName, chapterArabicName: initialChapterArabicName, versesCount: initialVersesCount } = route.params;
+  const {
+    chapterId: initialChapterId,
+    chapterName: initialChapterName,
+    chapterArabicName: initialChapterArabicName,
+    versesCount: initialVersesCount,
+  } = route.params;
   const { userProfile } = useUserProfile();
   const { isVerseBookmarked, toggleVerseBookmark } = useBookmarks();
-  const { updateReadProgress, getChapterProgress, loading: progressLoading } = useQuranProgress();
+  const {
+    updateReadProgress,
+    getChapterProgress,
+    loading: progressLoading,
+  } = useQuranProgress();
 
   // Track current chapter ID internally for navigation
   const [currentChapterId, setCurrentChapterId] = useState(initialChapterId);
   const [isTransitioning, setIsTransitioning] = useState(false);
 
   // Store chapter info separately to ensure it's always available during transitions
-  const [currentChapterName, setCurrentChapterName] = useState(initialChapterName || "Chapter");
-  const [currentChapterArabicName, setCurrentChapterArabicName] = useState(initialChapterArabicName || "");
-  const [currentChapterVersesCount, setCurrentChapterVersesCount] = useState(initialVersesCount || 0);
+  const [currentChapterName, setCurrentChapterName] = useState(
+    initialChapterName || "Chapter",
+  );
+  const [currentChapterArabicName, setCurrentChapterArabicName] = useState(
+    initialChapterArabicName || "",
+  );
+  const [currentChapterVersesCount, setCurrentChapterVersesCount] = useState(
+    initialVersesCount || 0,
+  );
 
   // Animation values for page turn effect
   const pageTranslateX = useRef(new Animated.Value(0)).current;
@@ -135,35 +166,42 @@ export const QuranReadScreen: React.FC = () => {
   });
 
   // Helper to get chapter info from the cached chapters list
-  const getChapterInfo = useCallback((chapterId: number) => {
-    const chapter = chaptersQuery.data?.find((c) => c.id === chapterId);
-    if (chapter) {
-      return {
-        name: chapter.name_simple,
-        arabicName: chapter.name_arabic,
-        versesCount: chapter.verses_count,
-      };
-    }
-    return null;
-  }, [chaptersQuery.data]);
+  const getChapterInfo = useCallback(
+    (chapterId: number) => {
+      const chapter = chaptersQuery.data?.find((c) => c.id === chapterId);
+      if (chapter) {
+        return {
+          name: chapter.name_simple,
+          arabicName: chapter.name_arabic,
+          versesCount: chapter.verses_count,
+        };
+      }
+      return null;
+    },
+    [chaptersQuery.data],
+  );
 
   // Combined chapter info for use in components
-  const currentChapterInfo = useMemo(() => ({
-    name: currentChapterName,
-    arabicName: currentChapterArabicName,
-    versesCount: currentChapterVersesCount,
-  }), [currentChapterName, currentChapterArabicName, currentChapterVersesCount]);
+  const currentChapterInfo = useMemo(
+    () => ({
+      name: currentChapterName,
+      arabicName: currentChapterArabicName,
+      versesCount: currentChapterVersesCount,
+    }),
+    [currentChapterName, currentChapterArabicName, currentChapterVersesCount],
+  );
 
   const userType = userProfile?.userType;
   const availableViewModes = useMemo(
     () => getAvailableViewModes(userType),
-    [userType]
+    [userType],
   );
   const defaultViewMode = getDefaultViewMode(userType);
 
   const [viewMode, setViewMode] = useState<ViewMode>(defaultViewMode);
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
   const [hasRestoredPosition, setHasRestoredPosition] = useState(false);
+  const [showCompletionOverlay, setShowCompletionOverlay] = useState(false);
   const progressAnim = useRef(new Animated.Value(0)).current;
   const flatListRef = useRef<FlatList>(null);
 
@@ -211,19 +249,22 @@ export const QuranReadScreen: React.FC = () => {
   const currentVerseProgress = currentPage?.verseNumber ?? 1;
 
   useEffect(() => {
-    setCurrentPageIndex((prev) => Math.min(prev, Math.max(readPages.length - 1, 0)));
+    setCurrentPageIndex((prev) =>
+      Math.min(prev, Math.max(readPages.length - 1, 0)),
+    );
   }, [readPages.length]);
 
   // Restore last read position when entering the chapter
   useEffect(() => {
     // Wait for progress context to finish loading before attempting restoration
-    if (progressLoading || hasRestoredPosition || readPages.length === 0) return;
+    if (progressLoading || hasRestoredPosition || readPages.length === 0)
+      return;
 
     const savedProgress = getChapterProgress(currentChapterId);
     if (savedProgress.lastReadVerse > 1) {
       // Find the page index for the saved verse
       const targetPageIndex = readPages.findIndex(
-        (page) => page.verseNumber >= savedProgress.lastReadVerse
+        (page) => page.verseNumber >= savedProgress.lastReadVerse,
       );
       if (targetPageIndex > 0) {
         // Delay scroll to ensure FlatList is ready
@@ -237,7 +278,13 @@ export const QuranReadScreen: React.FC = () => {
       }
     }
     setHasRestoredPosition(true);
-  }, [currentChapterId, readPages, hasRestoredPosition, getChapterProgress, progressLoading]);
+  }, [
+    currentChapterId,
+    readPages,
+    hasRestoredPosition,
+    getChapterProgress,
+    progressLoading,
+  ]);
 
   // Track reading progress when page changes
   useEffect(() => {
@@ -276,7 +323,7 @@ export const QuranReadScreen: React.FC = () => {
           return newIndex;
         });
       }
-    }
+    },
   ).current;
 
   const viewabilityConfig = useRef({
@@ -291,6 +338,11 @@ export const QuranReadScreen: React.FC = () => {
   }, [versesQuery]);
 
   const handleGoBack = () => {
+    // Check if user finished reading the last verse
+    if (currentVerseProgress === totalVerses && totalVerses > 0) {
+      setShowCompletionOverlay(true);
+      return;
+    }
     navigation.goBack();
   };
 
@@ -378,7 +430,7 @@ export const QuranReadScreen: React.FC = () => {
         }, 80);
       });
     },
-    [isTransitioning, pageTranslateX, pageOpacity, pageScale, getChapterInfo]
+    [isTransitioning, pageTranslateX, pageOpacity, pageScale, getChapterInfo],
   );
 
   // Navigate to previous chapter
@@ -392,10 +444,29 @@ export const QuranReadScreen: React.FC = () => {
   // Navigate to next chapter
   const handleNextChapter = useCallback(() => {
     if (currentChapterId < 114 && !isTransitioning) {
+      // Check if user finished reading the last verse before going to next chapter
+      if (currentVerseProgress === totalVerses && totalVerses > 0) {
+        setShowCompletionOverlay(true);
+        return;
+      }
       triggerHaptic();
       animatePageTurn("next", currentChapterId + 1);
     }
-  }, [currentChapterId, isTransitioning, triggerHaptic, animatePageTurn]);
+  }, [currentChapterId, isTransitioning, triggerHaptic, animatePageTurn, currentVerseProgress, totalVerses]);
+
+  // Completion overlay handlers
+  const handleCompletionDismiss = useCallback(() => {
+    setShowCompletionOverlay(false);
+    navigation.goBack();
+  }, [navigation]);
+
+  const handleCompletionNextChapter = useCallback(() => {
+    setShowCompletionOverlay(false);
+    if (currentChapterId < 114) {
+      triggerHaptic();
+      animatePageTurn("next", currentChapterId + 1);
+    }
+  }, [currentChapterId, triggerHaptic, animatePageTurn]);
 
   const handleToggleVerseBookmark = useCallback(
     (verse: QuranVerse) => {
@@ -411,7 +482,7 @@ export const QuranReadScreen: React.FC = () => {
         translationPreview: preview,
       });
     },
-    [currentChapterId, currentChapterInfo, toggleVerseBookmark]
+    [currentChapterId, currentChapterInfo, toggleVerseBookmark],
   );
 
   // Render individual verse page
@@ -426,11 +497,17 @@ export const QuranReadScreen: React.FC = () => {
         <View style={[styles.versePage, { height: ITEM_HEIGHT }]}>
           <View style={styles.verseContent}>
             {/* Verse Number Badge */}
-            <View style={[styles.verseBadge, page.continuationIndex > 0 && styles.verseBadgeWide]}>
+            <View
+              style={[
+                styles.verseBadge,
+                page.continuationIndex > 0 && styles.verseBadgeWide,
+              ]}
+            >
               <Text
                 style={[
                   styles.verseBadgeText,
-                  page.continuationIndex > 0 && styles.verseBadgeContinuationText,
+                  page.continuationIndex > 0 &&
+                    styles.verseBadgeContinuationText,
                 ]}
               >
                 {page.badgeLabel}
@@ -480,12 +557,14 @@ export const QuranReadScreen: React.FC = () => {
           {/* Verse Key */}
           <Text style={styles.verseKey}>
             {page.verseKey}
-            {page.continuationCount > 1 ? ` • ${page.continuationIndex + 1}/${page.continuationCount}` : ""}
+            {page.continuationCount > 1
+              ? ` • ${page.continuationIndex + 1}/${page.continuationCount}`
+              : ""}
           </Text>
         </View>
       );
     },
-    [viewMode, ITEM_HEIGHT, isVerseBookmarked, handleToggleVerseBookmark]
+    [viewMode, ITEM_HEIGHT, isVerseBookmarked, handleToggleVerseBookmark],
   );
 
   const getItemLayout = useCallback(
@@ -494,10 +573,13 @@ export const QuranReadScreen: React.FC = () => {
       offset: ITEM_HEIGHT * index,
       index,
     }),
-    [ITEM_HEIGHT]
+    [ITEM_HEIGHT],
   );
 
-  const keyExtractor = useCallback((item: QuranReadPageItem) => item.pageKey, []);
+  const keyExtractor = useCallback(
+    (item: QuranReadPageItem) => item.pageKey,
+    [],
+  );
 
   // Progress bar width interpolation
   const progressWidth = progressAnim.interpolate({
@@ -509,14 +591,15 @@ export const QuranReadScreen: React.FC = () => {
     <SafeAreaView style={styles.container} edges={["top"]}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={handleGoBack}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="arrow-back" size={22} color={colors.primary} />
-          <Text style={styles.backButtonText}>Back to Chapters</Text>
-        </TouchableOpacity>
+        <View style={styles.headerLeft}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={handleGoBack}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="arrow-back" size={22} color={colors.primary} />
+          </TouchableOpacity>
+        </View>
 
         <View style={styles.headerCenter}>
           <Text style={styles.headerTitle} numberOfLines={1}>
@@ -530,7 +613,11 @@ export const QuranReadScreen: React.FC = () => {
         {/* Chapter Navigation Arrows */}
         <View style={styles.headerRight}>
           <TouchableOpacity
-            style={[styles.chapterNavButton, (currentChapterId <= 1 || isTransitioning) && styles.chapterNavButtonDisabled]}
+            style={[
+              styles.chapterNavButton,
+              (currentChapterId <= 1 || isTransitioning) &&
+                styles.chapterNavButtonDisabled,
+            ]}
             onPress={handlePreviousChapter}
             disabled={currentChapterId <= 1 || isTransitioning}
             activeOpacity={0.7}
@@ -538,11 +625,19 @@ export const QuranReadScreen: React.FC = () => {
             <Ionicons
               name="chevron-back"
               size={20}
-              color={currentChapterId <= 1 ? colors.text.disabled : colors.text.primary}
+              color={
+                currentChapterId <= 1
+                  ? colors.text.disabled
+                  : colors.text.primary
+              }
             />
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.chapterNavButton, (currentChapterId >= 114 || isTransitioning) && styles.chapterNavButtonDisabled]}
+            style={[
+              styles.chapterNavButton,
+              (currentChapterId >= 114 || isTransitioning) &&
+                styles.chapterNavButtonDisabled,
+            ]}
             onPress={handleNextChapter}
             disabled={currentChapterId >= 114 || isTransitioning}
             activeOpacity={0.7}
@@ -550,7 +645,11 @@ export const QuranReadScreen: React.FC = () => {
             <Ionicons
               name="chevron-forward"
               size={20}
-              color={currentChapterId >= 114 ? colors.text.disabled : colors.text.primary}
+              color={
+                currentChapterId >= 114
+                  ? colors.text.disabled
+                  : colors.text.primary
+              }
             />
           </TouchableOpacity>
         </View>
@@ -603,10 +702,7 @@ export const QuranReadScreen: React.FC = () => {
           styles.animatedContentContainer,
           {
             opacity: pageOpacity,
-            transform: [
-              { translateX: pageTranslateX },
-              { scale: pageScale },
-            ],
+            transform: [{ translateX: pageTranslateX }, { scale: pageScale }],
           },
         ]}
       >
@@ -625,6 +721,7 @@ export const QuranReadScreen: React.FC = () => {
           decelerationRate="fast"
           snapToInterval={ITEM_HEIGHT}
           snapToAlignment="start"
+          disableIntervalMomentum={true}
           contentContainerStyle={styles.listContent}
           initialNumToRender={3}
           maxToRenderPerBatch={5}
@@ -634,6 +731,17 @@ export const QuranReadScreen: React.FC = () => {
 
       {/* Swipe Hint (shown briefly) */}
       <SwipeHint />
+
+      {/* Chapter Completion Overlay */}
+      <ChapterCompletionOverlay
+        visible={showCompletionOverlay}
+        chapterName={currentChapterInfo.name || "Chapter"}
+        chapterArabicName={currentChapterInfo.arabicName}
+        mode="read"
+        onDismiss={handleCompletionDismiss}
+        onNextChapter={handleCompletionNextChapter}
+        hasNextChapter={currentChapterId < 114}
+      />
     </SafeAreaView>
   );
 };
@@ -682,16 +790,18 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
-  backButton: {
+  headerLeft: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: spacing.xs,
+    width: 76, // Match headerRight width (2 buttons * 36 + gap)
   },
-  backButtonText: {
-    ...typography.body,
-    color: colors.primary,
-    fontWeight: "600",
-    marginLeft: spacing.xs,
+  backButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.surface,
+    alignItems: "center",
+    justifyContent: "center",
   },
   headerCenter: {
     flex: 1,
@@ -711,6 +821,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
+    width: 76, // 2 buttons * 36 + gap
+    justifyContent: "flex-end",
   },
   chapterNavButton: {
     width: 36,

@@ -21,22 +21,13 @@ import { useWebHover } from '@/hooks/useWebHover';
 import { pillarsService } from '@/services/pillarsService';
 import type { PillarType, Pillar } from '@/types/pillars';
 
-// Gradient colors for pillars - Islam (green tones) and Iman (purple/blue tones)
+// Gradient colors for pillars - Islam (green) and Iman (tan with green text)
 const islamGradients: [string, string][] = [
   ['#1B4332', '#2D6A4F'],
-  ['#2D6A4F', '#40916C'],
-  ['#40916C', '#52B788'],
-  ['#52B788', '#74C69D'],
-  ['#74C69D', '#95D5B2'],
 ];
 
 const imanGradients: [string, string][] = [
-  ['#5E548E', '#9F86C0'],
-  ['#7B2CBF', '#9D4EDD'],
-  ['#9D4EDD', '#C77DFF'],
-  ['#6930C3', '#7400B8'],
-  ['#5A189A', '#9D4EDD'],
-  ['#7209B7', '#B5179E'],
+  ['#f6ede4', '#f6ede4'],
 ];
 
 // Icon mapping for pillar types
@@ -64,7 +55,16 @@ interface PillarCardProps {
 const PillarCard: React.FC<PillarCardProps> = ({ pillar, type, index, isCompact }) => {
   const [expanded, setExpanded] = useState(false);
   const gradients = type === 'islam' ? islamGradients : imanGradients;
-  const gradient = gradients[index % gradients.length];
+  const gradient = gradients[0]; // Use single gradient for all cards
+  const isIman = type === 'iman';
+
+  // Colors based on pillar type
+  const textColor = isIman ? '#1B4332' : 'rgba(255,255,255,0.95)';
+  const textColorSecondary = isIman ? 'rgba(27,67,50,0.8)' : 'rgba(255,255,255,0.8)';
+  const badgeBg = isIman ? '#1B4332' : 'rgba(255,255,255,0.2)';
+  const badgeText = isIman ? '#f6ede4' : colors.text.white;
+  const iconWrapBg = isIman ? 'rgba(27,67,50,0.15)' : 'rgba(255,255,255,0.15)';
+  const dividerColor = isIman ? 'rgba(27,67,50,0.2)' : 'rgba(255,255,255,0.2)';
 
   const hover = useWebHover({
     hoverStyle: {
@@ -104,15 +104,15 @@ const PillarCard: React.FC<PillarCardProps> = ({ pillar, type, index, isCompact 
       >
         {/* Header section */}
         <View style={styles.pillarHeader}>
-          <View style={styles.pillarNumberBadge}>
-            <Text style={styles.pillarNumberText}>{pillar.number}</Text>
+          <View style={[styles.pillarNumberBadge, { backgroundColor: badgeBg }]}>
+            <Text style={[styles.pillarNumberText, { color: badgeText }]}>{pillar.number}</Text>
           </View>
           <View style={styles.pillarHeaderRight}>
-            <View style={styles.pillarIconWrap}>
+            <View style={[styles.pillarIconWrap, { backgroundColor: iconWrapBg }]}>
               <Ionicons
                 name={pillarIcons[pillar.icon] || 'star-outline'}
                 size={28}
-                color="rgba(255,255,255,0.95)"
+                color={textColor}
               />
             </View>
           </View>
@@ -120,14 +120,14 @@ const PillarCard: React.FC<PillarCardProps> = ({ pillar, type, index, isCompact 
 
         {/* Title section */}
         <View style={styles.pillarTitleSection}>
-          <Text style={styles.pillarArabic}>{pillar.arabicName}</Text>
-          <Text style={styles.pillarName}>{pillar.name}</Text>
-          <Text style={styles.pillarMeaning}>{pillar.meaning}</Text>
+          <Text style={[styles.pillarArabic, { color: textColor }]}>{pillar.arabicName}</Text>
+          <Text style={[styles.pillarName, { color: textColor }]}>{pillar.name}</Text>
+          <Text style={[styles.pillarMeaning, { color: textColorSecondary }]}>{pillar.meaning}</Text>
         </View>
 
         {/* Preview description */}
         {!expanded && (
-          <Text style={styles.pillarPreview} numberOfLines={2}>
+          <Text style={[styles.pillarPreview, { color: textColorSecondary }]} numberOfLines={2}>
             {pillar.description}
           </Text>
         )}
@@ -135,36 +135,36 @@ const PillarCard: React.FC<PillarCardProps> = ({ pillar, type, index, isCompact 
         {/* Expanded content */}
         {expanded && (
           <View style={styles.pillarExpanded}>
-            <View style={styles.pillarDivider} />
+            <View style={[styles.pillarDivider, { backgroundColor: dividerColor }]} />
 
             <View style={styles.pillarSection}>
               <View style={styles.pillarSectionHeader}>
-                <Ionicons name="document-text-outline" size={18} color="rgba(255,255,255,0.9)" />
-                <Text style={styles.pillarSectionTitle}>Description</Text>
+                <Ionicons name="document-text-outline" size={18} color={textColor} />
+                <Text style={[styles.pillarSectionTitle, { color: textColor }]}>Description</Text>
               </View>
-              <Text style={styles.pillarDescription}>{pillar.description}</Text>
+              <Text style={[styles.pillarDescription, { color: textColorSecondary }]}>{pillar.description}</Text>
             </View>
 
             <View style={styles.pillarSection}>
               <View style={styles.pillarSectionHeader}>
-                <Ionicons name="star-outline" size={18} color="rgba(255,255,255,0.9)" />
-                <Text style={styles.pillarSectionTitle}>Significance</Text>
+                <Ionicons name="star-outline" size={18} color={textColor} />
+                <Text style={[styles.pillarSectionTitle, { color: textColor }]}>Significance</Text>
               </View>
-              <Text style={styles.pillarDescription}>{pillar.significance}</Text>
+              <Text style={[styles.pillarDescription, { color: textColorSecondary }]}>{pillar.significance}</Text>
             </View>
           </View>
         )}
 
         {/* Footer / expand hint */}
         <View style={styles.pillarFooter}>
-          <Text style={styles.pillarExpandText}>
+          <Text style={[styles.pillarExpandText, { color: textColorSecondary }]}>
             {expanded ? 'Tap to collapse' : 'Tap to learn more'}
           </Text>
           <View style={styles.expandIconWrap}>
             <Ionicons
               name={expanded ? 'chevron-up' : 'chevron-down'}
               size={18}
-              color="rgba(255,255,255,0.9)"
+              color={textColor}
             />
           </View>
         </View>
@@ -197,7 +197,7 @@ const TOGGLE_OPTIONS: ToggleOption[] = [
     count: 6,
     icon: 'heart',
     description: 'The six articles of faith',
-    gradientColors: ['#5E548E', '#9F86C0'],
+    gradientColors: ['#f6ede4', '#f6ede4'],
   },
 ];
 
@@ -208,6 +208,15 @@ interface ToggleButtonProps {
 }
 
 const ToggleButton: React.FC<ToggleButtonProps> = ({ option, isActive, onPress }) => {
+  const isIman = option.value === 'iman';
+
+  // When Iman is active, use green text on tan background
+  const activeTextColor = isIman ? '#1B4332' : 'rgba(255,255,255,0.95)';
+  const activeSecondaryColor = isIman ? 'rgba(27,67,50,0.8)' : 'rgba(255,255,255,0.8)';
+  const activeIconWrapBg = isIman ? 'rgba(27,67,50,0.15)' : 'rgba(255,255,255,0.2)';
+  const activeBadgeBg = isIman ? '#1B4332' : 'rgba(255,255,255,0.2)';
+  const activeBadgeText = isIman ? '#f6ede4' : colors.text.white;
+
   const hover = useWebHover({
     hoverStyle: isActive ? {} : {
       transform: 'translateY(-2px)',
@@ -237,29 +246,29 @@ const ToggleButton: React.FC<ToggleButtonProps> = ({ option, isActive, onPress }
       <View style={styles.toggleContent}>
         <View style={[
           styles.toggleIconWrap,
-          { backgroundColor: isActive ? 'rgba(255,255,255,0.2)' : `${option.gradientColors[0]}15` }
+          { backgroundColor: isActive ? activeIconWrapBg : `${colors.primary}15` }
         ]}>
           <Ionicons
             name={option.icon}
             size={24}
-            color={isActive ? 'rgba(255,255,255,0.95)' : option.gradientColors[0]}
+            color={isActive ? activeTextColor : colors.primary}
           />
         </View>
         <View style={styles.toggleTextWrap}>
-          <Text style={[styles.toggleLabel, isActive && styles.toggleLabelActive]}>
+          <Text style={[styles.toggleLabel, isActive && { color: activeTextColor }]}>
             {option.label}
           </Text>
-          <Text style={[styles.toggleDescription, isActive && styles.toggleDescriptionActive]}>
+          <Text style={[styles.toggleDescription, isActive && { color: activeSecondaryColor }]}>
             {option.description}
           </Text>
         </View>
         <View style={[
           styles.toggleCountBadge,
-          { backgroundColor: isActive ? 'rgba(255,255,255,0.2)' : `${option.gradientColors[0]}15` }
+          { backgroundColor: isActive ? activeBadgeBg : `${colors.primary}15` }
         ]}>
           <Text style={[
             styles.toggleCountNumber,
-            { color: isActive ? colors.text.white : option.gradientColors[0] }
+            { color: isActive ? activeBadgeText : colors.primary }
           ]}>
             {option.count}
           </Text>
@@ -267,7 +276,7 @@ const ToggleButton: React.FC<ToggleButtonProps> = ({ option, isActive, onPress }
       </View>
       {isActive && (
         <View style={styles.activeIndicator}>
-          <Ionicons name="checkmark-circle" size={20} color="rgba(255,255,255,0.9)" />
+          <Ionicons name="checkmark-circle" size={20} color={activeTextColor} />
         </View>
       )}
     </TouchableOpacity>
@@ -289,8 +298,8 @@ export const WebPillarsContent: React.FC = () => {
     queryFn: () => pillarsService.getPillarsData(activeTab),
   });
 
-  const accentColor = activeTab === 'islam' ? '#1B4332' : '#5E548E';
-  const accentLight = activeTab === 'islam' ? '#40916C' : '#9F86C0';
+  const accentColor = activeTab === 'islam' ? '#1B4332' : '#1B4332';
+  const accentLight = activeTab === 'islam' ? '#40916C' : '#f6ede4';
 
   return (
     <ScrollView
